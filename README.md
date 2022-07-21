@@ -12,3 +12,6 @@ Features:
 * OpenTherm interface for Gas/Electric boiler contol (HVAC)
 * no external cloud control used
 * UDP interface
+
+## License
+Copyright (c) 2022 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
