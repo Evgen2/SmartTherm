@@ -1,5 +1,5 @@
 # SmartTherm
- ESP8266/ESP32 OpenTherm controller
+Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
 Use
 * code of [OpenTherm Library by ihormelnyk](https://github.com/ihormelnyk/opentherm_library)
@@ -7,9 +7,9 @@ Use
 * [DS18B20 Library by robtillaart](https://github.com/RobTillaart/DS18B20_RT)
 
 Features:
-* Captive portal before WiFi connection
+* [Captive portal](https://en.wikipedia.org/wiki/Captive_portal) before WiFi connection
 * Web interface after WiFi connectiom
-* OpenTherm interface for Gas/Electric boiler contol (HVAC)
+* [OpenTherm](https://en.wikipedia.org/wiki/OpenTherm) interface for Gas/Electric boiler contol (HVAC)
 * no external cloud control used
 * UDP interface
 * up to 2 DS18B20 temperature sensors
