@@ -34,8 +34,6 @@ extern void test(void);
 /************************************/
 class SD_Termo SmOT;
 
-#define SERIAL_DEBUG 1
-
 //Задаем пины
 #if defined(ARDUINO_ARCH_ESP8266)
 //  #define LED_BUILTIN 2
@@ -45,13 +43,6 @@ class SD_Termo SmOT;
 
   const int DS1820_1 = D2; //
   const int DS1820_2 = D6; //
-
-//*******************************************
-//для справки: проект ESPnow:
-////   #define DS18B20PIN   D2 //  GIO4 Пин к которому подключен датчик - Wemos на готовой плате с датчиком)
-// #define DS18B20PIN   D6 //  GIO12  Пин к которому подключен датчик - K2 (комплект из двух DS18b20 и bme280)
-// #define DS18B20PIN_2 D7 //  GPIO13 Пин к которому подключен датчик
-//*******************************************
 
 #elif defined(ARDUINO_ARCH_ESP32)
   #define LED_BUILTIN 2

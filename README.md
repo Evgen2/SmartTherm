@@ -1,4 +1,5 @@
 # SmartTherm
+Version 0.4
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
 Use:
@@ -21,4 +22,4 @@ Todo:
 * MQTT interface for [Home Assistant](https://www.home-assistant.io/)
 
 ## License
-Copyright (c) 2022 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
+Copyright (c) 2022-2023 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).

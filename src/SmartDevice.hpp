@@ -2,16 +2,16 @@
 #ifndef SMARTDEVICE
 #define SMARTDEVICE
 
-#pragma pack(1)
+#include "Smart_Config.h"
 
-#define USE_HELLO  1
+#pragma pack(1)
 
 
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION    0
-#define MASTER_SUBVERSION 1
+#define MASTER_SUBVERSION 4
 
-#define SMARTDEVICE_VERSION 0 /* esp8266 + HST11 */
+#define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
 
 #define U8   unsigned char
 #define U16  unsigned short
@@ -75,11 +75,11 @@ class SmartDevice
 
 #if defined(ARDUINO_ARCH_ESP8266)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
-               BiosCode(MASTER_BIOSCODE),Vers(MASTER_SUBVERSION), SubVers(MASTER_SUBVERSION),
+               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), SubVers(MASTER_SUBVERSION),
 							 ReservParam()
 #elif defined(ARDUINO_ARCH_ESP32)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
-               BiosCode(MASTER_BIOSCODE),Vers(MASTER_SUBVERSION), SubVers(MASTER_SUBVERSION), BiosDate(__DATE__),
+               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), SubVers(MASTER_SUBVERSION), BiosDate(__DATE__),
 							 ReservParam()
 #endif
 			   
@@ -104,7 +104,6 @@ class SmartDevice
   virtual void udp_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {};
 
-  void udp_callback_GetDHT  ( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 
   int uart_send(unsigned char *buf, int len);
 

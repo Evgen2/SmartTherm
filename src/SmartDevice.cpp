@@ -15,9 +15,7 @@ typedef ESP8266WebServer WEBServer;
 typedef WebServer WEBServer;
 #endif
 
-
 #include "SmartDevice.hpp"
-#include "Smart_Config.h"
 #include "Smart_commands.h"
 
 
@@ -68,20 +66,6 @@ void SmartDevice::udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,
 
 }
 
-//MCMD_GET_DEV_DHT
-void SmartDevice::udp_callback_GetDHT( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{
-  Lsend = 6+2+sizeof(int) + sizeof(float)*2;	
-  MsgOut = get_buf(Lsend);
-//  Serial.printf("GetDHT s %i Lsend=%i\n", status_DHT, Lsend);
-	memcpy((void *)&MsgOut[0],(void *)bf,6);
-  *((PACKED int *) (&MsgOut[8])) = status_DHT; 
-//  Serial.printf("GetDHT h %f\n", humidity);
-//  Serial.printf("GetDHT t %f\n", temperature);
-	memcpy((void *)&MsgOut[12],(void *)&humidity,4);
-	memcpy((void *)&MsgOut[16],(void *)&temperature,4);
-//  Serial.printf("GetDHT\n");
-}
 /*
 struct timeb 
 { time_t time;

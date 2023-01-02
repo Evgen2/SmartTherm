@@ -13,6 +13,11 @@ public:
   float t1;
   float t2;
 //sizeof(unsigned long)=4
+    //Set Boiler Status
+    bool enable_CentralHeating;
+    bool enable_HotWater;
+    bool enable_Cooling;
+
   unsigned long response;
   float Tset;
   float Tset_r; //Tset from responce
@@ -30,7 +35,12 @@ public:
   int BoilerStatus;
   int need_setT; 
   SD_Termo(void)
-  {	  stsOT = -1;
+  {	  
+    enable_CentralHeating = true;
+    enable_HotWater = true;
+    enable_Cooling = false;
+    
+      stsOT = -1;
 	    stsT1 = -1;
 	    stsT2 = -1;
       t1 = t2 = 0.;

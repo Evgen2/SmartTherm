@@ -40,8 +40,6 @@
 
 #define  MCMD_SET_INITED    0x40 //установить признак "инициализация прошла"
 
-#define  MCMD_GET_DEV_DHT   0x100 // запрос данных DHT11
-
 
 
 #endif //SMART_COMMANDS

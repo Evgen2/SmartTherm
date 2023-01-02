@@ -12,11 +12,10 @@ typedef ESP8266WebServer WEBServer;
 typedef WebServer WEBServer;
 #endif
 
-#include <AutoConnect.h>
-
-
 #include "SmartDevice.hpp"
 #include "Smart_commands.h"
+
+#include <AutoConnect.h>
 
 /************************************/
 
@@ -57,6 +56,7 @@ U8 *esp_get_buf (U16 size)
 		return 0;
 }
 
+#if 0
 static unsigned char buf[256];
 unsigned char * Msg;
 void test(void)
@@ -72,6 +72,8 @@ void test(void)
   Serial.printf("buf[6-9] =%x %x %x %x\n", buf[6], buf[7], buf[8], buf[9]);
   Serial.printf("end\n");
 }
+#endif //0
+
 #pragma pack(1) 
 #pragma pack() 
 
@@ -79,7 +81,7 @@ void test(void)
 void setup_udp(SmartDevice *psd)
 {
 	p_sd = psd;
- Udp.begin(g_port);
+ 	Udp.begin(g_port);
 
 }
 
@@ -138,9 +140,9 @@ static unsigned int jj=0xffff, Nlost=0;
 	 else 
 	         Nlost++;                 /* потеря данных */  
   }
-
+#if SERIAL_DEBUG
     Serial.printf("net_callback cmd %i  par %i\n",  cmd, par);
-
+#endif
   lastInd = par;
    if(cmd & 0x8000) //тест обмена
    {  Lsend = len;
@@ -195,9 +197,6 @@ static unsigned int jj=0xffff, Nlost=0;
 		 case MCMD_IDENTIFY: // идентификация
        p_sd->udp_callback_Identify(bf, MsgOut, Lsend,get_buf);
 			 break;
-		case MCMD_GET_DEV_DHT:
-       p_sd->udp_callback_GetDHT(bf, MsgOut, Lsend,get_buf);
-			break;
 			case MCMD_GETTIME:
   	   p_sd->udp_callback_gettime(bf, MsgOut, Lsend,get_buf);
 				break;
