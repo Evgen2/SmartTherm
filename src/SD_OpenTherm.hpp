@@ -19,11 +19,13 @@ public:
     bool enable_Cooling;
 
   unsigned long response;
-  float Tset;
-  float Tset_r; //Tset from responce
-  float BoilerT;
-  float RetT;
-  float dhw_t;
+  float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
+  float Tset_r;  // Temp set from responce
+  float BoilerT; // Boiler flow water temperature (°C) CH
+  float RetT;    // Return water temperature (°C) CH
+	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
+  float dhw_t;   // DHW temperature (°C)
+
   float FlameModulation;
   float Pressure;
   float MaxRelModLevelSetting;
@@ -33,7 +35,8 @@ public:
   unsigned int OEMDcode;
   unsigned int rcode[5];
   int BoilerStatus;
-  int need_setT; 
+  int need_set_T; 
+  int need_set_dhwT; 
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -48,7 +51,9 @@ public:
       BoilerT = 0.;
       Tset = 40.;
       Tset_r = 0.;
-      need_setT = 1;
+      TdhwSet = 40.;
+      need_set_T = 1;
+      need_set_dhwT = 1;
       RetT = 0.;
       dhw_t = 0.;
       FlameModulation = 0.;
@@ -64,6 +69,12 @@ public:
   void loop(void);
   void OpenThermInfo(void);
   void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  int Write_data_fs(char *path, uint8_t *dataBuff, int len);
+  int Read_data_fs(char *path, uint8_t *dataBuff, int len);
+  int Read_ot_fs(void);
+  int Write_ot_fs(void);
+  int Read_udp_fs(void);
+  int Write_udp_fs(void);
 
 };
 

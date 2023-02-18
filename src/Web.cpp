@@ -1,12 +1,15 @@
 /* Web.cpp  UTF-8  */
+
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 using WiFiWebServer = ESP8266WebServer;
+#define FORMAT_ON_FAIL
 #elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
 #include <WebServer.h>
 using WiFiWebServer = WebServer;
+#define FORMAT_ON_FAIL  true
 #endif
 
 #include <time.h>
@@ -48,7 +51,7 @@ int OTDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 // Declare AutoConnectText with only a value.
 // Qualify the Caption by reading style attributes from the style.json file.
 const char* INFO_URI = "/info";
-const char* CONTROL_URI = "/confrol";
+const char* SETUP_URI = "/setup";
 const char* ABOUT_URI = "/about";
 const char* SET_T_URI =  "/set_t";
 const char* SET_PAR_URI =  "/set_par";
@@ -66,16 +69,21 @@ ACText(Info5, "info text 5", "", "", AC_Tag_DIV);
 ACText(Info6, "info6", "", "", AC_Tag_DIV);
 ACText(Info7, "info7", "", "", AC_Tag_DIV);
 ACRadio(Styles, {}, "");
-ACInput(SetBoilerTemp,"44", "Температура теплоносителя");
+ACInput(SetBoilerTemp,"44", "Температура теплоносителя"); // Boiler Control setpoint
+ACInput(SetDHWTemp,   "43", "Температура горячей воды");  // DHW Control setpoint
 
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
-/************* ControlPage ***************/
-ACText(Ctrl1, "Настройки 1", "", "", AC_Tag_DIV);
-ACText(Ctrl2, "Настройки 1", "", "", AC_Tag_DIV);
-ACCheckbox(CtrlChB1,"a1", "", false, AC_Behind , AC_Tag_DIV);
-ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
+/************* SetupPage ***************/
+ACText(Ctrl1, "Настройки котла:", "", "", AC_Tag_DIV);
+ACText(Ctrl2, "Настройки 2", "", "", AC_Tag_DIV);
+//ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
+AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
+  
+//AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
+//ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
 ACSubmit(ApplyChB, "Задать", SET_PAR_URI, AC_Tag_DIV);
 /************* simplePage *****************/
 ACText(St_inf, "<b>OT:</b>", "", "", AC_Tag_DIV);
@@ -91,11 +99,12 @@ ACText(SetTemp_info1, "Заданная температура:", "", "", AC_Tag
 ACText(SetTemp_info2, "info text 2", "", "", AC_Tag_DIV);
 ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
 /************* debugPage( ****************/
-ACText(DebugInfo1, "Debug 1", "", "", AC_Tag_DIV);
-ACText(DebugInfo2, "Debug 2", "", "", AC_Tag_DIV);
-ACText(DebugInfo3, "Debug 3", "", "", AC_Tag_DIV);
-ACText(DebugInfo4, "Debug 4", "", "", AC_Tag_DIV);
-ACText(DebugInfo5, "Debug 5", "", "", AC_Tag_DIV);
+ACText(DebugInfo1, "D 1", "", "", AC_Tag_DIV);
+ACText(DebugInfo2, "D 2", "", "", AC_Tag_DIV);
+ACText(DebugInfo3, "D 3", "", "", AC_Tag_DIV);
+ACText(DebugInfo4, "D 4", "", "", AC_Tag_DIV);
+ACText(DebugInfo5, "D 5", "", "", AC_Tag_DIV);
+ACText(DebugInfo6, "D 6", "", "", AC_Tag_DIV);
 ACSubmit(DebugApply, "Обновить", DEBUG_URI, AC_Tag_DIV);
 /************* AboutPage *****************/
 ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
@@ -105,11 +114,11 @@ ACText(About_3, "3", "", "", AC_Tag_DIV);
 /*****************************************/
 
 // AutoConnectAux for the custom Web page.
-AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, Styles, Apply, SetBoilerTemp, SetNewBoilerTemp });
-AutoConnectAux ControlPage(CONTROL_URI, "Control", true, { Ctrl1, Ctrl2, CtrlChB1, CtrlChB2, ApplyChB});
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, Styles, Apply, SetBoilerTemp, SetDHWTemp, SetNewBoilerTemp });
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, Ctrl2, ApplyChB});
 AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
 AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, Styles, DebugApply});
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, Styles, DebugApply});
 AutoConnectAux simplePage(SIMPLE_URI, "S", true, { St_inf, St1, St2, St3, St4, St5, St6});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, About_1, About_2, About_3});
 
@@ -120,6 +129,7 @@ AutoConnect portal;
 String ElementJson;
 
 /************************************/
+//int test_fs(void);
 
 void setup_web_common(void);
 void loop_web(void);
@@ -128,7 +138,7 @@ void loadParam(String fileName);
 void onConnect(IPAddress& ipaddr);
 
 String onInfo(AutoConnectAux& aux, PageArgument& args);
-String onControl(AutoConnectAux& aux, PageArgument& args);
+String on_Setup(AutoConnectAux& aux, PageArgument& args);
 String onSetTemp(AutoConnectAux& aux, PageArgument& args);
 String onSetPar(AutoConnectAux& aux, PageArgument& args);
 String onDebug(AutoConnectAux& aux, PageArgument& args);
@@ -139,42 +149,69 @@ String onAbout(AutoConnectAux& aux, PageArgument& args);
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 /************************************/
+
 void setup_web_common(void)
 {
 //  Serial.println();
    Serial.println("setup_web_common");
-  FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
 
+    { int tBytes, uBytes; 
+#if defined(ARDUINO_ARCH_ESP8266)
+      FSInfo info;
+      FlashFS.info(info);
+      tBytes  = info.totalBytes;
+      uBytes = info.usedBytes;
+#else
+      tBytes  = FlashFS.totalBytes();
+      uBytes = FlashFS.usedBytes();
+#endif      
+      Serial.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
+    }
 
+  SmOT.Read_ot_fs();
+   
+  {  char str[40];
+     sprintf(str,"%.1f",SmOT.Tset);
+     SetBoilerTemp.value = str;
+     sprintf(str,"%.1f",SmOT.TdhwSet);
+     SetDHWTemp.value = str;
+  }
   InfoPage.on(onInfo);      // Register the attribute overwrite handler.
-  ControlPage.on(onControl);
+  Setup_Page.on(on_Setup);
   SetTempPage.on(onSetTemp);
   SetParPage.on(onSetPar);
   debugPage.on(onDebug);
   simplePage.on(onS);
   AboutPage.on(onAbout);
-  portal.join({InfoPage, ControlPage, SetTempPage, SetParPage, debugPage, simplePage, AboutPage});     // Join pages.
+/**/  
+  portal.join({InfoPage, Setup_Page, SetTempPage, SetParPage, debugPage, simplePage, AboutPage});     // Join pages.
+//  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
   config.retainPortal = true; 
   //config.autoRise = true;
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
-  config.autoReconnect = true;
-  config.reconnectInterval = 1;
+//  config.autoReconnect = true;
+//  config.reconnectInterval = 1;
 
+#if SERIAL_DEBUG 
+  Serial.println("1");
+#endif  
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
+#if SERIAL_DEBUG 
   Serial.println("2");
-  Serial.println();
+#endif  
   portal.begin();
+#if SERIAL_DEBUG 
   Serial.println("3");
+#endif  
 
   WiFiWebServer&  webServer = portal.host();
-  Serial.println("4");
 
   webServer.on("/", onRoot);  // Register the root page redirector.
-  Serial.println("5");
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
     Serial.println("WiFi Not connected");
@@ -187,20 +224,6 @@ void setup_web_common(void)
     Serial.println("WiFiOn");
     WiFi.setAutoReconnect(true);
   }  
-}
-
-
-// Load the element from specified file in the flash on board.
-void loadParam(String fileName) {
-  if (!fileName.startsWith("/"))
-    fileName = String("/") + fileName;
-  File param = FlashFS.open(fileName.c_str(), "r");
-  if (param) {
-    ElementJson = param.readString();
-    param.close();
-  }
-  else
-    Serial.println("open failed");
 }
 
 void onConnect(IPAddress& ipaddr) {
@@ -220,6 +243,8 @@ void onRoot() {
 }
 
 float mRSSi = 0.;
+int WiFists = -1;
+
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[80];
 //WiFiDebugInfo
@@ -228,44 +253,57 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
    sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
       WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
    DebugInfo2.value = str;
-   sprintf(str,"RSSI: %d dBm (%i%%), среднее за 10 мин %.1f",WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()), mRSSi);
-   DebugInfo3.value = str;
+   if(WiFists == WL_CONNECTED)
+   {  sprintf(str,"RSSI: %d dBm (%i%%), среднее за 10 мин %.1f",WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()), mRSSi);
+      DebugInfo3.value = str;
+   } else 
+      DebugInfo3.value = "";
    sprintf(str,"OpenTherm statistics:");
    DebugInfo4.value = str;
    sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7]);
    DebugInfo5.value = str;
+   sprintf(str,"Free RAM %d", ESP.getFreeHeap());
+   DebugInfo6.value = str;
+
   return String();
 }
 
-String onSetTemp(AutoConnectAux& aux, PageArgument& args) {
-//String tmp;
-//   tmp = args.arg("SetNewBoilerTemp");
-  char str[40];
-   int v, v1;
+String onSetTemp(AutoConnectAux& aux, PageArgument& args)
+{  char str[40];
+   float  v, v1;
 
     SetBoilerTemp.value.toCharArray(str, 40);
-    Serial.printf("onSetTemp %s\n", str);
+    Serial.printf("onSetTemp SetBoilerTemp %s\n", str);
 
-    sscanf(str, "%i %i", &v, &v1);
+    SetDHWTemp.value.toCharArray(str, 40);
+    Serial.printf("onSetTemp SetDHWTemp %s\n", str);
 
-   v = SetBoilerTemp.value.toInt();
-//   args.arg("SetNewBoilerTemp").toInt();
-//    SetTemp_info2.value ="hahah";
+    v = SetBoilerTemp.value.toFloat();
     SmOT.Tset = v;
-    sprintf(str," %.1f",SmOT.Tset);
-    SetTemp_info2.value =   str;
-    SmOT.need_setT = 1;
 
-    Serial.printf("v=%i\n", v);
+    v1 = SetDHWTemp.value.toFloat();
+    SmOT.TdhwSet = v1;
+    str[0] = 0;
+    if(SmOT.enable_CentralHeating)
+     {  sprintf(str,"Отопление %.1f",v1);
+        SmOT.need_set_T = 1;
+     }
+    SetTemp_info2.value =   str;
+    if(SmOT.enable_HotWater)
+    {   sprintf(str,"Горячая вода %.1f",v);
+        SmOT.need_set_dhwT = 1;
+       SetTemp_info2.value += " ";
+       SetTemp_info2.value +=  str;
+    }
+
+    SmOT.Write_ot_fs();
 
   return String();
 }
 
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
 {
-    Serial.printf("onSetPar( todo\n");
-//todo
   if( CtrlChB1.checked)
        SmOT.enable_CentralHeating = true;
   else
@@ -283,13 +321,13 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // Load the attribute of th
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[40];
-  // Select the style parameter file and load it into the text element.
-  AutoConnectRadio& styles = InfoPage["Styles"].as<AutoConnectRadio>();
-  loadParam(styles.value());
 
    switch(SmOT.stsOT)
    {  case -1:
-       Info1.value =  String(SmOT.stsOT) + " is not initialize";
+        Info1.value =  String(SmOT.stsOT) + " is not initialize";
+        SetDHWTemp.enable = false;
+        SetBoilerTemp.enable = false;
+        SetNewBoilerTemp.enable = false;
         break;
       case 0:
       {  char str[40];
@@ -321,6 +359,8 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
        Info1.value =  String(SmOT.stsOT) + "  Response timeout";
         break;
    }
+
+//  Serial.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
 
 
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
@@ -352,6 +392,22 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
     }
 //    Info7.value = " MinModLevel="  + String(SmOT.MinModLevel) + "<br>"  + " MaxCapacity="  + String(SmOT.MaxCapacity) + "<br>";
     Info7.value = "";
+
+/******************************/  
+    if(SmOT.enable_CentralHeating)
+      SetBoilerTemp.enable = true;
+    else 
+      SetBoilerTemp.enable = false;
+
+    if( SmOT.enable_HotWater)
+      SetDHWTemp.enable = true;
+    else
+      SetDHWTemp.enable = false;
+
+    if( SmOT.enable_HotWater || SmOT.enable_CentralHeating)
+        SetNewBoilerTemp.enable = true;
+    else 
+        SetNewBoilerTemp.enable = false;
   } else {
         Info2.value = "";
         Info4.value = "";
@@ -359,38 +415,13 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
         Info6.value = "";
         Info7.value = "";
   }
-  // List parameter files stored on the flash.
-  // Those files need to be uploaded to the filesystem in advance.
-  styles.empty();
-#if defined(ARDUINO_ARCH_ESP32)
-  File  dir = FlashFS.open("/", "r");
-  if (dir) {
-    File  parmFile = dir.openNextFile();
-    while (parmFile) {
-      if (!parmFile.isDirectory())
-        styles.add(String(parmFile.name()));
-      parmFile = dir.openNextFile();
-    }
-  }
-#elif defined(ARDUINO_ARCH_ESP8266)
-  Dir dir = FlashFS.openDir("/");
-  while (dir.next()) {
-    if (!dir.isDirectory())
-      styles.add(dir.fileName());
-  }
-#endif
-
-  // Apply picked style
-  InfoPage.loadElement(ElementJson);
+/********************/
   return String();
 }
 
-String onControl(AutoConnectAux& aux, PageArgument& args)
+String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  char str0[40];
-  // Select the style parameter file and load it into the text element.
-  AutoConnectRadio& styles = InfoPage["Styles"].as<AutoConnectRadio>();
-  loadParam(styles.value());
-  
+
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
   else
@@ -400,106 +431,10 @@ String onControl(AutoConnectAux& aux, PageArgument& args)
       CtrlChB2.checked = true;
   else
       CtrlChB2.checked = false;
-  Serial.printf("onControl checked=%i %i\n", CtrlChB1.checked, CtrlChB2.checked);
 
-  Ctrl1.value = "Page under construction"; 
-   #if 0
-   switch(SmOT.stsOT)
-   {  case -1:
-       Info1.value =  String(SmOT.stsOT) + " is not initialize";
-        break;
-      case 0:
-      {  char str[40];
-        sprintf(str," (%8x)",SmOT.BoilerStatus );
-        Info1.value =  String(SmOT.stsOT) +  str;
-        if(SmOT.BoilerStatus & 0x01)
-          Info1.value += "<br>Ошибка";
-        if(SmOT.BoilerStatus & 0x02)
-          Info1.value += "<br>Отопление Вкл";
-        else  
-          Info1.value += "<br>Отопление вЫкл";
-        if(SmOT.BoilerStatus & 0x04)
-          Info1.value += "<br>Горячая вода Вкл";
-        else  
-          Info1.value += "<br>Горячая вода вЫкл";
-        if(SmOT.BoilerStatus & 0x08)
-          Info1.value += "<br>Горелка Вкл";
-        else  
-          Info1.value += "<br>Горелка вЫкл";
-        if(SmOT.BoilerStatus & 0x40)
-          Info1.value += "<br>Diag";
+  Ctrl2.value = ""; // todo
+  //Serial.printf("onControl checked=%i %i\n", CtrlChB1.checked, CtrlChB2.checked);
 
-      }
-        break;
-      case 1:
-       Info1.value =  String(SmOT.stsOT) + " Invalid response";
-        break;
-      case 2:
-       Info1.value =  String(SmOT.stsOT) + "  Response timeout";
-        break;
-   }
-
-  Info1.value =  "  todo ";
-
-
-    if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
-    {   Info3.value = " Температура помещения ";
-        if(SmOT.stsT1 >= 0)
-          Info3.value += "T1=" + String(SmOT.t1) + " ";
-        if(SmOT.stsT2 >= 0)
-          Info3.value += "T2=" + String(SmOT.t2) ;
-        Info3.value += "<br>";
-    } else {
-        Info3.value = "";
-    }
-
-  if(SmOT.stsOT != -1)
-  {
-   Info2.value = " Выходная температура  "  + String(SmOT.BoilerT) + " Обратка " + String(SmOT.RetT) + "<br>";
-   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure" + String(SmOT.Pressure) + "<br>";
-   Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
-
-    if(SmOT.OEMDcode || SmOT.Fault)
-    {  sprintf(str0, "%x %x", SmOT.Fault, SmOT.OEMDcode);
-//      Info5.value = "Fault = " + str0 + "<br>";
-      Info6.value = "Fault = ";
-      Info6.value += str0;
-      Info6.value += "<br>";
-    } else {
-      Info6.value = "";
-    }
-    Info7.value = " MinModLevel="  + String(SmOT.MinModLevel) + "<br>"  + " MaxCapacity="  + String(SmOT.MaxCapacity) + "<br>";
-  } else {
-        Info2.value = "";
-        Info4.value = "";
-        Info5.value = "";
-        Info6.value = "";
-        Info7.value = "";
-  }
-  // List parameter files stored on the flash.
-  // Those files need to be uploaded to the filesystem in advance.
-  styles.empty();
-#if defined(ARDUINO_ARCH_ESP32)
-  File  dir = FlashFS.open("/", "r");
-  if (dir) {
-    File  parmFile = dir.openNextFile();
-    while (parmFile) {
-      if (!parmFile.isDirectory())
-        styles.add(String(parmFile.name()));
-      parmFile = dir.openNextFile();
-    }
-  }
-#elif defined(ARDUINO_ARCH_ESP8266)
-  Dir dir = FlashFS.openDir("/");
-  while (dir.next()) {
-    if (!dir.isDirectory())
-      styles.add(dir.fileName());
-  }
-#endif
-#endif //0  
-
-  // Apply picked style
-  InfoPage.loadElement(ElementJson);
   return String();
 }
 
@@ -573,7 +508,7 @@ String onS(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-const char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
+char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
 
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
@@ -591,7 +526,6 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
 }
 
 int sts = 0;
-int WiFists = -1;
 int sRSSI = 0;
 int razRSSI = 0;
 extern int LedSts; 
@@ -678,3 +612,4 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi) {
     qu = 2 * (rssi + 100);
   return qu;
 }
+

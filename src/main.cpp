@@ -5,7 +5,6 @@
 // based on OpenTherm Master Communication Example By: Ihor Melnyk
 //
 
-
 #include <time.h>
 #include <Arduino.h>
 #include <OpenTherm.h>
@@ -418,17 +417,26 @@ unsigned int buildRequest(void)
       break;
       case 1: //setBoilerTemperature
         st++;
-          if(SmOT.need_setT)
+          if(SmOT.need_set_T)
           {    //Set Boiler Temperature to 
               request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset);
-               SmOT.need_setT = 0;
+               SmOT.need_set_T = 0;
                break;
+          } else if(SmOT.need_set_dhwT) {
+              SmOT.need_set_dhwT = 0;
+               break;
+              request = ot.setDHWSetpoint(SmOT.TdhwSet);
           } else {
             raz++;
             if(raz > 100)
-                SmOT.need_setT  = 1;
+            {   if(SmOT.enable_CentralHeating)
+                    SmOT.need_set_T  = 1; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+                if(SmOT.enable_HotWater) 
+                    SmOT.need_set_dhwT = 1;                   
+                raz = 0;
+            }
           }
-     // break; специально пропущен !!!!
+     // break; especially omitted = специально пропущен !!!! 
 
       case 2: //getBoilerTemperature
           request = ot.buildGetBoilerTemperatureRequest();
@@ -518,6 +526,7 @@ void loop(void)
 {   static unsigned long t0=0; // t1=0;
     unsigned long t;
     int dt;
+#if 1    
    t = millis();
    dt = t - t0;
   if(dt < OT_CICLE_TIME)
@@ -527,6 +536,10 @@ void loop(void)
   }  else {
      loop2();
   }
+#else  //debug without OT  
+       loop_web();
+#endif // 0
+
 }
 
 /* web, udp, DS1820 */
@@ -554,7 +567,14 @@ void loop2(void)
         break;
         case 2:
 //Serial.printf("loop_udp\n");
-
+{ static int oldFree = 0;
+  int free;
+  free = ESP.getFreeHeap();
+  if(abs(free - oldFree) > 3000)
+  { Serial.printf("IRAM free: %6d bytes\n", free);
+    oldFree = free;
+  }
+}
          loop_udp();
           irot++;
         break;
@@ -565,199 +585,3 @@ void loop2(void)
     }
 }
 
-
-void loop_old()
-{
-//    unsigned long response;
-    unsigned long t;
-    int dt, dt0;
-static int irot = 0;
-static unsigned long t0=0; // t1=0;
-OpenThermResponseStatus responseStatus;
-
-   t = millis();
-   dt = t - t0;
-
-  if(dt < 800)
-  {
-    switch(irot)
-    {  case 0: 
-   loop_web();
-   dt0 = millis() - t;
-          irot++;
-        break;
-        case 1:
-   SmOT.loop();
-   dt0 = millis() - t;
-          irot++;
-        break;
-        case 2:
-   loop_udp();
-   dt0 = millis() - t;
-          irot++;
-        break;
-        case 3:
-//    digitalWrite(LED_BUILTIN, HIGH);   
-        loopDS1820();
-//      digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
-   dt0 = millis() - t;
-          irot = 0;
-        break;
-    }
-    return;
-   }
-  if(dt > 800)
-  {
-      digitalWrite(LED_BUILTIN, HIGH);   
-Serial.println("Кю");
-            long response = ot.setBoilerStatus(enableCentralHeating, enableHotWater, enableCooling);
-    SmOT.rcode[0] = millis() - t;
-      digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    responseStatus = ot.getLastResponseStatus();
-    if (responseStatus == OpenThermResponseStatus::SUCCESS) {
-        status_OT = 0;
-        SmOT.BoilerStatus = response;
-        Serial.println("Central Heating: " + String(ot.isCentralHeatingActive(response) ? "on" : "off"));
-        Serial.println("Hot Water: " + String(ot.isHotWaterActive(response) ? "on" : "off"));
-        Serial.println("Flame: " + String(ot.isFlameOn(response) ? "on" : "off"));
-        SmOT.response = response; 
-    } else if (responseStatus == OpenThermResponseStatus::NONE) {
-       status_OT = -1;
-        Serial.println("Error: OpenTherm is not initialized");
-    } else if (responseStatus == OpenThermResponseStatus::INVALID) {
-       if(status_OT != -1)
-          Serial.println("Error: Invalid response " + String(response, HEX));
-       status_OT = 1;
-    } else if (responseStatus == OpenThermResponseStatus::TIMEOUT) {
-       if(status_OT != 2)
-          Serial.println("Error: OT Response timeout"); // 1034 ms
-       status_OT = 2;
-    }
-    SmOT.stsOT = status_OT; 
-
-//    Serial.printf("OT status %x  SmOT.status=%x %li\n", status_OT, SmOT.status, millis());
-
-    
-    if(status_OT == 0)
-    {  static int round = 0;
-      switch(round)
-      {
-          case 0:
-          if(SmOT.need_setT)
-          {    //Set Boiler Temperature to 64 degrees C
-              if (ot.setBoilerTemperature(SmOT.Tset)) 
-              {   SmOT.need_setT = 0;
-              }
-          }
-          round++;
-          break;
-
-          case 1:
-          {
-    //Get Boiler Temperature
-    float ch_temperature = ot.getBoilerTemperature();
-//    SmOT.rcode[1] = ot.Lastresponse;
-    responseStatus = ot.getLastResponseStatus();
-    if (responseStatus == OpenThermResponseStatus::SUCCESS) 
-    {     Serial.println("CH temperature is " + String(ch_temperature) + " degrees C");
-          SmOT.BoilerT = ch_temperature;
-//          if( *((int *)&ch_temperature) == 0x40428000)
-//          {      SmOT.rcode[2] = SmOT.rcode[0];
-//                 SmOT.rcode[3] = ot.Lastresponse;
-//          }
-    }
-   dt0 = millis() - t;
-   SmOT.rcode[1] = dt0;
-
-          round++;
-          }
-        break;
-          case 2:
-          {
-    //Get DHW Temperature
-      float dhw_temperature = ot.getDHWTemperature();
-    responseStatus = ot.getLastResponseStatus();
-    if (responseStatus == OpenThermResponseStatus::SUCCESS) 
-    {
-      Serial.println("DHW temperature is " + String(dhw_temperature) + " degrees C");
-      SmOT.dhw_t = dhw_temperature;
-//          if( *((int *)&dhw_temperature) == 0x40428000)
-//                SmOT.rcode[1] = ot.Lastresponse;
-    }
-   dt0 = millis() - t;
-   SmOT.rcode[2] = dt0;
-          round++;
-          }
-        break;
-          case 3:
-          {float ret_temperature = ot.getReturnTemperature();
-    responseStatus = ot.getLastResponseStatus();
-    if (responseStatus == OpenThermResponseStatus::SUCCESS) 
-    {
-            SmOT.RetT = ret_temperature;
-//          if( *((int *)&ret_temperature) == 0x40428000)
-//                SmOT.rcode[2] = ot.Lastresponse;
-
-#if SERIAL_DEBUG 
-      Serial.println("ReturnTemperature is " + String(ret_temperature) + " degrees C");
-#endif
-    }
-   dt0 = millis() - t;
-   SmOT.rcode[3] = dt0;
-          round++;
-          }
-        break;
-          case 4:
-          {
-            SmOT.FlameModulation = ot.getModulation() ;
-//          if( *((int *)&SmOT.FlameModulation) == 0x40428000)
-//                SmOT.rcode[3] = ot.Lastresponse;
-#if SERIAL_DEBUG 
-      Serial.println("FlameModulation is " + String(SmOT.FlameModulation));
-#endif
-   dt0 = millis() - t;
-   SmOT.rcode[4] = dt0;
-
-          round++;
-          }
-        break;
-          case 5:
-          { SmOT.Pressure = ot.getPressure();
-//          if( *((int *)&SmOT.Pressure) == 0x40428000)
-//                SmOT.rcode[4] = ot.Lastresponse;
-#if SERIAL_DEBUG 
-      Serial.println("Pressure  is " + String(SmOT.Pressure ));
-#endif
-   dt0 = millis() - t;
-          round++;
-          }
-        break;
-
-          case 6:
-          { SmOT.Fault = ot.getFault();
-      Serial.println("Fault is " + String(SmOT.Fault));
-          round++;
-          }
-   dt0 = millis() - t;
-        break;
-          case 7:
-          { // int i;
-          round = 0;
-
-          }
-        break;
-
-      }
-
-//Set DHW setpoint to 40 degrees C
-//      ot.setDHWSetpoint(40);
-//      Serial.println();
-    } else {
-;
-    }
-
-    t0 = millis();
-
-  }
-//    delay(1000);
-}

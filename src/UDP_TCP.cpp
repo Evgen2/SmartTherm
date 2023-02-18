@@ -56,33 +56,14 @@ U8 *esp_get_buf (U16 size)
 		return 0;
 }
 
-#if 0
-static unsigned char buf[256];
-unsigned char * Msg;
-void test(void)
-{  int 	raz = 0x1234;
-     Msg = (unsigned char *) buf;
-  Serial.printf("raz =%x\n", raz);
-	*((int *) (&buf[6])) = raz;
-  Serial.printf("buf[6-9] =%x %x %x %x\n", buf[6], buf[7], buf[8], buf[9]);
-   raz = 0x6789;
-//	*(( int *) (&Msg[6])) = raz; //exeption 9
-	memcpy((void *)&Msg[6],(void *)&raz,4);
-
-  Serial.printf("buf[6-9] =%x %x %x %x\n", buf[6], buf[7], buf[8], buf[9]);
-  Serial.printf("end\n");
-}
-#endif //0
 
 #pragma pack(1) 
 #pragma pack() 
-
 
 void setup_udp(SmartDevice *psd)
 {
 	p_sd = psd;
  	Udp.begin(g_port);
-
 }
 
 void loop_udp(void)
@@ -127,7 +108,6 @@ void loop_udp(void)
 int net_callback(U8 *bf, int  len, PACKED unsigned char * &MsgOut, int &Lsend, int btmax, U8  *(*get_buf) (U16 size))
 {  short int cmd;
    unsigned short int par;
-   int  isrep=0;
 static unsigned short lastInd=0;
 static unsigned int jj=0xffff, Nlost=0;
 
@@ -135,9 +115,9 @@ static unsigned int jj=0xffff, Nlost=0;
   cmd  = *((short int *)&bf[2]);
   par  = *((unsigned short int *)&bf[4]);
   if(par != (lastInd+1)) /* параметр всегда должен инкрементироваться, чтобы обеспечить защиту от повторных посылок */
-  {  if(par == lastInd)
-             isrep = 1; /* повторная посылка */
-	 else 
+  {  //if(par == lastInd)
+     //        isrep = 1; /* повторная посылка */
+	 //else 
 	         Nlost++;                 /* потеря данных */  
   }
 #if SERIAL_DEBUG
@@ -204,69 +184,11 @@ static unsigned int jj=0xffff, Nlost=0;
   	   p_sd->udp_callback_settime(bf, MsgOut, Lsend, get_buf);
 				break;
 
-			case MCMD_SERVER_INFO:
-			p_sd->udp_callback_serverinfo(bf, MsgOut, Lsend, get_buf);
+			case MCMD_SET_UDPSERVER:
+			p_sd->udp_callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
 			p_sd->remoteIP = Udp.remoteIP();
 			Udp_remoteIP = p_sd->remoteIP;  
 				break;
-#if 0		 
-	   case MCMD_GETDATA:
-				roz.udp_callback_getdata(bf,isrep, MsgOut, Lsend,get_buf);
-	        break;
-
-	   case MCMD_GETINFO:
-				roz.udp_callback_getinfo(bf,isrep, MsgOut, Lsend,get_buf);
-	        break;
-		 
-  	  case MCMD_SETKON: /* input: 2 int, output: 1 int*/
-  	   roz.udp_callback_setkon(bf,isrep, MsgOut, Lsend,get_buf);
-	    break;
-			case MCMD_INIT_COUNT:
-  	   roz.udp_callback_initcount(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-			case MCMD_GETLOG: /* запрос лога */
-  	   roz.udp_callback_getlog(bf,isrep, MsgOut, Lsend,get_buf);
-	    break;
-			case MCMD_LOGON:
-  	   roz.udp_callback_logon(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-			case  MCMD_SET_PAR:
-  	   roz.udp_callback_setpar(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-			case  MCMD_GET_PAR:
-  	   roz.udp_callback_getpar(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-			
-			case MCMD_GET_ADC:
-  	   roz.udp_callback_getADC(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-			case MCMD_GET_DEV_PMS7003:
-  	   roz.udp_callback_getPMS7003(bf,isrep, MsgOut, Lsend,get_buf);
-				break;
-		
-	 case MCMD_VIRT_UART:
-		   roz.udp_callback_uart(bf,isrep, MsgOut, Lsend,get_buf);
-		 break;
-
-
-	 case MCMD_SET_TEST: /* установить режим тестирования */
-        Lsend = 6;
-        MsgOut = get_buf(Lsend);
-
-//	   memcpy((void *)&MsgOut[0],(void *)&bf[0],6);
-//       memcpy((void *)&lpctest,(void *)&bf[6],sizeof(struct lpc_test));
-
-//			lpcm.sts = LPC_TEST;
-//        test_init();
-	    break;
-	 case MCMD_GETCONFIG:
-		   roz.udp_callback_getConfigAux(bf,isrep, MsgOut, Lsend,get_buf);	 
-		 break;
-	 case MCMD_SETCONFIG:
-		   roz.udp_callback_setConfigAux(bf,isrep, MsgOut, Lsend,get_buf);	 
-		 break;
-    
-#endif //0
 	 default:
     Serial.printf("net_callback Unknown cmd %i\n",  cmd);
         Lsend = 6+sizeof(int)+sizeof(short int);

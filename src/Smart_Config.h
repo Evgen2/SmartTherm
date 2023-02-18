@@ -28,6 +28,14 @@
 // AutoConnect menu title
 // Predefined parameters
 // SSID that Captive portal started.
+//remove warning on redefined 
+#if defined(AUTOCONNECT_MENU_TITLE)
+#undef AUTOCONNECT_MENU_TITLE
+#endif
+#if defined(AUTOCONNECT_APID)
+#undef AUTOCONNECT_APID
+#endif
+
 #if defined(ARDUINO_ARCH_ESP8266)
   #define AUTOCONNECT_MENU_TITLE  "SmartTherm controller ESP8266"
   #define AUTOCONNECT_APID  "ST_ESP8266"

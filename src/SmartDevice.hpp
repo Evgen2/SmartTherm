@@ -9,7 +9,7 @@
 
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION    0
-#define MASTER_SUBVERSION 4
+#define MASTER_SUBVERSION 5
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
 
@@ -54,9 +54,8 @@ class SmartDevice
 #endif
   int IdNumber;            /* номер устройства */
 
-  char server_ipaddr[16]; /* ip адрес сервера */
-  int server_port;  /* порт сервера */
-  int server_repot_period;  /* периодичность отправки данных серверу, сек */
+  int UDPserver_port;  /* порт сервера */
+  int UDPserver_repot_period;  /* периодичность отправки данных серверу, сек */
 	IPAddress remoteIP;  
 
 
@@ -67,11 +66,10 @@ class SmartDevice
   int sts;                 /* состояние       */  
   int sts_next;            /* состояние на следующий такт  */
   int server_sts;  /* статус сервера */
-  long int server_t; /* время последнего сообщения серверу, следующее через server_repot_period */
+  long int UDPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
   float humidity;
   float temperature;
-  int status_DHT; /* status DHT: -1, 0=Ok, 1 Timeout, 2 Cheksum */
-
+  
 
 #if defined(ARDUINO_ARCH_ESP8266)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
@@ -85,14 +83,12 @@ class SmartDevice
 			   
   {  // int i;  
 	sts = sts_next = 0;
-	server_ipaddr[0] = 0; 
-        server_port = 0;  
-        server_repot_period = 0;
+        UDPserver_port = 0;  
+        UDPserver_repot_period = 0;
         server_sts = 0;
-        server_t = 0;
+        UDPserver_t = 0;
 	humidity = 0.;
 	temperature = 0.;
-	status_DHT = -1; 
   status = -1;
   }
   void udp_callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -100,7 +96,7 @@ class SmartDevice
   void udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void udp_callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void udp_callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
-  void udp_callback_serverinfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void udp_callback_set_udp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   virtual void udp_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {};
 
