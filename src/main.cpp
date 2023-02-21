@@ -92,12 +92,12 @@ void setup() {
   Serial.printf("Sizeof time_t= %d\n",sizeof( time_t) );
   Serial.printf("time= %s millis()=%li\n", ctime(&now), millis());
 
-    LedSts=1;
-     digitalWrite(LED_BUILTIN, LedSts);   
+  LedSts=1;
+  digitalWrite(LED_BUILTIN, LedSts);   
 
-    setupDS1820();
+  setupDS1820();
 
-    ot.begin(handleInterrupt, OTprocessResponse);
+  ot.begin(handleInterrupt, OTprocessResponse);
   setup_web_common();
   setup_udp( &SmOT );
 }
@@ -526,7 +526,7 @@ void loop(void)
 {   static unsigned long t0=0; // t1=0;
     unsigned long t;
     int dt;
-#if 1    
+#if 1   
    t = millis();
    dt = t - t0;
   if(dt < OT_CICLE_TIME)

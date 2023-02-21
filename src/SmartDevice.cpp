@@ -138,7 +138,6 @@ tzset();
   Serial.printf("t=%lld %d %d %d\n", tb.time, tb.millitm, tb.timezone, tb.dstflag);
 #endif  
 
-
   now = time(nullptr);
   Serial.printf("1 %s\n", ctime(&now));
  
@@ -150,11 +149,10 @@ tzset();
   
   now = time(nullptr);
   Serial.printf("2 %s\n", ctime(&now));
-
 }
 
-
-void SmartDevice::udp_callback_serverinfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+//MCMD_SET_UDPSERVER
+void SmartDevice::udp_callback_set_udp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int s, dt, p; // i, rc;
 //  char tzbuf[20];
 extern int Udp_RemotePort;
@@ -167,11 +165,10 @@ extern int Udp_RemotePort;
 	memcpy((void *)&s,(void *)&bf[6],4); 
   memcpy((void *)&dt, (void *)&bf[10],4); 
   memcpy((void *)&p,(void *)&bf[14],4); 
-  server_sts = s;
+  UDPserver_sts = s;
   if(s)
-    server_t = millis();
-  server_port = p;  
+    UDPserver_t = millis();
+  UDPserver_port = p;  
   Udp_RemotePort = p;
-  server_repot_period = dt;
-
+  UDPserver_repot_period = dt;
 }

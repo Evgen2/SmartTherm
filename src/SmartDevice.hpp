@@ -56,19 +56,17 @@ class SmartDevice
 
   int UDPserver_port;  /* порт сервера */
   int UDPserver_repot_period;  /* периодичность отправки данных серверу, сек */
+  int UDPserver_sts;  /* статус сервера */
+  long int UDPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
+
 	IPAddress remoteIP;  
 
 
   const int ReservParam[16];    /* резерв параметры */ 
 
-/**** во флеш далее не пишется */     
   int status;
   int sts;                 /* состояние       */  
   int sts_next;            /* состояние на следующий такт  */
-  int server_sts;  /* статус сервера */
-  long int UDPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
-  float humidity;
-  float temperature;
   
 
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -85,10 +83,8 @@ class SmartDevice
 	sts = sts_next = 0;
         UDPserver_port = 0;  
         UDPserver_repot_period = 0;
-        server_sts = 0;
+        UDPserver_sts = 0;
         UDPserver_t = 0;
-	humidity = 0.;
-	temperature = 0.;
   status = -1;
   }
   void udp_callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

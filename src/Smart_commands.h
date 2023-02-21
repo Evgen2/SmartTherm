@@ -22,7 +22,7 @@
 
 #define  MCMD_GETTIME		0x10 // читать/задать время RTC
 #define  MCMD_SETTIME		0x11 // читать/задать время RTC
-#define  MCMD_SERVER_INFO	0x20 //передать состояние сервера
+#define  MCMD_SET_UDPSERVER 0x20 // задать UDP сервер, порт и время обновления информации
 #define  MCMD_OT_INFO	    0x21 //Open Therm info
 
 #define  MCMD_GETDATA				0x12 //получить данные
@@ -34,7 +34,6 @@
 #define  MCMD_GET_PAR       0x17 //
 #define  MCMD_GET_ADC       0x18 //
 
-#define  MCMD_GET_DEV_PMS7003    0x25 // запрос данных PMS7003
 
 #define  MCMD_SET_TEST	    0x30 //задать режим теста
 

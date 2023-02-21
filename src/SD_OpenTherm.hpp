@@ -36,7 +36,9 @@ public:
   unsigned int rcode[5];
   int BoilerStatus;
   int need_set_T; 
-  int need_set_dhwT; 
+  int need_set_dhwT;
+  int need_write_f; 
+
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -54,6 +56,7 @@ public:
       TdhwSet = 40.;
       need_set_T = 1;
       need_set_dhwT = 1;
+      need_write_f = 0;
       RetT = 0.;
       dhw_t = 0.;
       FlameModulation = 0.;

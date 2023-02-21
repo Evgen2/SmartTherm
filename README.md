@@ -20,6 +20,8 @@ Features:
 
 
 Todo:
+* TCP interface
+* Windows/Linux example for TCP/UDP
 * MQTT interface for [Home Assistant](https://www.home-assistant.io/)
 
 ## License

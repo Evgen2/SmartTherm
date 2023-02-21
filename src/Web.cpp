@@ -68,9 +68,8 @@ ACText(Info4, "info text 4", "", "", AC_Tag_DIV);
 ACText(Info5, "info text 5", "", "", AC_Tag_DIV);
 ACText(Info6, "info6", "", "", AC_Tag_DIV);
 ACText(Info7, "info7", "", "", AC_Tag_DIV);
-ACRadio(Styles, {}, "");
-ACInput(SetBoilerTemp,"44", "Температура теплоносителя"); // Boiler Control setpoint
-ACInput(SetDHWTemp,   "43", "Температура горячей воды");  // DHW Control setpoint
+ACInput(SetBoilerTemp,"44", "Температура теплоносителя:<br>"); // Boiler Control setpoint
+ACInput(SetDHWTemp,   "43", "Температура горячей воды:<br>");  // DHW Control setpoint
 
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
@@ -114,11 +113,11 @@ ACText(About_3, "3", "", "", AC_Tag_DIV);
 /*****************************************/
 
 // AutoConnectAux for the custom Web page.
-AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, Styles, Apply, SetBoilerTemp, SetDHWTemp, SetNewBoilerTemp });
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetNewBoilerTemp });
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, Ctrl2, ApplyChB});
 AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
 AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, Styles, DebugApply});
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, DebugApply});
 AutoConnectAux simplePage(SIMPLE_URI, "S", true, { St_inf, St1, St2, St3, St4, St5, St6});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, About_1, About_2, About_3});
 
@@ -272,32 +271,31 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 {  char str[40];
    float  v, v1;
+   int isChange=0;
 
-    SetBoilerTemp.value.toCharArray(str, 40);
-    Serial.printf("onSetTemp SetBoilerTemp %s\n", str);
-
-    SetDHWTemp.value.toCharArray(str, 40);
-    Serial.printf("onSetTemp SetDHWTemp %s\n", str);
 
     v = SetBoilerTemp.value.toFloat();
+    if(SmOT.enable_CentralHeating && v != SmOT.Tset) isChange = 1;
+    
     SmOT.Tset = v;
 
     v1 = SetDHWTemp.value.toFloat();
+    if(SmOT.enable_HotWater && v1 != SmOT.TdhwSet) isChange = 1;
     SmOT.TdhwSet = v1;
     str[0] = 0;
     if(SmOT.enable_CentralHeating)
-     {  sprintf(str,"Отопление %.1f",v1);
+     {  sprintf(str,"Отопление %.1f",v);
         SmOT.need_set_T = 1;
      }
     SetTemp_info2.value =   str;
     if(SmOT.enable_HotWater)
-    {   sprintf(str,"Горячая вода %.1f",v);
+    {   sprintf(str,"Горячая вода %.1f",v1);
         SmOT.need_set_dhwT = 1;
        SetTemp_info2.value += " ";
        SetTemp_info2.value +=  str;
     }
-
-    SmOT.Write_ot_fs();
+    if(isChange)
+        SmOT.need_write_f = 1;
 
   return String();
 }
@@ -366,9 +364,9 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура помещения ";
         if(SmOT.stsT1 >= 0)
-          Info3.value += "T1=" + String(SmOT.t1) + " ";
+          Info3.value += "T1 " + String(SmOT.t1) + " ";
         if(SmOT.stsT2 >= 0)
-          Info3.value += "T2=" + String(SmOT.t2) ;
+          Info3.value += "T2 " + String(SmOT.t2) ;
         Info3.value += "<br>";
     } else {
         Info3.value = "";
@@ -379,7 +377,7 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
    Info2.value = " Выходная температура  "  + String(SmOT.BoilerT) + " Обратка " + String(SmOT.RetT) + "<br>";
    Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure" + String(SmOT.Pressure) + "<br>";
 // Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
-   Info5.value = "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
+   Info5.value = "Ts "+ String(SmOT.Tset) + "Tsr "+ String(SmOT.Tset_r) + "<br>";
 
     if(SmOT.OEMDcode || SmOT.Fault)
     {  sprintf(str0, "%x %x", SmOT.Fault, SmOT.OEMDcode);
@@ -420,8 +418,7 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
 }
 
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
-{  char str0[40];
-
+{  
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
   else
@@ -460,6 +457,7 @@ D =  diagnostic indication 0/1
 
 Tb = BoilerT
 Tr = RetT
+Th = dhw_t
 T1 = T_ds18b20(1)
 T2 = T_ds18b20(2)
 */   
@@ -496,6 +494,10 @@ String onS(AutoConnectAux& aux, PageArgument& args)
 
         sprintf(str,"Tr %.2f<br>",SmOT.RetT );
           St1.value += str;
+
+        sprintf(str,"Th %.2f<br>",SmOT.dhw_t );
+          St1.value += str;
+          
         if(SmOT.stsT1 >= 0)
         {   sprintf(str,"T1 %.2f<br>",SmOT.t1);
           St1.value += str;

@@ -202,11 +202,24 @@ int SD_Termo::Write_ot_fs(void)
 
 void SD_Termo::loop(void)
 {  int dt;
-    if(server_sts == 0)
+
+    if(need_write_f)
+    {   int rc, dt, t0;
+        char str[40];
+        t0 = millis();
+        rc = Write_ot_fs();
+        dt = millis() - t0;
+        sprintf(str,"\nrc=%d dt = %d\n", rc, dt);
+        Serial.printf("Write_fs %d %d", rc, dt);
+        need_write_f = 0;
+    }
+    
+    if(UDPserver_sts == 0)
             return;
     dt = millis() - UDPserver_t;
     if(dt < UDPserver_repot_period)
-        return;
+    {   return;
+    }
     if(Udp_Lsend > 0)
         return;
 //  Serial.printf("SD_Termo::loop %li\n",  millis());
