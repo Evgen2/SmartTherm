@@ -13,6 +13,7 @@ using WiFiWebServer = WebServer;
 #endif
 
 #include <time.h>
+#include "OpenTherm.h"
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
@@ -45,11 +46,10 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 int OTDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
+extern OpenThermID OT_ids[N_OT_NIDS];
 
 
 /*********************************/
-// Declare AutoConnectText with only a value.
-// Qualify the Caption by reading style attributes from the style.json file.
 const char* INFO_URI = "/info";
 const char* SETUP_URI = "/setup";
 const char* ABOUT_URI = "/about";
@@ -98,12 +98,13 @@ ACText(SetTemp_info1, "Заданная температура:", "", "", AC_Tag
 ACText(SetTemp_info2, "info text 2", "", "", AC_Tag_DIV);
 ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
 /************* debugPage( ****************/
-ACText(DebugInfo1, "D 1", "", "", AC_Tag_DIV);
-ACText(DebugInfo2, "D 2", "", "", AC_Tag_DIV);
-ACText(DebugInfo3, "D 3", "", "", AC_Tag_DIV);
-ACText(DebugInfo4, "D 4", "", "", AC_Tag_DIV);
-ACText(DebugInfo5, "D 5", "", "", AC_Tag_DIV);
-ACText(DebugInfo6, "D 6", "", "", AC_Tag_DIV);
+ACText(DebugInfo1, "D1", "", "", AC_Tag_DIV);
+ACText(DebugInfo2, "D2", "", "", AC_Tag_DIV);
+ACText(DebugInfo3, "D3", "", "", AC_Tag_DIV);
+ACText(DebugInfo4, "D4", "", "", AC_Tag_DIV);
+ACText(DebugInfo5, "D5", "", "", AC_Tag_DIV);
+ACText(DebugInfo6, "D6", "", "", AC_Tag_DIV);
+ACText(DebugInfo7, "D7", "", "", AC_Tag_DIV);
 ACSubmit(DebugApply, "Обновить", DEBUG_URI, AC_Tag_DIV);
 /************* AboutPage *****************/
 ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
@@ -117,15 +118,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, Ctrl2, ApplyChB});
 AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
 AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, DebugApply});
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, DebugInfo7, DebugApply});
 AutoConnectAux simplePage(SIMPLE_URI, "S", true, { St_inf, St1, St2, St3, St4, St5, St6});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, About_1, About_2, About_3});
 
 AutoConnectConfig config;
 AutoConnect portal;
 
-// JSON document loading buffer
-String ElementJson;
 
 /************************************/
 //int test_fs(void);
@@ -153,8 +152,21 @@ void setup_web_common(void)
 {
 //  Serial.println();
    Serial.println("setup_web_common");
-  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
+  FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
 
+   Serial.printf("sizeof OpenThermID=%d\n", sizeof(OpenThermID));
+   Serial.printf("sizeof OT_ids=%d\n", sizeof(OT_ids));
+
+#if defined(ARDUINO_ARCH_ESP8266)
+   Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
+#elif defined(ARDUINO_ARCH_ESP32)
+   Serial.printf("OT_ids[0].used =%d %s\n", OT_ids[0].used,  OT_ids[0].descript);
+#endif
+
+
+//  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
+#if TEST
+#endif // test
     { int tBytes, uBytes; 
 #if defined(ARDUINO_ARCH_ESP8266)
       FSInfo info;
@@ -176,6 +188,7 @@ void setup_web_common(void)
      sprintf(str,"%.1f",SmOT.TdhwSet);
      SetDHWTemp.value = str;
   }
+
   InfoPage.on(onInfo);      // Register the attribute overwrite handler.
   Setup_Page.on(on_Setup);
   SetTempPage.on(onSetTemp);
@@ -189,7 +202,7 @@ void setup_web_common(void)
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
   config.retainPortal = true; 
-  //config.autoRise = true;
+  config.autoRise = true;
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
 //  config.autoReconnect = true;
@@ -223,6 +236,26 @@ void setup_web_common(void)
     Serial.println("WiFiOn");
     WiFi.setAutoReconnect(true);
   }  
+
+/* get my MAC*/
+#if defined(ARDUINO_ARCH_ESP8266)
+//    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
+    if(WiFi.getMode() == WIFI_OFF)
+    {
+       Serial.printf("todo get MAC\n");
+
+    } else {
+       Serial.printf("todo get MAC\n");
+    }
+#elif defined(ARDUINO_ARCH_ESP32)
+    if(WiFi.getMode() == WIFI_MODE_NULL){
+        esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
+    }
+    else{
+        esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
+    }  
+#endif //
+
 }
 
 void onConnect(IPAddress& ipaddr) {
@@ -245,7 +278,7 @@ float mRSSi = 0.;
 int WiFists = -1;
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[80];
+{  char str[120];
 //WiFiDebugInfo
    sprintf(str,"WiFi statistics:");
    DebugInfo1.value = str;
@@ -259,12 +292,28 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
       DebugInfo3.value = "";
    sprintf(str,"OpenTherm statistics:");
    DebugInfo4.value = str;
-   sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
-      OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7]);
+   sprintf(str,"%d %d  %d %d  %d %d  %d %d  %d %d", 
+      OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9]);
    DebugInfo5.value = str;
    sprintf(str,"Free RAM %d", ESP.getFreeHeap());
    DebugInfo6.value = str;
+#if 0   
+   {  int i;
+      extern char ot_data_used[60];
+      extern int ot_nids;
 
+      for(i=0;i<ot_nids; i++)
+      {    sprintf(str,"%d ", ot_data_used[i]); 
+        if(i == 0)
+           DebugInfo7.value = str;
+        else
+           DebugInfo7.value += str;
+        if(i > 0 && (i%10 == 9))
+            DebugInfo7.value += "<br>";
+      }
+
+   }
+#endif //0   
   return String();
 }
 
@@ -318,11 +367,13 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
 // Load the attribute of th
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
-  char str0[40];
+  char str0[80];
+
+ Serial.printf("onInfo SmOT.stsOT=%i\n ", SmOT.stsOT);
 
    switch(SmOT.stsOT)
    {  case -1:
-        Info1.value =  String(SmOT.stsOT) + " is not initialize";
+        Info1.value =  String(SmOT.stsOT) + ": <b>Ошибка:</b> OT не инициализирован";
         SetDHWTemp.enable = false;
         SetBoilerTemp.enable = false;
         SetNewBoilerTemp.enable = false;
@@ -354,7 +405,18 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
        Info1.value =  String(SmOT.stsOT) + " Invalid response";
         break;
       case 2:
-       Info1.value =  String(SmOT.stsOT) + "  Response timeout";
+      {  time_t now = time(nullptr);
+        double dt;
+        dt = difftime(now,SmOT.t_lastwork);
+        if(dt < 3600.)
+        {   sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
+
+        } else {        
+            sprintf(str0, "Потеря связи связи с котлом %.1f час(ов) назад", dt);
+        }
+        Info1.value =  String(SmOT.stsOT) + " : <b>Ошибка:</b> ";
+        Info1.value +=  str0;
+      }
         break;
    }
 
@@ -375,7 +437,21 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
   if(SmOT.stsOT != -1)
   {
    Info2.value = " Выходная температура  "  + String(SmOT.BoilerT) + " Обратка " + String(SmOT.RetT) + "<br>";
-   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure" + String(SmOT.Pressure) + "<br>";
+   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure " + String(SmOT.Pressure) + "<br>";
+{
+extern OpenTherm ot;
+Serial.printf("123456 2\n");
+   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) ;
+Serial.printf("123456 3\n");
+        if(ot.OTid_used(OpenThermMessageID::CHPressure))
+        {
+Serial.printf("123456 4\n");
+           Info4.value += " Pressure " + String(SmOT.Pressure);
+        }
+Serial.printf("123456 5\n");
+   Info4.value += "<br>";
+}
+
 // Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
    Info5.value = "Ts "+ String(SmOT.Tset) + "Tsr "+ String(SmOT.Tset_r) + "<br>";
 

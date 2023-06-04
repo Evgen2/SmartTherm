@@ -81,6 +81,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
     File file = FlashFS.open(_path,"r" );
     if(!file || file.isDirectory()){
         Serial.println("- failed to open file for reading");
+        if(file)
+        {   file.close();
+            Serial.println("file.close()");
+        }
+
         return 1;
     }
 
@@ -265,5 +270,53 @@ void SD_Termo::OpenThermInfo(void)
 void SD_Termo::udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
 
+    Serial.printf("todo %s\n", __FUNCTION__); 
+
+}
+
+void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{
+   Lsend = 6 + 6 + sizeof(int)*2 + sizeof(float)*7; 
+
+   MsgOut = get_buf(Lsend);
+
+	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+	 memcpy((void *)&MsgOut[6],(void *) Mac,6); 
+	 memcpy((void *)&MsgOut[12],(void *)&BoilerStatus,4); 
+	 memcpy((void *)&MsgOut[16],(void *)&BoilerT, 4); 
+	 memcpy((void *)&MsgOut[20],(void *)&RetT, 4); 
+	 memcpy((void *)&MsgOut[24],(void *)&dhw_t, 4); 
+	 memcpy((void *)&MsgOut[28],(void *)&FlameModulation, 4); 
+	 memcpy((void *)&MsgOut[32],(void *)&Pressure, 4); 
+	 memcpy((void *)&MsgOut[36],(void *)&status, 4);  //статус внешних датчиков температуры - (не OT)
+	 memcpy((void *)&MsgOut[40],(void *)&t1,4); 
+	 memcpy((void *)&MsgOut[44],(void *)&t2,4); 
+
+    Serial.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
+
+}
+
+void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{
+   Lsend = 6; 
+   MsgOut = get_buf(Lsend);
+	
+	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+	 memcpy((void *)&TestId,(void *)&bf[6],4); 
+	 memcpy((void *)&TestStatus,(void *)&bf[6+4],4); 
+    TestCmd = 1;
+    TestResponse = -1;
+    TestStatus = -1;
+    Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
+}
+
+void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{
+   Lsend = 6 + 4*2; 
+   MsgOut = get_buf(Lsend);
+	
+	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+	 memcpy((void *)&MsgOut[6],(void *)&TestResponse,4); 
+	 memcpy((void *)&MsgOut[6+4],(void *)&TestStatus,4 ); 
 
 }

@@ -40,7 +40,7 @@ void SmartDevice::udp_callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,
 }
 
 //MD_ECHO
-void SmartDevice::udp_callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {		Lsend = len; 
 		MsgOut = get_buf(Lsend);
 		memcpy((void *)&MsgOut[0],(void *)bf, Lsend);

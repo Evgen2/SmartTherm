@@ -1,5 +1,8 @@
 /*
-OpenTherm.h - OpenTherm Library for the ESP8266/Arduino platform
+OpenTherm.h - OpenTherm Library for the ESP8266 & ESP32/Arduino platform
+
+based on v 1.13 + 5 July 2022
+
 https://github.com/ihormelnyk/OpenTherm
 http://ihormelnyk.com/pages/OpenTherm
 Licensed under MIT license
@@ -15,6 +18,8 @@ P MGS-TYPE SPARE DATA-ID  DATA-VALUE
 
 #include <stdint.h>
 #include <Arduino.h>
+
+
 
 enum OpenThermResponseStatus {
 	NONE,
@@ -41,7 +46,7 @@ enum OpenThermMessageType {
 
 typedef OpenThermMessageType OpenThermRequestType; // for backwared compatibility
 
-enum OpenThermMessageID {
+enum  OpenThermMessageID {
 	Status, // flag8 / flag8  Master and Slave Status flags.
 	TSet, // f8.8  Control setpoint  ie CH  water temperature setpoint (°C)
 	MConfigMMemberIDcode, // flag8 / u8  Master Configuration Flags /  Master MemberID Code
@@ -76,8 +81,8 @@ enum OpenThermMessageID {
 	TflowCH2, // f8.8  Flow water temperature CH2 circuit (°C)
 	Tdhw2, // f8.8  Domestic hot water temperature 2 (°C)
 	Texhaust, // s16  Boiler exhaust temperature (°C)
-	TdhwSetUBTdhwSetLB = 48, // s8 / s8  DHW setpoint upper & lower bounds for adjustment  (°C)
-	MaxTSetUBMaxTSetLB, // s8 / s8  Max CH water setpoint upper & lower bounds for adjustment  (°C)
+	TdhwSetUBTdhwSetLB = 48, // s8 / s8  DHW setpoint upper & lower bounds for adjustment (°C)
+	MaxTSetUBMaxTSetLB, // s8 / s8  Max CH water setpoint upper & lower bounds for adjustment (°C)
 	HcratioUBHcratioLB, // s8 / s8  OTC heat curve ratio upper & lower bounds for adjustment
 	TdhwSet = 56, // f8.8  DHW setpoint (°C)    (Remote parameter 1)
 	MaxTSet, // f8.8  Max CH water setpoint (°C)  (Remote parameters 2)
@@ -118,6 +123,11 @@ public:
 	unsigned long Lastresponse;
 	void begin(void(*handleInterruptCallback)(void));
 	void begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus));
+	
+	void init_OTids(void);
+	int update_OTid(int id, int sts);
+	int OTid_used(OpenThermMessageID id);
+
 	bool isReady();
 	unsigned long sendRequest(unsigned long request);
 	bool sendResponse(unsigned long request);
@@ -185,8 +195,54 @@ private:
 	void(*processResponseCallback)(unsigned long, OpenThermResponseStatus);
 };
 
+
+enum OpenThermRWtype {
+	ONONE,
+	OtR,
+	OtW,
+	OtRW
+};
+
+enum OpenThermMSGpartype {
+	OTNONE,
+	FLAG8, //flag8
+	OTU8,  // u8
+	OTS8,  // s8
+	OTU16, // u16
+	OTS16, // s16
+	F88,   // f8.8
+	OTSP   // special (DAY TIME only)
+};
+
+
+#define N_OT_NIDS 54
+
+//ESP8266: too small memory
+#pragma pack(1)
+class OpenThermID
+{   
+public:
+	byte /* OpenThermMessageID */ id;
+	byte rw:2; //read 0x01, write 0x02
+	byte ptype1:3; //parameter 1 type
+	byte ptype2:3; //parameter 2 type
+	byte used:2; //0 not used, 1 used, 2 not tested
+	byte count:7; //
+	byte countOk:7; //
+#if defined(ARDUINO_ARCH_ESP8266)
+//none
+#elif defined(ARDUINO_ARCH_ESP32)
+	const char *descript; //description
+#endif
+};
+#pragma pack()
+
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR
+#endif
+
+#ifndef IRAM_ATTR
+#define IRAM_ATTR ICACHE_RAM_ATTR
 #endif
 
 #endif // OpenTherm_h

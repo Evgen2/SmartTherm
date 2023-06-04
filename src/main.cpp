@@ -7,7 +7,6 @@
 
 #include <time.h>
 #include <Arduino.h>
-#include <OpenTherm.h>
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -19,6 +18,7 @@ typedef ESP8266WebServer WEBServer;
 typedef WebServer WEBServer;
 #endif
 
+#include "OpenTherm.h"
 #include "SmartDevice.hpp"
 #include "Smart_Config.h"
 #include "SD_OpenTherm.hpp"
@@ -26,9 +26,11 @@ typedef WebServer WEBServer;
 /************************************/
 extern void setup_web_common(void);
 extern void loop_web(void);
-extern void setup_udp(SmartDevice *psd);
+extern void setup_tcpudp(SmartDevice *psd);
 
-extern void loop_udp(void);
+extern void loop_udp(int sts);
+extern void loop_tcp(int sts);
+
 extern void test(void);
 /************************************/
 class SD_Termo SmOT;
@@ -71,6 +73,7 @@ DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
 extern int OTDebugInfo[10];
 
+
 void IRAM_ATTR handleInterrupt() {
     ot.handleInterrupt();
 }
@@ -99,35 +102,11 @@ void setup() {
 
   ot.begin(handleInterrupt, OTprocessResponse);
   setup_web_common();
-  setup_udp( &SmOT );
+  setup_tcpudp( &SmOT );
 }
-
-/* based on
-
-OpenTherm Master Communication Example
-By: Ihor Melnyk
-Date: January 19th, 2018
-
-Uses the OpenTherm library to get/set boiler status and water temperature
-Open serial monitor at 115200 baud to see output.
-
-Hardware Connections (OpenTherm Adapter (http://ihormelnyk.com/pages/OpenTherm) to Arduino/ESP8266):
--OT1/OT2 = Boiler X1/X2
--VCC = 5V or 3.3V
--GND = GND
--IN  = Arduino (3) / ESP8266 (5) Output Pin
--OUT = Arduino (2) / ESP8266 (4) Input Pin
-
-Controller(Arduino/ESP8266) input pin should support interrupts.
-Arduino digital pins usable for interrupts: Uno, Nano, Mini: 2,3; Mega: 2, 3, 18, 19, 20, 21
-ESP8266: Interrupts may be attached to any GPIO pin except GPIO16,
-but since GPIO6-GPIO11 are typically used to interface with the 
-flash memory ICs on most esp8266 modules, applying interrupts to these pins are likely to cause problems
-*/
 
 
 int status_OT = -1;
-
 
 void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
@@ -267,42 +246,81 @@ void loopDS1820(void)
 
 ////////////////////////////////////////////////////////
     //Set/Get Boiler Status
-    bool enableCentralHeating = true;
-    bool enableHotWater = true;
-    bool enableCooling = false;
+//    bool enableCentralHeating = true;
+//    bool enableHotWater = true;
+//    bool enableCooling = false;
 
 //
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
 {   float t;
     uint16_t u88;
     byte id;
+    int parity, messagetype;
 
-    if (!ot.isValidResponse(response)) {
-//        Serial.println("Invalid response: " + String(response, HEX) + ", status=" + String(ot.getLastResponseStatus()));
-        OTDebugInfo[1]++;
-        return;
+    if(SmOT.TestCmd == 2)
+    {
+      id = (response >> 16 & 0xFF);
+      if(id == SmOT.TestId)
+      {
+//        Serial.printf("TestCmd processResponse %d %d\n", response,  status);
+        SmOT.TestResponse = response;
+        SmOT.TestStatus = status;
+        SmOT.TestCmd = 0;
+      }
     }
 
+    parity = ot.parity(response);
+    if(parity)
+    { OTDebugInfo[1]++;
+        Serial.printf("Parity error\n");
+      return;
+    }
+    
     if (status == OpenThermResponseStatus::SUCCESS) {
         SmOT.stsOT = 0;
         SmOT.response = response; 
         OTDebugInfo[0]++;
     } else if (status == OpenThermResponseStatus::NONE) {
-       SmOT.stsOT = -1;
+      // SmOT.stsOT = -1;  // ??
         OTDebugInfo[2]++;
     } else if (status == OpenThermResponseStatus::INVALID) {
-       SmOT.stsOT = 1;
+       //SmOT.stsOT = 1;
         OTDebugInfo[3]++;
     } else if (status == OpenThermResponseStatus::TIMEOUT) {
-       SmOT.stsOT = 2;
+       if(SmOT.stsOT != -1)
+            SmOT.stsOT = 2;
         OTDebugInfo[4]++;
+        return;
     }
+
+    messagetype = ot.getMessageType(response);
+    if(messagetype == DATA_INVALID)
+    { OTDebugInfo[7]++;
+        Serial.printf("DATA_INVALID\n");
+      return;
+    }
+      
+    if(messagetype == UNKNOWN_DATA_ID)
+    { OTDebugInfo[8]++;
+      id = (response >> 16 & 0xFF);
+      ot.update_OTid(id, 0);
+//        Serial.printf("UNKNOWN_DATA_ID %d\n", id);
+      return;
+    }
+    if(messagetype != READ_ACK && messagetype != WRITE_ACK )
+    { OTDebugInfo[9]++;
+        Serial.printf("Messagetype  %d!!! Status %d %d\n", messagetype, status, SmOT.stsOT );
+      return;
+    }
+
     if(SmOT.stsOT != 0)
         return;
+    SmOT.t_lastwork = time(nullptr);
 
     id = (response >> 16 & 0xFF);
     u88 = (response & 0xffff);
     t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
+    ot.update_OTid(id, 1);
 
     switch (id)
     {
@@ -406,26 +424,43 @@ An OEM-specific fault/error cod
     }
 }
 
+//  TestCmd = TestId = TestPar =  TestResponce = 0;
+unsigned int buildTestRequest(void)
+{   unsigned int request = 0;
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, ( OpenThermMessageID) SmOT.TestId, SmOT.TestPar);
+    return request;
+}
+
 unsigned int buildRequest(void)
 {   static int st = 0, raz=0;
     unsigned int request = 0;
+
+    if(SmOT.TestCmd == 1)
+    {   request = buildTestRequest();  
+        SmOT.TestCmd++;
+        return request;
+    }
+
+M0:    
     switch(st)
     {
       case 0: // запрос статуса
-        request = ot.buildSetBoilerStatusRequest(enableCentralHeating, enableHotWater, enableCooling, false,false);
+// Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enableCentralHeating2);
         st++;
       break;
       case 1: //setBoilerTemperature
         st++;
           if(SmOT.need_set_T)
           {    //Set Boiler Temperature to 
+// Serial.printf("1 Request: %d\n",OpenThermMessageID::TSet);
               request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset);
                SmOT.need_set_T = 0;
                break;
           } else if(SmOT.need_set_dhwT) {
-              SmOT.need_set_dhwT = 0;
-               break;
+// Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
               request = ot.setDHWSetpoint(SmOT.TdhwSet);
+              SmOT.need_set_dhwT = 0;
           } else {
             raz++;
             if(raz > 100)
@@ -439,43 +474,61 @@ unsigned int buildRequest(void)
      // break; especially omitted = специально пропущен !!!! 
 
       case 2: //getBoilerTemperature
+// Serial.printf("2 Request: %d\n",OpenThermMessageID::Tboiler);
           request = ot.buildGetBoilerTemperatureRequest();
           st++;
       break;
 
       case 3: //getReturnTemperature
+// Serial.printf("3 Request: %d\n",OpenThermMessageID::Tret);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tret, 0);
           st++;
       break;
 
       case 4: //getDHWTemperature
+// Serial.printf("4 Request: %d\n",OpenThermMessageID::Tdhw);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0);
           st++;
       break;
 
       case 5: //getModulation
+// Serial.printf("5 Request: %d\n",OpenThermMessageID::RelModLevel);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::RelModLevel, 0);
           st++;
       break;
 
       case 6: //getPressure
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0);
-          st++;
-      break;
+// Serial.printf("6 Request: %d\n",OpenThermMessageID::CHPressure);
+        st += 2; // goto case 8
+        if(ot.OTid_used(OpenThermMessageID::CHPressure))
+        {
+//extern OpenThermID OT_ids[N_OT_NIDS];
+//       Serial.printf("CHPressure: %d  %d\n",OT_ids[18].count, OT_ids[18].countOk );
 
+
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0);
+        }  else {
+          goto M0;
+        }
+//          st++;
+      break;
+/*
       case  7: //
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::MaxRelModLevelSetting, 0);
           st++;
       break; 
-
-      case 8: //getFault
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
-         st = 0;
+*/
+      case 8: //getFault flags
+// Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
+        request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
         if(SmOT.BoilerStatus & 0x01)
-              st++;
+            st++;
+        else 
+           st = 0;
       break;
 
-      case 9: //getFault
+      case 9: //getFault code
+// Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;
       break;
@@ -486,13 +539,19 @@ unsigned int buildRequest(void)
 
 /* return 0 if no response, 1 if have responce */
 int OTloop(void)
-{   static int st = 0;
+{   static int st = 1;
     int rc = 0;
+
     switch(st)
     {
       case 0:
       if (ot.isReady()) 
       {  unsigned int request = buildRequest();
+/*      
+          unsigned int id;
+          id = (request >> 16 & 0xFF);
+           Serial.printf("Request:  %d\n",  id);
+*/           
          if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
               st++;
       }
@@ -511,8 +570,11 @@ int OTloop(void)
       case 2:
        ot.process();
         if(ot.status ==  OpenThermStatus::READY)
-        { st = 0;
+        { // unsigned int id;
+          st = 0;
           rc = 1;
+//          id = (ot.getLastResponse() >> 16 & 0xFF);
+//             Serial.printf("Last ResponseStatus:  %d Response id %d\n",  ot.getLastResponseStatus(), id);
         }
       break;
     }
@@ -548,14 +610,23 @@ void loop2(void)
     static unsigned long t, dt, t0=0; // t1=0;
      t = millis();
      dt = t - t0;
-     if(dt > 1)  //быстро моргаем раз в мсек
-     {
-    LedSts = (LedSts+1)&0x01;
-     digitalWrite(LED_BUILTIN, LedSts);   
-    LedSts = (LedSts+1)&0x01;
-     digitalWrite(LED_BUILTIN, LedSts);   
-        t0 = t;
-      }
+     if(LedSts) //быстро моргаем раз в мсек
+     {  if(dt > 2)
+        { LedSts = (LedSts+1)&0x01;
+          digitalWrite(LED_BUILTIN, LedSts);   
+          t0 = t;
+        }
+     } else {
+        int wt = 500;
+        if(SmOT.stsOT == 0) wt = 2000;
+        else if(SmOT.stsOT > 0) wt = 1000;
+        if(dt > wt)
+        { LedSts = (LedSts+1)&0x01;
+          digitalWrite(LED_BUILTIN, LedSts);   
+          t0 = t;          
+        }
+     }
+
     switch(irot)
     {  case 0: 
        loop_web();
@@ -575,10 +646,15 @@ void loop2(void)
     oldFree = free;
   }
 }
-         loop_udp();
+         loop_udp(SmOT.UDPserver_sts);
+         
           irot++;
         break;
         case 3:
+         loop_tcp(SmOT.TCPserver_sts);
+          irot++;
+        break;
+        case 4:
         loopDS1820();
           irot = 0;
         break;

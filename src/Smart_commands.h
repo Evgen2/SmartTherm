@@ -22,12 +22,12 @@
 
 #define  MCMD_GETTIME		0x10 // читать/задать время RTC
 #define  MCMD_SETTIME		0x11 // читать/задать время RTC
+#define  MCMD_GETDATA				0x12 //получить данные
+#define  MCMD_TESTCMD				0x13 
+#define  MCMD_TESTCMDANSWER			0x14 
 #define  MCMD_SET_UDPSERVER 0x20 // задать UDP сервер, порт и время обновления информации
 #define  MCMD_OT_INFO	    0x21 //Open Therm info
 
-#define  MCMD_GETDATA				0x12 //получить данные
-#define  MCMD_INIT_COUNT    0x13 //инициализация счетчика
-#define  MCMD_SET_PAR       0x14 //инициализация счетчика
 
 #define  MCMD_GETLOG		    0x15 //запрос лога
 #define  MCMD_LOGON		    	0x16 // лог вкючить-выключить
@@ -35,9 +35,6 @@
 #define  MCMD_GET_ADC       0x18 //
 
 
-#define  MCMD_SET_TEST	    0x30 //задать режим теста
-
-#define  MCMD_SET_INITED    0x40 //установить признак "инициализация прошла"
 
 
 

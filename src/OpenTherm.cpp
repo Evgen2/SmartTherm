@@ -26,7 +26,7 @@ OpenTherm::OpenTherm(int inPin, int outPin, bool isSlave):
 }
 
 void OpenTherm::begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus))
-{
+{	init_OTids();
 	pinMode(inPin, INPUT);
 	pinMode(outPin, OUTPUT);
 	if (handleInterruptCallback != NULL) {
@@ -136,7 +136,7 @@ OpenThermResponseStatus OpenTherm::getLastResponseStatus()
 	return responseStatus;
 }
 
-void ICACHE_RAM_ATTR OpenTherm::handleInterrupt()
+void IRAM_ATTR OpenTherm::handleInterrupt()
 {
 	if (isReady())
 	{
@@ -258,7 +258,7 @@ unsigned long OpenTherm::buildRequest(OpenThermMessageType type, OpenThermMessag
 unsigned long OpenTherm::buildResponse(OpenThermMessageType type, OpenThermMessageID id, unsigned int data)
 {
 	unsigned long response = data;
-	response |= type << 28;
+	response |= ((unsigned long)type) << 28;
 	response |= ((unsigned long)id) << 16;
 	if (parity(response)) response |= (1ul << 31);
 	return response;
@@ -414,4 +414,128 @@ float OpenTherm::getPressure() {
 
 unsigned char OpenTherm::getFault() {
     return ((sendRequest(buildRequest(OpenThermRequestType::READ, OpenThermMessageID::ASFflags, 0)) >> 8) & 0xff);
+}
+
+#if defined(ARDUINO_ARCH_ESP8266)
+	#define OTD(x) 
+#elif defined(ARDUINO_ARCH_ESP32)
+	#define OTD(x) x
+#endif
+
+OpenThermID OT_ids[N_OT_NIDS] =
+{
+ {	Status,					OtRW,	FLAG8,	FLAG8,	1,	0,	0,	OTD("Master and Slave Status flags") },
+ { 	TSet,					OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Control setpoint ie CH water temperature setpoint (°C)")},
+ {	MConfigMMemberIDcode,	OtW,	FLAG8,	OTU8,	0,	0,	0,	OTD("Master Configuration Flags / Master MemberID Code") }, 
+ {	SConfigSMemberIDcode,	OtR,	FLAG8,	OTU8,	0,	0,	0,	OTD("Slave Configuration Flags / Slave MemberID Code") },
+ {	Command,				OtW,	OTU8,	OTU8,	0,	0,	0,	OTD("Remote Command")},
+ {	ASFflags,				OtR,	FLAG8,	OTU8,	0,	0,	0,	OTD("OEM-fault-code Application-specific fault flags and OEM fault code")},
+ {	RBPflags,				OtR,	FLAG8,	FLAG8,	0,	0,	0,	OTD("Remote boiler parameter transfer-enable & read/write flags")},
+ {	CoolingControl,			OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Cooling control signal (%)")},
+ { 	TsetCH2,				OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Control setpoint for 2e CH circuit (°C)")},
+ { 	TrOverride,				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Remote override room setpoint")},
+
+ { 	TSP,					OtR,	OTU8,	OTU8,	0,	0,	0,	OTD("Number of Transparent-Slave-Parameters supported by slave")},
+ { 	TSPindexTSPvalue,		OtRW,	OTU8,	OTU8,	0,	0,	0,	OTD("Index number / Value of referred-to transparent slave parameter")},
+ { 	FHBsize,				OtR,	OTU8,	OTU8,	0,	0,	0,	OTD("Size of Fault-History-Buffer supported by slave")},
+ { 	FHBindexFHBvalue,		OtR,	OTU8,	OTU8,	0,	0,	0,	OTD("Index number / Value of referred-to fault-history buffer entry")},
+ { 	MaxRelModLevelSetting,	OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Maximum relative modulation level setting (%)")},
+ { 	MaxCapacityMinModLevel,	OtR,	OTU8,	OTU8,	0,	0,	0,	OTD("Maximum boiler capacity (kW) / Minimum boiler modulation level(%)")},
+ {	TrSet,					OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Room Setpoint (°C)")},
+ { 	RelModLevel,			OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Relative Modulation Level (%)")},
+ { 	CHPressure,				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Water pressure in CH circuit  (bar)")},
+ { 	DHWFlowRate,			OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Water flow rate in DHW circuit. (litres/minute)")},
+
+ {	DayTime,				OtRW,	OTSP, 	OTU8, 	0,	0,	0,	OTD("Day of Week and Time of Day")},
+ {	Date,					OtRW, 	OTU8,	OTU8,	0,	0,	0,	OTD("Calendar date")},
+ {	Year, 					OtRW,	OTU16,	OTNONE,	0,	0,	0,	OTD("Calendar year")},
+ {	TrSetCH2,				OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Room Setpoint for 2nd CH circuit (°C)")},
+ {	Tr, 					OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Room temperature (°C)")},
+ {	Tboiler, 				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Boiler flow water temperature (°C)")},
+ {	Tdhw, 					OtR,	F88,	OTNONE,	0,	0,	0,	OTD("DHW temperature (°C)")},
+ {	Toutside, 				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Outside temperature (°C)")},
+ {	Tret, 					OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Return water temperature (°C)")},
+ {	Tstorage, 				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Solar storage temperature (°C)")},
+
+ {	Tcollector,				OtR,	F88,	OTNONE,	0,	0,	0,	OTD("Solar collector temperature (°C)")}, //s16 (p26) or f8.8 (p32) ?? 
+ {	TflowCH2,				OtR,	F88,	OTNONE,	0,	0,	0, 	OTD("Flow water temperature CH2 circuit (°C)")},
+ {	Tdhw2,					OtR,	F88,	OTNONE,	0,	0,	0, 	OTD("Domestic hot water temperature 2 (°C)")},
+ {	Texhaust,				OtR,	OTS16,	OTNONE,	0,	0,	0, 	OTD("Boiler exhaust temperature (°C)")},
+ {	TdhwSetUBTdhwSetLB,		OtRW,	OTS8,	OTS8,	0,	0,	0, 	OTD("DHW setpoint upper & lower bounds for adjustment (°C)")}, //48 
+ {	MaxTSetUBMaxTSetLB, 	OtRW,	OTS8,	OTS8,	0,	0,	0, 	OTD("Max CH water setpoint upper & lower bounds for adjustment (°C)")},
+ {	HcratioUBHcratioLB,  	OtRW,	OTS8,	OTS8,	0,	0,	0, 	OTD("OTC heat curve ratio upper & lower bounds for adjustment")},
+ {	TdhwSet,				OtRW,	F88,	OTNONE,	0,	0,	0, 	OTD("DHW setpoint (°C) (Remote parameter 1)")}, // 56
+ {	MaxTSet,				OtRW,	F88,	OTNONE,	0,	0,	0, 	OTD("Max CH water setpoint (°C) (Remote parameters 2)")},
+ {	Hcratio,				OtRW,	F88,	OTNONE,	0,	0,	0, 	OTD("f8.8  OTC heat curve ratio (°C) (Remote parameter 3)")},
+
+ {	RemoteOverrideFunction,	OtR,	FLAG8,	OTNONE,	0,	0,	0, OTD("Function of manual and program changes in master and remote room setpoint")}, // = 100
+ {	OEMDiagnosticCode,		OtR,	OTU16,	OTNONE,	0,	0,	0, OTD("OEM-specific diagnostic/service code")}, // = 115
+ {	BurnerStarts,			OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts burner")}, 
+ {	CHPumpStarts,			OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts CH pump")},
+ {	DHWPumpValveStarts, 	OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts DHW pump/valve")},
+ 
+ {	DHWBurnerStarts,		OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts burner during DHW mode")},
+ {	BurnerOperationHours,	OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of hours that burner is in operation (i.e. flame on)")},
+ {	CHPumpOperationHours, 	OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of hours that CH pump has been running")},
+ {	DHWPumpValveOperationHours,
+						 	OtRW,	OTU16,	OTNONE,	0,	0,	0,	OTD("Number of hours that DHW pump has been running or DHW valve has been opened")},
+ {	DHWBurnerOperationHours, 
+						 	OtRW,	OTU16,	OTNONE,	0,	0,	0,	OTD("Number of hours that burner is in operation during DHW mode")},
+
+ {	OpenThermVersionMaster,	OtW,	F88,	OTNONE,	0,	0,	0,	OTD("The implemented version of the OpenTherm Protocol Specification in the master")},
+ {	OpenThermVersionSlave,	OtR,	F88,	OTNONE,	0,	0,	0,	OTD("The implemented version of the OpenTherm Protocol Specification in the slave")},
+ {	MasterVersion,			OtW, 	OTU8,	OTU8,	0,	0,	0,	OTD("Master product version number and type")},
+ {	SlaveVersion,			OtR, 	OTU8,	OTU8,	0,	0,	0,	OTD("Slave product version number and type")}
+ 
+};
+
+static byte id_to_index[128];
+
+void OpenTherm::init_OTids(void)
+{  int i;
+   i = 0;
+   for(i=0; i<N_OT_NIDS; i++)
+   {	OT_ids[i].used = 2;
+   		OT_ids[i].count = 0;
+   		OT_ids[i].countOk = 0;
+
+		id_to_index[(OT_ids[i].id)] = i;
+   }
+   OT_ids[0].used = 1;
+
+}
+
+
+int OpenTherm::OTid_used(OpenThermMessageID id)
+{	int ind, rc = 0 ;
+	ind = id_to_index[id];
+// Serial.printf("id =%d ind= %d\n", id, ind);
+
+	if(OT_ids[ind].used) rc = 1;
+	return rc;
+}
+
+
+int OpenTherm::update_OTid(int id, int sts)
+{ 	int ind;
+	if(id < 0 || id > 127)
+		return 1;
+	ind = id_to_index[id];
+	if(ind == -1)
+		return 2;
+	if(OT_ids[ind].used == 2)
+	{
+		OT_ids[ind].count++;
+		if(sts )
+			OT_ids[ind].countOk++;
+		if(OT_ids[ind].count > 32)
+		{
+			if(OT_ids[ind].countOk > 16)
+				OT_ids[ind].used  = 1;
+			else
+				OT_ids[ind].used = 0;
+		}
+	}
+
+	return 0;
 }
