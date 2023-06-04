@@ -1,5 +1,5 @@
 # SmartTherm
-Version 0.5
+Version 0.6 alfa
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -18,10 +18,12 @@ Features:
 * UDP interface
 * up to 2 DS18B20 temperature sensors
 
+v 0.6 changes
+* TCP/UDP interface, Windows/Linux application [SmartServer](https://github.com/Evgen2/SmartServer) for TCP/UDP API
+* config saved and read after reboot
+* Hot water and CH2 enabled
 
 Todo:
-* TCP interface
-* Windows/Linux example for TCP/UDP
 * MQTT interface for [Home Assistant](https://www.home-assistant.io/)
 
 ## License
