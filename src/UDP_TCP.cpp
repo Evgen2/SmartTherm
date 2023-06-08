@@ -29,7 +29,7 @@ U8 *esp_get_buf (U16 size);
 
 extern AutoConnectConfig config;
 extern AutoConnect portal;
-#define BUFSIZE 256
+#define BUFSIZE 128
 
 WiFiUDP Udp;
 WiFiClient tcp_client;
@@ -99,7 +99,8 @@ void loop_tcp(int sts)
 		case 0:// listen for incoming clients)
 		// Doc: Gets a client that is connected to the server and has data available for reading.
 		//      The connection persists when the returned client object goes out of scope
-			tcp_client = server.available();
+//			tcp_client = server.available(); //WiFiServer::available(uint8_t*)' is deprecated: Renamed to accept(). [-Wdeprecated-declarations]
+			tcp_client = server.accept();
 			if(tcp_client)
 			 {  t0 = millis();
 			 	tcp_client.setTimeout(5);
@@ -129,7 +130,7 @@ void loop_tcp(int sts)
 			rc = tcp_client.available();
 			if(rc > 0)
 			{   if(nb == 0)
-				{	Serial.printf("%d tcp client from ", millis());
+				{	Serial.printf("%ld tcp client from ", millis());
 					Serial.println(tcp_client.remoteIP().toString());
 				}
 
@@ -138,9 +139,9 @@ void loop_tcp(int sts)
 					if(rc >= BUFSIZE)
 							rc = BUFSIZE-1;
 					len = tcp_client.readBytes(tcpudp_incomingPacket, rc);
-				//	Serial.printf("%d readBytes %d\n", millis(),  len);
+					Serial.printf("%d readBytes %d\n", millis(),  len);
 				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, Udp_Lsend, BUFSIZE, esp_get_buf);
-				//	Serial.printf("%d net_callback rc %d, Udp_Lsend=%d\n",  millis(), rc, Udp_Lsend) ;
+					Serial.printf("%d net_callback rc %d, Udp_Lsend=%d\n",  millis(), rc, Udp_Lsend) ;
 					if(rc == 0)
 					{//	Serial.printf("net_callback rc=%i l=%i\n", rc, Udp_Lsend);	
 					 //	Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
@@ -376,9 +377,12 @@ static unsigned int jj=0xffff, Nlost=0;
 				break;
 
 			case MCMD_SET_UDPSERVER:
-			p_sd->udp_callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
+			p_sd->callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
 			p_sd->udp_remoteIP = Udp.remoteIP();
 			Udp_remoteIP = p_sd->udp_remoteIP;  
+				break;
+			case MCMD_SET_TCPSERVER:
+			p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
 				break;
 	 default:
     Serial.printf("net_callback Unknown cmd %i\n",  cmd);
@@ -400,7 +404,7 @@ static unsigned int jj=0xffff, Nlost=0;
 int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
 {
 	Serial.printf("TODO %s\n", __FUNCTION__);
-
+    
     return 1;
 }
 

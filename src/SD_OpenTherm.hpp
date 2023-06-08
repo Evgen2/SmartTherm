@@ -18,7 +18,7 @@ public:
     bool enable_CentralHeating;
     bool enable_HotWater;
     bool enable_Cooling;
-    bool enableCentralHeating2;
+    bool enable_CentralHeating2;
 
   unsigned long response;
   float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
@@ -27,6 +27,7 @@ public:
   float Tset2_r; // Temp2 set from responce
 
   float BoilerT; // Boiler flow water temperature (°C) CH
+  float BoilerT2; // Boiler CH2 water temperature (°C) CH
   float RetT;    // Return water temperature (°C) CH
 	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
   float dhw_t;   // DHW temperature (°C)
@@ -40,9 +41,10 @@ public:
   unsigned int OEMDcode;
   unsigned int rcode[5];
   int BoilerStatus;
-  int need_set_T; 
-  int need_set_dhwT;
-  int need_write_f; 
+  byte need_set_T; 
+  byte need_set_T2; 
+  byte need_set_dhwT;
+  byte need_write_f; 
 
   int TestCmd;
   int TestId;
@@ -55,7 +57,7 @@ public:
     enable_CentralHeating = true;
     enable_HotWater = true;
     enable_Cooling = false;
-    enableCentralHeating2 = false;
+    enable_CentralHeating2 = false;
     
       stsOT = -1;
       t_lastwork = 0;
@@ -63,7 +65,7 @@ public:
 	    stsT2 = -1;
       t1 = t2 = 0.;
       response = 0;
-      BoilerT = 0.;
+      BoilerT =  BoilerT2 = 0.;
       Tset = 40.;
       Tset_r = 0.;
       Tset2 = 41.;
@@ -71,6 +73,7 @@ public:
 
       TdhwSet = 40.;
       need_set_T = 1;
+      need_set_T2 = 0;
       need_set_dhwT = 1;
       need_write_f = 0;
       RetT = 0.;
@@ -89,7 +92,7 @@ public:
   
   void loop(void);
   void OpenThermInfo(void);
-  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+//  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -99,8 +102,6 @@ public:
   int Read_data_fs(char *path, uint8_t *dataBuff, int len);
   int Read_ot_fs(void);
   int Write_ot_fs(void);
-  int Read_udp_fs(void);
-  int Write_udp_fs(void);
 
 };
 

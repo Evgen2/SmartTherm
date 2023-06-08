@@ -25,15 +25,18 @@ extern IPAddress Udp_remoteIP;
 extern int Udp_RemotePort;
 extern U8 *esp_get_buf (U16 size);
 
-struct Msg1 msg;
+//struct Msg1 msg;
 static int indcmd = 0;
+
+#define FS_BUF 128
 
 const char *path="/smot_par";
 
 int SD_Termo::Read_ot_fs(void)
 {  int rc, n, nw;
-    uint8_t Buff[256];
+    uint8_t Buff[FS_BUF];
     rc = 0;
+
 
     nw = sizeof(enable_CentralHeating)+sizeof(enable_HotWater) + sizeof(Tset) + sizeof(TdhwSet);
     nw += sizeof(UDPserver_repot_period) + sizeof(UDPserver_port);
@@ -65,7 +68,7 @@ int SD_Termo::Read_ot_fs(void)
 
 int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int  n, nw, i, l;
-    uint8_t Buff[256];
+    uint8_t Buff[FS_BUF];
     unsigned short int crs, crs_r, nn;
 
     if((unsigned int)len > sizeof(Buff)-2 * sizeof(unsigned short int))
@@ -136,7 +139,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
 
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int rc=0, i, n, nw;
-    uint8_t Buff[256];
+    uint8_t Buff[FS_BUF];
     unsigned short int crs, nn;
 
     if((unsigned int)len > sizeof(Buff)-2 * sizeof(unsigned short int))
@@ -176,7 +179,7 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 
 int SD_Termo::Write_ot_fs(void)
 {   int rc, n;
-    uint8_t Buff[256];
+    uint8_t Buff[FS_BUF];
     
     n = sizeof(enable_CentralHeating);
     memcpy(&Buff[0],(void *) &enable_CentralHeating, n);
@@ -196,15 +199,7 @@ int SD_Termo::Write_ot_fs(void)
     return rc;
 }
 
-  int SD_Termo::Read_udp_fs(void)
-  {
-    return 0;
-  }
-  int SD_Termo::Write_udp_fs(void)
-  {
-    return 0;
-  }
-
+ 
 void SD_Termo::loop(void)
 {  int dt;
 
@@ -219,60 +214,76 @@ void SD_Termo::loop(void)
         need_write_f = 0;
     }
     
-    if(UDPserver_sts == 0)
+    if(UDPserver_sts)
+    {    dt = millis() - UDPserver_t;
+         if(dt < UDPserver_repot_period)
+         {   return;
+         }
+        if(Udp_Lsend > 0)
             return;
-    dt = millis() - UDPserver_t;
-    if(dt < UDPserver_repot_period)
-    {   return;
-    }
-    if(Udp_Lsend > 0)
-        return;
 //  Serial.printf("SD_Termo::loop %li\n",  millis());
-    OpenThermInfo();
-    UDPserver_t = millis();
+        OpenThermInfo();
+        UDPserver_t = millis();
+    }
+    if(TCPserver_sts)
+    {    dt = millis() - TCPserver_t;
+         if(dt < TCPserver_repot_period)
+         {   return;
+         }
+        if(Udp_Lsend > 0)
+            return;
+//  Serial.printf("SD_Termo::loop %li\n",  millis());
+        OpenThermInfo();
+        TCPserver_t = millis();
+    }
 }
   
 void SD_Termo::OpenThermInfo(void)
 {   int i,l;
     unsigned char * MsgOut;
-    msg.cmd0 = 0x22;
-    msg.cmd  = MCMD_OT_INFO;
-    msg.ind = indcmd++;
-    for(i=0; i<16*4; i++)
-       msg.Buf[i] = i;
+    struct Msg1 *msg;
+
     l = 16*4+6;
-	
-    memcpy((void *)&msg.Buf[0],(void *)&stsOT,4); 
-    memcpy((void *)&msg.Buf[4],(void *)&BoilerStatus,4); 
-    memcpy((void *)&msg.Buf[8],(void *)&BoilerT,4); 
-    memcpy((void *)&msg.Buf[12],(void *)&RetT,4);   
-    memcpy((void *)&msg.Buf[16],(void *)&dhw_t,4); 
-    memcpy((void *)&msg.Buf[20],(void *)&FlameModulation,4); 
-    memcpy((void *)&msg.Buf[24],(void *)&Pressure,4); 
-    memcpy((void *)&msg.Buf[28],(void *)&status,4); 
-    memcpy((void *)&msg.Buf[32],(void *)&t1,4); 
-    memcpy((void *)&msg.Buf[36],(void *)&t2,4); 
-    memcpy((void *)&msg.Buf[40],(void *)&rcode[0],4); 
-    memcpy((void *)&msg.Buf[44],(void *)&rcode[1],4); 
-    memcpy((void *)&msg.Buf[48],(void *)&rcode[2],4); 
-    memcpy((void *)&msg.Buf[52],(void *)&rcode[3],4); 
-    memcpy((void *)&msg.Buf[56],(void *)&rcode[4],4); 
-
-    memcpy((void *)&msg.Buf[60],(void *)&Fault,1); 
-
     Udp_Lsend = 6 + l;	
+
     MsgOut = esp_get_buf(Udp_Lsend);
-  	memcpy((void *)&MsgOut[0],(void *)&msg,Udp_Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+
+    msg->cmd0 = 0x22;
+    msg->cmd  = MCMD_OT_INFO;
+    msg->ind = indcmd++;
+    for(i=0; i<16*4; i++)
+       msg->Buf[i] = i;
+
+
+    memcpy((void *)&msg->Buf[0],(void *)&stsOT,4); 	//i1
+    memcpy((void *)&msg->Buf[4],(void *)&BoilerStatus,4);  //f1
+    memcpy((void *)&msg->Buf[8],(void *)&BoilerT,4); 	//f2
+    memcpy((void *)&msg->Buf[12],(void *)&RetT,4);   	//f3
+    memcpy((void *)&msg->Buf[16],(void *)&dhw_t,4); 	//f4
+    memcpy((void *)&msg->Buf[20],(void *)&FlameModulation,4);	//f5 
+    memcpy((void *)&msg->Buf[24],(void *)&Pressure,4); 	//f6
+    memcpy((void *)&msg->Buf[28],(void *)&status,4); 	//i2
+    memcpy((void *)&msg->Buf[32],(void *)&t1,4); 	//f7
+    memcpy((void *)&msg->Buf[36],(void *)&t2,4); 	//f8
+    memcpy((void *)&msg->Buf[40],(void *)&rcode[0],4); 	//i3
+    memcpy((void *)&msg->Buf[44],(void *)&rcode[1],4); 	//i4
+    memcpy((void *)&msg->Buf[48],(void *)&rcode[2],4); 	//i5
+    memcpy((void *)&msg->Buf[52],(void *)&rcode[3],4); 	//i6
+    memcpy((void *)&msg->Buf[56],(void *)&rcode[4],4); 	//i7
+
+    memcpy((void *)&msg->Buf[60],(void *)&Fault,1); 	//b1
       
 }
     
- 
+/* 
 void SD_Termo::udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
 
     Serial.printf("todo %s\n", __FUNCTION__); 
 
 }
+*/
 
 void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {

@@ -323,9 +323,20 @@ unsigned long OpenTherm::buildSetBoilerTemperatureRequest(float temperature) {
 	return buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TSet, data);
 }
 
+unsigned long OpenTherm::buildSetBoilerCH2TemperatureRequest(float temperature) {
+	unsigned int data = temperatureToData(temperature);
+	return buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TsetCH2, data);
+}
+
+
 unsigned long OpenTherm::buildGetBoilerTemperatureRequest() {
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tboiler, 0);
 }
+
+unsigned long OpenTherm::buildGetBoilerCH2TemperatureRequest() {
+	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::TflowCH2, 0);
+}
+
 
 //parsing responses
 bool OpenTherm::isFault(unsigned long _response) {

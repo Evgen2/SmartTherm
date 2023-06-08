@@ -370,10 +370,13 @@ mode active ]
     case OpenThermMessageID::Tret: //28
         SmOT.RetT = t;
         break;
-
     case OpenThermMessageID::Tdhw: //26
         SmOT.dhw_t = t;
         break;
+    case OpenThermMessageID::TflowCH2: //31
+        SmOT.BoilerT2 = t;
+        break;
+
     case OpenThermMessageID::MaxRelModLevelSetting: //14 Maximum relative modulation level setting (%) W
         SmOT.MaxRelModLevelSetting = t;
         break;
@@ -446,7 +449,8 @@ M0:
     {
       case 0: // запрос статуса
 // Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
-        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enableCentralHeating2);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+         
         st++;
       break;
       case 1: //setBoilerTemperature
@@ -454,13 +458,17 @@ M0:
           if(SmOT.need_set_T)
           {    //Set Boiler Temperature to 
 // Serial.printf("1 Request: %d\n",OpenThermMessageID::TSet);
-              request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset);
+              request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset); //1
                SmOT.need_set_T = 0;
                break;
           } else if(SmOT.need_set_dhwT) {
 // Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
-              request = ot.setDHWSetpoint(SmOT.TdhwSet);
+              request = ot.setDHWSetpoint(SmOT.TdhwSet); //56
               SmOT.need_set_dhwT = 0;
+          } else if(SmOT.need_set_T2) {
+              request = ot.buildSetBoilerCH2TemperatureRequest(SmOT.Tset2); //8
+               SmOT.need_set_T2 = 0;
+               break;
           } else {
             raz++;
             if(raz > 100)
@@ -468,6 +476,8 @@ M0:
                     SmOT.need_set_T  = 1; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
                 if(SmOT.enable_HotWater) 
                     SmOT.need_set_dhwT = 1;                   
+                if(SmOT.enable_CentralHeating2)
+                    SmOT.need_set_T2  = 1; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
                 raz = 0;
             }
           }
@@ -481,45 +491,46 @@ M0:
 
       case 3: //getReturnTemperature
 // Serial.printf("3 Request: %d\n",OpenThermMessageID::Tret);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tret, 0);
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tret, 0); //28
           st++;
       break;
 
       case 4: //getDHWTemperature
 // Serial.printf("4 Request: %d\n",OpenThermMessageID::Tdhw);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0);
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0); //26
           st++;
       break;
 
       case 5: //getModulation
 // Serial.printf("5 Request: %d\n",OpenThermMessageID::RelModLevel);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::RelModLevel, 0);
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::RelModLevel, 0); //17
           st++;
       break;
 
       case 6: //getPressure
-// Serial.printf("6 Request: %d\n",OpenThermMessageID::CHPressure);
-        st += 2; // goto case 8
+        st++; 
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
-        {
-//extern OpenThermID OT_ids[N_OT_NIDS];
-//       Serial.printf("CHPressure: %d  %d\n",OT_ids[18].count, OT_ids[18].countOk );
-
-
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0);
+        {  
+// Serial.printf("6  cRequest: %d\n",OpenThermMessageID::CHPressure);
+           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0); //18
         }  else {
           goto M0;
         }
 //          st++;
       break;
-/*
-      case  7: //
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::MaxRelModLevelSetting, 0);
-          st++;
-      break; 
-*/
+      case 7: //TSetCH2
+         st++;
+        if(SmOT.enable_CentralHeating2)
+        {
+// Serial.printf("7 Request: %d\n",OpenThermMessageID::TflowCH2);
+          request = ot.buildGetBoilerCH2TemperatureRequest(); //TflowCH2
+        }  else {
+          goto M0;
+        }
+      break;
+
       case 8: //getFault flags
-// Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
+ //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
         if(SmOT.BoilerStatus & 0x01)
             st++;
@@ -528,7 +539,7 @@ M0:
       break;
 
       case 9: //getFault code
-// Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
+ //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;
       break;
@@ -604,10 +615,13 @@ void loop(void)
 
 }
 
+int minRamFree=-1;
+
 /* web, udp, DS1820 */
 void loop2(void)
 {   static int irot = 0;
-    static unsigned long t, dt, t0=0; // t1=0;
+    static unsigned long  t0=0; // t1=0;
+    unsigned long t, dt;
      t = millis();
      dt = t - t0;
      if(LedSts) //быстро моргаем раз в мсек
@@ -620,7 +634,7 @@ void loop2(void)
         int wt = 500;
         if(SmOT.stsOT == 0) wt = 2000;
         else if(SmOT.stsOT > 0) wt = 1000;
-        if(dt > wt)
+        if(dt > (unsigned long)wt)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
           t0 = t;          
@@ -641,8 +655,17 @@ void loop2(void)
 { static int oldFree = 0;
   int free;
   free = ESP.getFreeHeap();
-  if(abs(free - oldFree) > 3000)
-  { Serial.printf("IRAM free: %6d bytes\n", free);
+  if(minRamFree == -1)
+	    minRamFree = free;
+  else if(free < minRamFree)
+  {	  minRamFree = free;
+  }
+#if defined(ARDUINO_ARCH_ESP8266)
+  if(abs(free - oldFree) > 2500)
+#elif defined(ARDUINO_ARCH_ESP32)
+  if(abs(free - oldFree) > 5000)
+#endif
+  { Serial.printf("IRAM free: %6d bytes (min %d)\n", free, minRamFree);
     oldFree = free;
   }
 }

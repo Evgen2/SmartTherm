@@ -56,20 +56,20 @@ const char* ABOUT_URI = "/about";
 const char* SET_T_URI =  "/set_t";
 const char* SET_PAR_URI =  "/set_par";
 const char* DEBUG_URI = "/debug";
-const char* SIMPLE_URI = "/s";
 
 
 /************* InfoPage ******************/
 ACText(Caption, "<b>Статус OT: </b>", "", "", AC_Tag_DIV);
-ACText(Info1, "info text 1", "", "", AC_Tag_DIV);
-ACText(Info2, "info text 2", "", "", AC_Tag_DIV);
-ACText(Info3, "info text 3", "", "", AC_Tag_DIV);
-ACText(Info4, "info text 4", "", "", AC_Tag_DIV);
-ACText(Info5, "info text 5", "", "", AC_Tag_DIV);
-ACText(Info6, "info6", "", "", AC_Tag_DIV);
-ACText(Info7, "info7", "", "", AC_Tag_DIV);
+ACText(Info1, "it1", "", "", AC_Tag_DIV);
+ACText(Info2, "it2", "", "", AC_Tag_DIV);
+ACText(Info3, "it3", "", "", AC_Tag_DIV);
+ACText(Info4, "it4", "", "", AC_Tag_DIV);
+ACText(Info5, "it5", "", "", AC_Tag_DIV);
+ACText(Info6, "it6", "", "", AC_Tag_DIV);
+ACText(Info7, "it7", "", "", AC_Tag_DIV);
 ACInput(SetBoilerTemp,"44", "Температура теплоносителя:<br>"); // Boiler Control setpoint
 ACInput(SetDHWTemp,   "43", "Температура горячей воды:<br>");  // DHW Control setpoint
+ACInput(SetBoilerTemp2,"44", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
@@ -80,23 +80,20 @@ ACText(Ctrl2, "Настройки 2", "", "", AC_Tag_DIV);
 //ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
+AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление 2", false, AC_Behind , AC_Tag_DIV);
   
 //AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
 //ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
 ACSubmit(ApplyChB, "Задать", SET_PAR_URI, AC_Tag_DIV);
-/************* simplePage *****************/
-ACText(St_inf, "<b>OT:</b>", "", "", AC_Tag_DIV);
-ACText(St1, "1", "", "", AC_Tag_DIV);
-ACText(St2, "2", "", "", AC_Tag_DIV);
-ACText(St3, "3", "", "", AC_Tag_DIV);
-ACText(St4, "4", "", "", AC_Tag_DIV);
-ACText(St5, "5", "", "", AC_Tag_DIV);
-ACText(St6, "6", "", "", AC_Tag_DIV);
 
 /************* SetTempPage ***************/
-ACText(SetTemp_info1, "Заданная температура:", "", "", AC_Tag_DIV);
-ACText(SetTemp_info2, "info text 2", "", "", AC_Tag_DIV);
+ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
 ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
+/************* SetParPage ***************/
+ACText(SetPar_info1, "", "", "", AC_Tag_DIV); //CH DHW CH2:
+//ACText(SetPar_info2, " ", "", "", AC_Tag_DIV);
+ACSubmit(SetPar_OK, "Ok", INFO_URI, AC_Tag_DIV);
+
 /************* debugPage( ****************/
 ACText(DebugInfo1, "D1", "", "", AC_Tag_DIV);
 ACText(DebugInfo2, "D2", "", "", AC_Tag_DIV);
@@ -104,7 +101,6 @@ ACText(DebugInfo3, "D3", "", "", AC_Tag_DIV);
 ACText(DebugInfo4, "D4", "", "", AC_Tag_DIV);
 ACText(DebugInfo5, "D5", "", "", AC_Tag_DIV);
 ACText(DebugInfo6, "D6", "", "", AC_Tag_DIV);
-ACText(DebugInfo7, "D7", "", "", AC_Tag_DIV);
 ACSubmit(DebugApply, "Обновить", DEBUG_URI, AC_Tag_DIV);
 /************* AboutPage *****************/
 ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
@@ -114,12 +110,12 @@ ACText(About_3, "3", "", "", AC_Tag_DIV);
 /*****************************************/
 
 // AutoConnectAux for the custom Web page.
-AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetNewBoilerTemp });
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, Ctrl2, ApplyChB});
-AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
-AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetTemp_info1, SetTemp_info2,  SetTemp_OK});
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6, DebugInfo7, DebugApply});
-AutoConnectAux simplePage(SIMPLE_URI, "S", true, { St_inf, St1, St2, St3, St4, St5, St6});
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, ApplyChB});
+AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1,  SetTemp_OK});
+AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetPar_info1,   SetPar_OK});
+
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6,  DebugApply});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, About_1, About_2, About_3});
 
 AutoConnectConfig config;
@@ -153,9 +149,8 @@ void setup_web_common(void)
 //  Serial.println();
    Serial.println("setup_web_common");
   FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+//  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
 
-   Serial.printf("sizeof OpenThermID=%d\n", sizeof(OpenThermID));
-   Serial.printf("sizeof OT_ids=%d\n", sizeof(OT_ids));
 
 #if defined(ARDUINO_ARCH_ESP8266)
    Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
@@ -164,9 +159,6 @@ void setup_web_common(void)
 #endif
 
 
-//  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
-#if TEST
-#endif // test
     { int tBytes, uBytes; 
 #if defined(ARDUINO_ARCH_ESP8266)
       FSInfo info;
@@ -194,10 +186,9 @@ void setup_web_common(void)
   SetTempPage.on(onSetTemp);
   SetParPage.on(onSetPar);
   debugPage.on(onDebug);
-  simplePage.on(onS);
   AboutPage.on(onAbout);
 /**/  
-  portal.join({InfoPage, Setup_Page, SetTempPage, SetParPage, debugPage, simplePage, AboutPage});     // Join pages.
+  portal.join({InfoPage, Setup_Page, SetTempPage, SetParPage, debugPage,  AboutPage});     // Join pages.
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
@@ -242,11 +233,12 @@ void setup_web_common(void)
 //    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
     if(WiFi.getMode() == WIFI_OFF)
     {
-       Serial.printf("todo get MAC\n");
+      wifi_get_macaddr(STATION_IF, SmOT.Mac);
 
     } else {
-       Serial.printf("todo get MAC\n");
+      wifi_get_macaddr(STATION_IF, SmOT.Mac);
     }
+    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
 #elif defined(ARDUINO_ARCH_ESP32)
     if(WiFi.getMode() == WIFI_MODE_NULL){
         esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
@@ -279,6 +271,8 @@ int WiFists = -1;
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[120];
+extern int minRamFree;
+
 //WiFiDebugInfo
    sprintf(str,"WiFi statistics:");
    DebugInfo1.value = str;
@@ -295,7 +289,7 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
    sprintf(str,"%d %d  %d %d  %d %d  %d %d  %d %d", 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9]);
    DebugInfo5.value = str;
-   sprintf(str,"Free RAM %d", ESP.getFreeHeap());
+   sprintf(str,"min free RAM %d", minRamFree);
    DebugInfo6.value = str;
 #if 0   
    {  int i;
@@ -336,13 +330,24 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
      {  sprintf(str,"Отопление %.1f",v);
         SmOT.need_set_T = 1;
      }
-    SetTemp_info2.value =   str;
+    SetTemp_info1.value =   str;
     if(SmOT.enable_HotWater)
     {   sprintf(str,"Горячая вода %.1f",v1);
         SmOT.need_set_dhwT = 1;
-       SetTemp_info2.value += " ";
-       SetTemp_info2.value +=  str;
+       SetTemp_info1.value += " ";
+       SetTemp_info1.value +=  str;
     }
+
+    if(SmOT.enable_CentralHeating2)
+    {    v = SetBoilerTemp2.value.toFloat();
+         if(v != SmOT.Tset2) isChange = 1;
+         SmOT.Tset2 = v;
+       sprintf(str,"CH2 %.1f",v);
+        SmOT.need_set_dhwT = 1;
+       SetTemp_info1.value += " ";
+       SetTemp_info1.value +=  str;
+    }
+
     if(isChange)
         SmOT.need_write_f = 1;
 
@@ -350,16 +355,57 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 }
 
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{
-  if( CtrlChB1.checked)
-       SmOT.enable_CentralHeating = true;
-  else
-      SmOT.enable_CentralHeating = false;
-      
-  if( CtrlChB2.checked)
-      SmOT.enable_HotWater = true;
-  else
-      SmOT.enable_HotWater = false;
+{  int isChange=0;
+   bool check;
+
+  if( CtrlChB1.checked) check = true;
+  else                  check = false;
+  if(check != SmOT.enable_CentralHeating)
+  { isChange++;
+    SmOT.enable_CentralHeating = check;
+  }
+
+  if( CtrlChB2.checked) check = true;
+  else                  check = false;
+  if(check != SmOT.enable_HotWater)
+  { isChange++;
+    SmOT.enable_HotWater = check;
+  }
+  
+  if( CtrlChB3.checked) check = true;
+  else                  check = false;
+  if(check != SmOT.enable_CentralHeating2)
+  { isChange++;
+    SmOT.enable_CentralHeating2 = check;
+  }
+
+  if(isChange)
+        SmOT.need_write_f = 1;  //need write changes to FS
+
+   SetPar_info1.value = "Отопление ";
+
+    if(SmOT.enable_CentralHeating)
+    {   SetPar_info1.value += "Вкл";
+        SmOT.need_set_T = 1;
+    } else {
+       SetPar_info1.value += "вЫкл";
+    }
+
+    SetPar_info1.value += " Горячая вода ";
+    if(SmOT.enable_HotWater)
+    {   SetPar_info1.value += "Вкл";
+        SmOT.need_set_dhwT = 1;
+    } else {
+       SetPar_info1.value += "вЫкл";
+    }
+
+    SetPar_info1.value += " Отопление2 ";
+    if(SmOT.enable_CentralHeating2)
+    {   SetPar_info1.value += "Вкл";
+        SmOT.need_set_T2 = 1;
+    } else {
+       SetPar_info1.value += "вЫкл";
+    }
 
   return String();
 }
@@ -376,6 +422,7 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
         Info1.value =  String(SmOT.stsOT) + ": <b>Ошибка:</b> OT не инициализирован";
         SetDHWTemp.enable = false;
         SetBoilerTemp.enable = false;
+        SetBoilerTemp2.enable = false;
         SetNewBoilerTemp.enable = false;
         break;
       case 0:
@@ -396,6 +443,15 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
           Info1.value += "<br>Горелка Вкл";
         else  
           Info1.value += "<br>Горелка вЫкл";
+
+        if(SmOT.enable_CentralHeating2)
+        {
+          if(SmOT.BoilerStatus & 0x20)
+            Info1.value += "<br>CH2 Вкл";
+          else  
+            Info1.value += "<br>CH2 вЫкл";
+        }
+
         if(SmOT.BoilerStatus & 0x40)
           Info1.value += "<br>Diag";
 
@@ -440,15 +496,11 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
    Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure " + String(SmOT.Pressure) + "<br>";
 {
 extern OpenTherm ot;
-Serial.printf("123456 2\n");
    Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) ;
-Serial.printf("123456 3\n");
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
         {
-Serial.printf("123456 4\n");
            Info4.value += " Pressure " + String(SmOT.Pressure);
         }
-Serial.printf("123456 5\n");
    Info4.value += "<br>";
 }
 
@@ -473,12 +525,18 @@ Serial.printf("123456 5\n");
     else 
       SetBoilerTemp.enable = false;
 
+    if(SmOT.enable_CentralHeating2)
+      SetBoilerTemp2.enable = true;
+    else 
+      SetBoilerTemp2.enable = false;
+
+
     if( SmOT.enable_HotWater)
       SetDHWTemp.enable = true;
     else
       SetDHWTemp.enable = false;
 
-    if( SmOT.enable_HotWater || SmOT.enable_CentralHeating)
+    if( SmOT.enable_HotWater || SmOT.enable_CentralHeating||SmOT.enable_CentralHeating2)
         SetNewBoilerTemp.enable = true;
     else 
         SetNewBoilerTemp.enable = false;
@@ -489,6 +547,9 @@ Serial.printf("123456 5\n");
         Info6.value = "";
         Info7.value = "";
   }
+
+  Serial.printf(" SmOT.enable_CentralHeating=%d\n ",  SmOT.enable_CentralHeating);
+ 
 /********************/
   return String();
 }
@@ -537,54 +598,6 @@ Th = dhw_t
 T1 = T_ds18b20(1)
 T2 = T_ds18b20(2)
 */   
-
-String onS(AutoConnectAux& aux, PageArgument& args)
-{   char str[80];
-        St1.value = "";
-        if(SmOT.BoilerStatus & 0x01)
-          St1.value += "E 1<br>";
-        else 
-          St1.value += "E 0<br>";
-
-        if(SmOT.BoilerStatus & 0x02)
-          St1.value += "H 1<br>";
-        else  
-          St1.value += "H 0<br>";
-        if(SmOT.BoilerStatus & 0x04)
-          St1.value += "W 1<br>";
-        else  
-          St1.value += "W 0<br>";
-
-        if(SmOT.BoilerStatus & 0x08)
-          St1.value += "F 1<br>";
-        else  
-          St1.value += "F 0<br>";
-
-        if(SmOT.BoilerStatus & 0x40)
-          St1.value += "D 1<br>";
-        else
-          St1.value += "D 0<br>";
-
-        sprintf(str,"Tb %.2f<br>",SmOT.BoilerT );
-          St1.value += str;
-
-        sprintf(str,"Tr %.2f<br>",SmOT.RetT );
-          St1.value += str;
-
-        sprintf(str,"Th %.2f<br>",SmOT.dhw_t );
-          St1.value += str;
-          
-        if(SmOT.stsT1 >= 0)
-        {   sprintf(str,"T1 %.2f<br>",SmOT.t1);
-          St1.value += str;
-        }
-        if(SmOT.stsT2 >= 0)
-        {   sprintf(str,"T2 %.2f<br>",SmOT.t2);
-          St1.value += str;
-        }
- 
-  return String();
-}
 
 char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
 

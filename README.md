@@ -15,16 +15,15 @@ Features:
 * Web interface after WiFi connectiom
 * [OpenTherm](https://en.wikipedia.org/wiki/OpenTherm) interface for Gas/Electric boiler contol (HVAC)
 * no external cloud control used
-* UDP interface
+* TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
 v 0.6 changes
 * TCP/UDP interface, Windows/Linux application [SmartServer](https://github.com/Evgen2/SmartServer) for TCP/UDP API
 * config saved and read after reboot
 * Hot water and CH2 enabled
+* Increased free RAM 
 
-Todo:
-* MQTT interface for [Home Assistant](https://www.home-assistant.io/)
 
 ## License
 Copyright (c) 2022-2023 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
