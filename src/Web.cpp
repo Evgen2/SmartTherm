@@ -414,6 +414,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // Load the attribute of th
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[80];
+extern OpenTherm ot;
 
  Serial.printf("onInfo SmOT.stsOT=%i\n ", SmOT.stsOT);
 
@@ -478,7 +479,6 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
 
 //  Serial.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
 
-
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура помещения ";
         if(SmOT.stsT1 >= 0)
@@ -493,16 +493,18 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
   if(SmOT.stsOT != -1)
   {
    Info2.value = " Выходная температура  "  + String(SmOT.BoilerT) + " Обратка " + String(SmOT.RetT) + "<br>";
-   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) + " Pressure " + String(SmOT.Pressure) + "<br>";
-{
-extern OpenTherm ot;
+
+
    Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) ;
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
         {
            Info4.value += " Pressure " + String(SmOT.Pressure);
         }
    Info4.value += "<br>";
-}
+
+      if(SmOT.enable_CentralHeating2)
+      {  Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
+      }
 
 // Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
    Info5.value = "Ts "+ String(SmOT.Tset) + "Tsr "+ String(SmOT.Tset_r) + "<br>";
