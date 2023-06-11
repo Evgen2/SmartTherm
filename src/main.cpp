@@ -593,8 +593,8 @@ int OTloop(void)
     return rc;
 }
 
-#define OT_CICLE_TIME 500
-
+#define OT_CICLE_TIME 20
+int raz=0;
 void loop(void)
 {   static unsigned long t0=0; // t1=0;
     unsigned long t;
@@ -604,7 +604,10 @@ void loop(void)
    dt = t - t0;
   if(dt < OT_CICLE_TIME)
   {  loop2();
+    raz++;
   } else  if( OTloop() ) {
+//   Serial.printf("raz=%d\n", raz);
+   raz = 0;
       t0 = millis();
   }  else {
      loop2();
@@ -624,7 +627,7 @@ void loop2(void)
     unsigned long t, dt;
      t = millis();
      dt = t - t0;
-     if(LedSts) //быстро моргаем раз в мсек
+     if(!LedSts) //быстро моргаем раз в мсек
      {  if(dt > 2)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
