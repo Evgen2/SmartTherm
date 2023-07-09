@@ -47,6 +47,25 @@ enum OpenThermMessageType {
 typedef OpenThermMessageType OpenThermRequestType; // for backwared compatibility
 
 enum  OpenThermMessageID {
+/*
+В частности по регистру ID0:
+
+ID0:HB0: Master status: CH enable
+ID0:HB1: Master status: DHW enable
+ID0:HB2: Master status: Cooling enable
+ID0:HB3: Master status: OTC active
+ID0:HB4: Master status: CH2 enable
+ID0:HB5: Master status: Summer/winter mode
+ID0:HB6: Master status: DHW blocking
+ID0:LB0: Slave Status: Fault indication
+ID0:LB1: Slave Status: CH mode
+ID0:LB2: Slave Status: DHW mode
+ID0:LB3: Slave Status: Flame status
+ID0:LB4: Slave Status: Cooling status
+ID0:LB5: Slave Status: CH2 mode
+ID0:LB6: Slave Status: Diagnostic/service indication
+ID0:LB7: Slave Status: Electricity production
+*/	
 	Status, // flag8 / flag8  Master and Slave Status flags.
 	TSet, // f8.8  Control setpoint  ie CH  water temperature setpoint (°C)
 	MConfigMMemberIDcode, // flag8 / u8  Master Configuration Flags /  Master MemberID Code
@@ -88,6 +107,13 @@ enum  OpenThermMessageID {
 	MaxTSet, // f8.8  Max CH water setpoint (°C)  (Remote parameters 2)
 	Hcratio, // f8.8  OTC heat curve ratio (°C)  (Remote parameter 3)
 	RemoteOverrideFunction = 100, // flag8 / -  Function of manual and program changes in master and remote room setpoint.
+/*
+ID110: Electricity producer hours
+ID111: Electricity production
+ID112: Cumulativ Electricity production
+ID113: Number of un-successful burner starts
+ID114: Number of times flame signal was too low
+*/	
 	OEMDiagnosticCode = 115, // u16  OEM-specific diagnostic/service code
 	BurnerStarts, // u16  Number of starts burner
 	CHPumpStarts, // u16  Number of starts CH pump

@@ -416,8 +416,6 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[80];
 extern OpenTherm ot;
 
- Serial.printf("onInfo SmOT.stsOT=%i\n ", SmOT.stsOT);
-
    switch(SmOT.stsOT)
    {  case -1:
         Info1.value =  String(SmOT.stsOT) + ": <b>Ошибка:</b> OT не инициализирован";
@@ -436,16 +434,20 @@ extern OpenTherm ot;
           Info1.value += "<br>Отопление Вкл";
         else  
           Info1.value += "<br>Отопление вЫкл";
-        if(SmOT.BoilerStatus & 0x04)
-          Info1.value += "<br>Горячая вода Вкл";
-        else  
-          Info1.value += "<br>Горячая вода вЫкл";
+
+        if(SmOT.HotWater_present)
+        { if(SmOT.BoilerStatus & 0x04)
+            Info1.value += "<br>Горячая вода Вкл";
+          else  
+            Info1.value += "<br>Горячая вода вЫкл";
+        }
+
         if(SmOT.BoilerStatus & 0x08)
           Info1.value += "<br>Горелка Вкл";
         else  
           Info1.value += "<br>Горелка вЫкл";
 
-        if(SmOT.enable_CentralHeating2)
+        if(SmOT.CH2_present && SmOT.enable_CentralHeating2)
         {
           if(SmOT.BoilerStatus & 0x20)
             Info1.value += "<br>CH2 Вкл";
@@ -489,18 +491,33 @@ extern OpenTherm ot;
     } else {
         Info3.value = "";
     }
+    if(ot.OTid_used(OpenThermMessageID::Toutside))
+    {   Info3.value += "Text " + String(SmOT.Toutside) + "<br>";
+    }
 
   if(SmOT.stsOT != -1)
   {
-   Info2.value = " Выходная температура  "  + String(SmOT.BoilerT) + " Обратка " + String(SmOT.RetT) + "<br>";
+   Info2.value = " Выходная температура  "  + String(SmOT.BoilerT);
+      if(ot.OTid_used(OpenThermMessageID::Tret))
+      { Info2.value +=  " Обратка " + String(SmOT.RetT);
+      }
+      if(SmOT.HotWater_present) 
+      { Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+      }
+  
+      Info2.value += "<br>";
 
+      Info4.value = "";
+    
+      if(ot.OTid_used(OpenThermMessageID::RelModLevel))
+      {  Info4.value += " Flame "  + String(SmOT.FlameModulation) ;
+      }
 
-   Info4.value = " FlameModulation "  + String(SmOT.FlameModulation) ;
-        if(ot.OTid_used(OpenThermMessageID::CHPressure))
-        {
+      if(ot.OTid_used(OpenThermMessageID::CHPressure))
+      {
            Info4.value += " Pressure " + String(SmOT.Pressure);
-        }
-   Info4.value += "<br>";
+      }
+      Info4.value += "<br>";
 
       if(SmOT.enable_CentralHeating2)
       {  Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
@@ -527,11 +544,10 @@ extern OpenTherm ot;
     else 
       SetBoilerTemp.enable = false;
 
-    if(SmOT.enable_CentralHeating2)
-      SetBoilerTemp2.enable = true;
+    if(SmOT.CH2_present && SmOT.enable_CentralHeating2)
+        SetBoilerTemp2.enable = true;
     else 
-      SetBoilerTemp2.enable = false;
-
+        SetBoilerTemp2.enable = false;
 
     if( SmOT.enable_HotWater)
       SetDHWTemp.enable = true;
@@ -550,25 +566,59 @@ extern OpenTherm ot;
         Info7.value = "";
   }
 
-  Serial.printf(" SmOT.enable_CentralHeating=%d\n ",  SmOT.enable_CentralHeating);
  
 /********************/
   return String();
 }
 
+// SmOT.OTmemberCode
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
   else
       CtrlChB1.checked = false;
-      
-  if( SmOT.enable_HotWater)
-      CtrlChB2.checked = true;
-  else
-      CtrlChB2.checked = false;
 
-  Ctrl2.value = ""; // todo
+  if(SmOT.HotWater_present) 
+  { CtrlChB2.enable  =  true;    
+    if(SmOT.enable_HotWater)
+      CtrlChB2.checked = true;
+    else
+      CtrlChB2.checked = false;
+  } else {
+     CtrlChB2.enable  = false;
+  }
+
+  if(SmOT.CH2_present) 
+     CtrlChB3.enable  = true;
+  else
+     CtrlChB3.enable  = false;
+
+  Ctrl2.value = "Котёл: "; 
+  
+/*
+Buderus	8
+Ferrolli 	9
+Remeha	11
+Viessmann  VITOPEND 	33
+Navinien 	148
+
+*/
+  if(SmOT.OTmemberCode == 8)
+      Ctrl2.value += "Buderus"; 
+  else if(SmOT.OTmemberCode == 9)
+      Ctrl2.value += "Ferrolli"; 
+  else if(SmOT.OTmemberCode == 11)
+      Ctrl2.value += "Remeha"; 
+  else if(SmOT.OTmemberCode == 27)
+      Ctrl2.value += "Baxi"; 
+  else if(SmOT.OTmemberCode == 33)
+      Ctrl2.value += "Viessmann"; 
+  else if(SmOT.OTmemberCode == 148)
+      Ctrl2.value += "Navinien"; 
+  else 
+      Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
+
   //Serial.printf("onControl checked=%i %i\n", CtrlChB1.checked, CtrlChB2.checked);
 
   return String();
@@ -651,8 +701,8 @@ static unsigned long t0=0; // t1=0;
     if(rc == WL_CONNECTED)
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
-      Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
-      Serial.printf("(%i%%)\n", _toWiFiQuality(WiFi.RSSI()));
+      Serial.printf("RSSI: %d dBm (%i%%)\n", WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
+      
       Serial.println("IP address: ");
       Serial.println(WiFi.localIP());
     } else {

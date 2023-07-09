@@ -78,7 +78,9 @@ void IRAM_ATTR handleInterrupt() {
     ot.handleInterrupt();
 }
 
+static int OTstartSts = 0;
 int LedSts = 0; //LOW
+
 void setup() {
   time_t now;
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
@@ -99,7 +101,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   
 
   setupDS1820();
-
+//OTstartSts = 0;
   ot.begin(handleInterrupt, OTprocessResponse);
   setup_web_common();
   setup_tcpudp( &SmOT );
@@ -107,6 +109,7 @@ void setup() {
 
 
 int status_OT = -1;
+static int _SConfigSMemberIDcode = 0;
 
 void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
@@ -268,6 +271,18 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
         SmOT.TestCmd = 0;
       }
     }
+#if OT_DEBUG
+  { unsigned int u88;
+    u88 = (response & 0xffff);
+    id = (response >> 16 & 0xFF);
+    parity = ot.parity(response);
+    messagetype = ot.getMessageType(response);
+    if(parity)
+        Serial.printf("Resp: ParityErr %d %d %04x\n", id, messagetype, u88);
+    else 
+        Serial.printf("Resp: %d %d %04x\n", id, messagetype, u88);
+  } 
+#endif         
 
     parity = ot.parity(response);
     if(parity)
@@ -321,6 +336,7 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     u88 = (response & 0xffff);
     t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
     ot.update_OTid(id, 1);
+    //Serial.printf("OTstartSts:  %d ++++++++++++\n",  OTstartSts);
 
     switch (id)
     {
@@ -358,20 +374,49 @@ mode active ]
 
 //        curr_item->status = boiler_status;
 //        Serial.println("Boiler status: " + String(boiler_status, BIN));
+         if(OTstartSts == 0)  OTstartSts++;
+
         break;
 
     case OpenThermMessageID::TSet:  // 1
         SmOT.Tset_r = t;
 //        Serial.println("Set CH temp: " + String(t));
         break;
+    case OpenThermMessageID::MConfigMMemberIDcode: //2
+         if(OTstartSts == 2)  OTstartSts++;
+        break;
+
+    case OpenThermMessageID::SConfigSMemberIDcode:  //3
+     _SConfigSMemberIDcode = u88;
+         if(OTstartSts == 1) 
+         { OTstartSts++;
+            if(_SConfigSMemberIDcode & 0x100)
+            { SmOT.HotWater_present = true;
+            } else {
+              SmOT.HotWater_present = false;
+              SmOT.enable_HotWater = false;
+            }
+            if(_SConfigSMemberIDcode & 0x2000)
+            {   SmOT.CH2_present  = true;
+            } else {
+                SmOT.CH2_present  = false;
+                SmOT.enable_CentralHeating2  = false;               
+            }
+            SmOT.OTmemberCode = _SConfigSMemberIDcode & 0xff;
+         }
+//        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
+        break;
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
         break;
-    case OpenThermMessageID::Tret: //28
-        SmOT.RetT = t;
-        break;
     case OpenThermMessageID::Tdhw: //26
         SmOT.dhw_t = t;
+        break;
+    case OpenThermMessageID::Toutside: //27
+    SmOT.Toutside = t;
+        break;
+    case OpenThermMessageID::Tret: //28
+        SmOT.RetT = t;
         break;
     case OpenThermMessageID::TflowCH2: //31
         SmOT.BoilerT2 = t;
@@ -434,6 +479,47 @@ unsigned int buildTestRequest(void)
     return request;
 }
 
+unsigned int buildRequestOnStart(void)
+{  unsigned int request = 0;
+
+    switch(OTstartSts) 
+    {
+      case 0: // запрос статуса
+// Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+#if OT_DEBUG
+  { unsigned int u88;
+    u88 = (request & 0xffff);
+    Serial.printf("ReqS: %d READ_DATA %04x (Status %d %d %d %d)\n", OpenThermMessageID::Status,  u88, SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling,  SmOT.enable_CentralHeating2);
+  } 
+#endif         
+      break;
+      
+      case 1: // запрос SConfigSMemberIDcode
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0); //3
+#if OT_DEBUG
+  { unsigned int u88;
+    u88 = (request & 0xffff);
+    Serial.printf("ReqS: %d READ_DATA %04x (SConfigSMemberIDcode)\n", OpenThermMessageID::SConfigSMemberIDcode,  u88);
+  } 
+#endif         
+      break;
+
+      case 2: // OpenThermMessageID::MConfigMMemberIDcode:
+          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode,  _SConfigSMemberIDcode); //3
+#if OT_DEBUG
+  { unsigned int u88;
+    u88 = (request & 0xffff);
+    Serial.printf("ReqS: %d WRITE_DATA %04x (MConfigMMemberIDcode %04x)\n", OpenThermMessageID::MConfigMMemberIDcode,  u88,  _SConfigSMemberIDcode);
+  } 
+#endif         
+        break;
+
+    }
+
+    return request;
+}
+
 unsigned int buildRequest(void)
 {   static int st = 0, raz=0;
     unsigned int request = 0;
@@ -491,30 +577,40 @@ M0:
 
       case 3: //getReturnTemperature
 // Serial.printf("3 Request: %d\n",OpenThermMessageID::Tret);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tret, 0); //28
-          st++;
+        st++; 
+        if(ot.OTid_used(OpenThermMessageID::Tret))
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tret, 0); //28
+        }  else {
+           goto M0;
+        }
       break;
 
       case 4: //getDHWTemperature
 // Serial.printf("4 Request: %d\n",OpenThermMessageID::Tdhw);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0); //26
-          st++;
+        st++;
+        if(SmOT.HotWater_present) 
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0); //26
+        }  else {
+              goto M0;
+        }
       break;
 
       case 5: //getModulation
 // Serial.printf("5 Request: %d\n",OpenThermMessageID::RelModLevel);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::RelModLevel, 0); //17
-          st++;
+        st++; 
+        if(ot.OTid_used(OpenThermMessageID::RelModLevel))
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::RelModLevel, 0); //17
+        }  else {
+          goto M0;
+        }
       break;
 
       case 6: //getPressure
         st++; 
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
-        {  
-// Serial.printf("6  cRequest: %d\n",OpenThermMessageID::CHPressure);
-           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0); //18
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::CHPressure, 0); //18
         }  else {
-          goto M0;
+            goto M0;
         }
 //          st++;
       break;
@@ -529,7 +625,16 @@ M0:
         }
       break;
 
-      case 8: //getFault flags
+      case 8:
+        st++; 
+        if(ot.OTid_used(OpenThermMessageID::Toutside))
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Toutside, 0); //27
+        }  else {
+            goto M0;
+        }
+      break;
+
+      case 9: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
         if(SmOT.BoilerStatus & 0x01)
@@ -538,13 +643,23 @@ M0:
            st = 0;
       break;
 
-      case 9: //getFault code
+      case 10: //getFault code
  //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;
       break;
 
     }
+#if OT_DEBUG
+  { unsigned int u88, id;
+    int  messagetype;
+    u88 = (request & 0xffff);
+    id = (request >> 16 & 0xFF);
+    messagetype = ot.getMessageType(request);
+    Serial.printf("Req : %d %d %04x\n", id, messagetype,   u88);
+  } 
+#endif         
+
     return request;
 }
 
@@ -557,12 +672,20 @@ int OTloop(void)
     {
       case 0:
       if (ot.isReady()) 
-      {  unsigned int request = buildRequest();
-/*      
+      {  unsigned int request;
+
+//           Serial.printf("OTstartSts:  %d ******************\n",  OTstartSts);
+
+         if(OTstartSts < 3)
+            request = buildRequestOnStart();
+         else
+            request = buildRequest();
+
+/*     
           unsigned int id;
           id = (request >> 16 & 0xFF);
            Serial.printf("Request:  %d\n",  id);
-*/           
+ */           
          if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
               st++;
       }
@@ -593,8 +716,8 @@ int OTloop(void)
     return rc;
 }
 
-#define OT_CICLE_TIME 20
-int raz=0;
+#define OT_CICLE_TIME 100
+
 void loop(void)
 {   static unsigned long t0=0; // t1=0;
     unsigned long t;
@@ -604,15 +727,13 @@ void loop(void)
    dt = t - t0;
   if(dt < OT_CICLE_TIME)
   {  loop2();
-    raz++;
   } else  if( OTloop() ) {
 //   Serial.printf("raz=%d\n", raz);
-   raz = 0;
       t0 = millis();
   }  else {
      loop2();
   }
-#else  //debug without OT  
+#else  //debug without OT   
        loop_web();
 #endif // 0
 
@@ -627,10 +748,15 @@ void loop2(void)
     unsigned long t, dt;
      t = millis();
      dt = t - t0;
+#if defined(ARDUINO_ARCH_ESP8266)
      if(!LedSts) //быстро моргаем раз в мсек
+#elif defined(ARDUINO_ARCH_ESP32)
+     if(LedSts) //быстро моргаем раз в мсек
+#endif
      {  if(dt > 2)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
+//   Serial.printf("dt=%d\n", dt);
           t0 = t;
         }
      } else {
@@ -640,8 +766,24 @@ void loop2(void)
         if(dt > (unsigned long)wt)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
-          t0 = t;          
+          t0 = t;   
+/************************/ 
+//test for lost OT connection
+      {  time_t now = time(nullptr);
+        double dt;
+        dt = difftime(now,SmOT.t_lastwork);
+        if(dt > 10.)
+        {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
+            if(OTstartSts == 3)
+            {   OTstartSts = 0;  // init start sequence
+                SmOT.HotWater_present = false;
+                SmOT.enable_CentralHeating2  = false; 
+            }
         }
+      }
+/************************/                 
+        }
+//        
      }
 
     switch(irot)

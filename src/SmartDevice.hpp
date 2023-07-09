@@ -9,7 +9,8 @@
 
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION    0
-#define MASTER_SUBVERSION 5
+#define MASTER_SUBVERSION 6
+/***************/
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
 

@@ -19,7 +19,11 @@ public:
     bool enable_HotWater;
     bool enable_Cooling;
     bool enable_CentralHeating2;
-
+    bool HotWater_present;
+    bool CH2_present;
+    bool Toutside_present; 
+    bool Pressure_present;
+  unsigned int OTmemberCode;
   unsigned long response;
   float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
   float Tset_r;  // Temp set from responce
@@ -31,6 +35,7 @@ public:
   float RetT;    // Return water temperature (°C) CH
 	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
   float dhw_t;   // DHW temperature (°C)
+  float Toutside; //
 
   float FlameModulation;
   float Pressure;
@@ -55,10 +60,14 @@ public:
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
+    HotWater_present  = false;
     enable_HotWater = true;
     enable_Cooling = false;
     enable_CentralHeating2 = false;
-    
+    CH2_present  = false;
+    Toutside_present  = false; 
+    Pressure_present  = false;
+
       stsOT = -1;
       t_lastwork = 0;
 	    stsT1 = -1;
@@ -78,12 +87,14 @@ public:
       need_write_f = 0;
       RetT = 0.;
       dhw_t = 0.;
+      Toutside = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
       MaxRelModLevelSetting = 0.;
       MaxCapacity = MinModLevel = 0;
       Fault = 0;
       OEMDcode = 0;
+      OTmemberCode = 0;
       rcode[0] = rcode[1] = rcode[2] = rcode[3] = rcode[4] = 0;
       BoilerStatus = 0;
       TestCmd = TestId = TestPar =  TestResponse = 0;

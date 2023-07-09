@@ -500,7 +500,7 @@ OpenThermID OT_ids[N_OT_NIDS] =
  
 };
 
-static byte id_to_index[128];
+byte id_to_index[128];
 
 void OpenTherm::init_OTids(void)
 {  int i;

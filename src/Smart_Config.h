@@ -5,6 +5,7 @@
 #include "DeviceType.h"
 
 #define SERIAL_DEBUG 1
+#define OT_DEBUG 0
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 
