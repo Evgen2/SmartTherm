@@ -35,8 +35,8 @@ public:
   float RetT;    // Return water temperature (°C) CH
 	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
   float dhw_t;   // DHW temperature (°C)
-  float Toutside; //
-
+  float Toutside; 
+  float Texhaust;// s16  Boiler exhaust temperature (°C)
   float FlameModulation;
   float Pressure;
   float MaxRelModLevelSetting;
@@ -88,6 +88,7 @@ public:
       RetT = 0.;
       dhw_t = 0.;
       Toutside = 0.;
+      Texhaust = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
       MaxRelModLevelSetting = 0.;

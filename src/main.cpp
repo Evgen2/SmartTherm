@@ -421,6 +421,9 @@ mode active ]
     case OpenThermMessageID::TflowCH2: //31
         SmOT.BoilerT2 = t;
         break;
+    case OpenThermMessageID::Texhaust: //33
+        SmOT.Texhaust = (float)u88;
+        break;
 
     case OpenThermMessageID::MaxRelModLevelSetting: //14 Maximum relative modulation level setting (%) W
         SmOT.MaxRelModLevelSetting = t;
@@ -634,7 +637,16 @@ M0:
         }
       break;
 
-      case 9: //getFault flags
+      case 9:
+        st++; 
+        if(ot.OTid_used(OpenThermMessageID::Texhaust))
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Texhaust, 0); //27
+        }  else {
+            goto M0;
+        }
+      break;
+
+      case 10: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
         if(SmOT.BoilerStatus & 0x01)
@@ -643,7 +655,7 @@ M0:
            st = 0;
       break;
 
-      case 10: //getFault code
+      case 11: //getFault code
  //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;

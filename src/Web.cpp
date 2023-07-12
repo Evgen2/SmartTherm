@@ -501,10 +501,15 @@ extern OpenTherm ot;
       if(ot.OTid_used(OpenThermMessageID::Tret))
       { Info2.value +=  " Обратка " + String(SmOT.RetT);
       }
+      if(ot.OTid_used(OpenThermMessageID::Texhaust))
+      { sprintf(str0," Выхлоп %.0f", SmOT.Texhaust);
+        Info2.value +=  str0;
+      }
+
       if(SmOT.HotWater_present) 
       { Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
-  
+
       Info2.value += "<br>";
 
       Info4.value = "";
