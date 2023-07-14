@@ -1,9 +1,6 @@
 # SmartTherm
-<<<<<<< Updated upstream
-Version 0.6 alfa
 =======
 Version 0.7 a
->>>>>>> Stashed changes
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
