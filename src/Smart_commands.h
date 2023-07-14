@@ -9,7 +9,8 @@
 
 #define MCMD_HAND_SHAKE  		0x2020
 #define MCMD_ECHO        		0x01
-#define MCMD_IDENTIFY        		0x80
+#define MCMD_IDENTIFY        		0x80 //запрос у сервера
+#define MCMD_INTRODUCESELF     		0x81 //передача данных о себе серверу
 
 #define  MCMD_GETINFO       0x02 //запрос информации
 #define  MCMD_VIRT_UART	    0x03 //виртуальный уарт

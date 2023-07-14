@@ -51,15 +51,16 @@ void SmartDevice::udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,
 { int l; 
 	
 	l = sizeof(IDENTIFY_TEXT);
-  Lsend = 6+sizeof(int)*3+sizeof(short int)+l;	
+  Lsend = 6 + sizeof(int)*3 + sizeof(short int) + 6 + l;	
   MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
-  *((PACKED short int *) (&MsgOut[6])) = (short int)(sizeof(int)*3+l);
+  *((PACKED short int *) (&MsgOut[6])) = (short int)(sizeof(int)*3 + 6 + l);
+	memcpy((void *)&MsgOut[8],(void *)Mac[0],6);
 
-  *((PACKED  int *) (&MsgOut[8]))  =  IDENTIFY_TYPE;
-  *((PACKED  int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
-  *((PACKED  int *) (&MsgOut[16]))  =  IdNumber;	
-  memcpy((void *)&MsgOut[20],(void *)IDENTIFY_TEXT, l);
+  *((PACKED  int *) (&MsgOut[14]))  =  IDENTIFY_TYPE;
+  *((PACKED  int *) (&MsgOut[18]))  =  IDENTIFY_CODE;
+  *((PACKED  int *) (&MsgOut[22]))  =  IdNumber;	
+  memcpy((void *)&MsgOut[26],(void *)IDENTIFY_TEXT, l);
 
   Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l, Lsend );
   Serial.print(IDENTIFY_TEXT);
