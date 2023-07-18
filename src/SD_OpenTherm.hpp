@@ -42,7 +42,7 @@ public:
   float MaxRelModLevelSetting;
   unsigned int MaxCapacity;
   unsigned int MinModLevel;
-  unsigned char Fault;
+  unsigned int Fault;
   unsigned int OEMDcode;
   unsigned int rcode[5];
   int BoilerStatus;

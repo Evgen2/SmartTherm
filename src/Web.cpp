@@ -531,12 +531,38 @@ extern OpenTherm ot;
 // Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
    Info5.value = "Ts "+ String(SmOT.Tset) + "Tsr "+ String(SmOT.Tset_r) + "<br>";
 
+
     if(SmOT.OEMDcode || SmOT.Fault)
     {  sprintf(str0, "%x %x", SmOT.Fault, SmOT.OEMDcode);
 //      Info5.value = "Fault = " + str0 + "<br>";
-      Info6.value = "Fault = ";
-      Info6.value += str0;
-      Info6.value += "<br>";
+      Info6.value  = "";
+      if(SmOT.Fault)
+      { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
+        Info6.value += str0;
+        if(SmOT.Fault & 0xff00)
+        {    if(SmOT.Fault & 0x0100)
+                 Info6.value += " Service request";
+             if(SmOT.Fault & 0x0200)
+                 Info6.value += " Lockout-reset";
+             if(SmOT.Fault & 0x0400)
+                 Info6.value += " Lowwater press";
+             if(SmOT.Fault & 0x0800)
+                 Info6.value += " Gas/flame fault";
+             if(SmOT.Fault & 0x01000)
+                 Info6.value += " Air press fault";
+             if(SmOT.Fault & 0x02000)
+                 Info6.value += " Water over-temp fault";
+        }
+        if(SmOT.Fault & 0x00ff)
+        {    sprintf(str0, " OEM-specific fault/error cod = %d ( hex %x)", (SmOT.Fault&0xff), (SmOT.Fault&0xff));
+            Info6.value += str0;
+        }
+        Info6.value += "<br>";
+      }
+      if(SmOT.OEMDcode)
+      {     sprintf(str0, "OEM-specific diagnostic/service code = %d  ( hex %x)<br>", SmOT.OEMDcode, SmOT.OEMDcode);
+            Info6.value += str0;
+      }
     } else {
       Info6.value = "";
     }
@@ -605,6 +631,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 Buderus	8
 Ferrolli 	9
 Remeha	11
+Baxi 27
 Viessmann  VITOPEND 	33
 Navinien 	148
 

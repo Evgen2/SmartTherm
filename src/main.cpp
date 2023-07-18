@@ -345,12 +345,11 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     bit: description [ clear/0, set/1]
 0: CH enable [ CH is disabled, CH is enabled]
 1: DHW enable [ DHW is disabled, DHW is enabled]
-2: Cooling enable [ Cooling is disabled, Cooling is
-enabled]
+2: Cooling enable [ Cooling is disabled, Cooling is enabled]
 3: OTC active [OTC not active, OTC is active]
 4: CH2 enable [CH2 is disabled, CH2 is enabled]
-5: reserved
-6: reserved
+5: reserved | Summer/winter mode
+6: reserved | Master status: DHW blocking
 7: reserved
 */
 /*  LB: Slave status   
@@ -359,15 +358,15 @@ bit: description [ clear/0, set/1]
 1: CH mode [CH not active, CH active]
 2: DHW mode [ DHW not active, DHW active]
 3: Flame status [ flame off, flame on ]
-4: Cooling status [ cooling mode not active, cooling
-mode active ]
+4: Cooling status [ cooling mode not active, cooling mode active ]
 5: CH2 mode [CH2 not active, CH2 active]
-6: diagnostic indication [no diagnostics, diagnostic event]
-7: reserved 
+6: diagnostic/service indication [no diagnostics, diagnostic event]
+7: reserved | Electricity production (???)
 */   
 //        boiler_status = response & 0xFF;
 
         SmOT.BoilerStatus = u88;
+
 //        Serial.println("Central Heating: " + String(ot.isCentralHeatingActive(response) ? "on" : "off"));
 //        Serial.println("Hot Water: " + String(ot.isHotWaterActive(response) ? "on" : "off"));
 //        Serial.println("Flame: " + String(ot.isFlameOn(response) ? "on" : "off"));
@@ -443,13 +442,12 @@ mode active ]
     case OpenThermMessageID::ASFflags: //5
 /*  HB: Application-specific fault flags 
 bit: description [ clear/0, set/1]
-0: CH enable [ CH is disabled, CH is enabled]
-1: DHW enable [ DHW is disabled, DHW is enabled]
-2: Cooling enable [ Cooling is disabled, Cooling is
-enabled]
-3: OTC active [OTC not active, OTC is active]
-4: CH2 enable [CH2 is disabled, CH2 is enabled]
-5: reserved
+0: Servicerequest [servicenotreq’d,servicerequired]
+1: Lockout-reset [remoteresetdisabled,rrenabled]
+2: Lowwaterpress[noWPfault,waterpressurefault]
+3: Gas/flamefault [noG/Ffault,gas/flamefault]
+4: Airpressfault [noAPfault,airpressurefault]
+5: Waterover-temp[noOvTfault,over-temperat.Fault]
 6: reserved
 7: reserved
 
@@ -465,6 +463,7 @@ An OEM-specific fault/error cod
         if(u88)
           OTDebugInfo[6]++;
         SmOT.OEMDcode = u88;
+//        Serial.printf("OEMDcode: %x\n", SmOT.OEMDcode);
         SmOT.rcode[4] = u88;
         break;
         

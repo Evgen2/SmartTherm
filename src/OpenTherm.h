@@ -64,7 +64,7 @@ ID0:LB3: Slave Status: Flame status
 ID0:LB4: Slave Status: Cooling status
 ID0:LB5: Slave Status: CH2 mode
 ID0:LB6: Slave Status: Diagnostic/service indication
-ID0:LB7: Slave Status: Electricity production
+ID0:LB7: Slave Status: Electricity production (???)
 */	
 	Status, // flag8 / flag8  Master and Slave Status flags.
 	TSet, // f8.8  Control setpoint  ie CH  water temperature setpoint (°C)
