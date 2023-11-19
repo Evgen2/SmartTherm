@@ -53,7 +53,7 @@ enum  OpenThermMessageID {
 ID0:HB0: Master status: CH enable
 ID0:HB1: Master status: DHW enable
 ID0:HB2: Master status: Cooling enable
-ID0:HB3: Master status: OTC active
+ID0:HB3: Master status: OTC active  (OTC = Outside Temperature Compensation)
 ID0:HB4: Master status: CH2 enable
 ID0:HB5: Master status: Summer/winter mode
 ID0:HB6: Master status: DHW blocking
@@ -144,9 +144,12 @@ enum OpenThermStatus {
 class OpenTherm
 {
 public:
+
 	OpenTherm(int inPin = 4, int outPin = 5, bool isSlave = false);
+	int LastRequestId;
 	volatile OpenThermStatus status;
 	unsigned long Lastresponse;
+
 	void begin(void(*handleInterruptCallback)(void));
 	void begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus));
 	

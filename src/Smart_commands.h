@@ -29,6 +29,7 @@
 #define  MCMD_SET_UDPSERVER 0x20 // задать UDP сервер, порт и время обновления информации
 #define  MCMD_OT_INFO	    0x21 //Open Therm info
 #define  MCMD_SET_TCPSERVER 0x22 // задать TCP сервер, порт и время обновления информации
+#define  MCMD_GET_OT_INFO	0x23 // get Open Therm info
 
 
 #define  MCMD_GETLOG		    0x15 //запрос лога

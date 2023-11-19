@@ -3,11 +3,42 @@
 #define SD_OPENTHERM
 
 #include "SmartDevice.hpp"
+class BoilerStatisic
+{
+  public:
+/* число включений горелки */  
+  unsigned int NflameOn; //число включений горелки
+  unsigned int NflameOn_h; //число включений горелки за час
+  unsigned int NflameOn_day; //число включений горелки за день
+  unsigned int NflameOn_h_prev; //число включений горелки за предыдущий час
+  unsigned int NflameOn_day_prev; //число включений горелки за предыдущий день
+  float ModIntegral_h; //интеграл модуляции с начала часа
+  float ModIntegral_d; //интеграл модуляции с начала суток
+  float Eff_Mod_h;    // эффективная модуляция за текущий час
+  float Eff_Mod_d;    // эффективная модуляция за текущие сутки
+  float Eff_Mod_h_prev;    // эффективная модуляция за предыдущий час
+  float Eff_Mod_d_prev;    // эффективная модуляция за предыдущие сутки
+  time_t t_flame_on;  //время включения горелки
+  time_t t_flame_off; //время выключения горелки
+  time_t t_I_last;    //предыдущее время подсчета интеграла
+
+  BoilerStatisic()
+  {
+      NflameOn = NflameOn_h =  NflameOn_day = NflameOn_h_prev = NflameOn_day_prev = 0;
+      t_flame_on = t_flame_off = t_I_last = 0;
+       ModIntegral_h = 0.;
+       ModIntegral_d = 0.;
+       Eff_Mod_h = Eff_Mod_d =  Eff_Mod_h_prev =  Eff_Mod_d_prev = 0.;
+  }
+  void calcNflame(int newSts);
+  void calcIntegral(float flame);
+
+};
 
 class SD_Termo:public SmartDevice
 {
 public:
-  int stsOT; // -1 not init, 0 - normal work, 2 - timeout
+  short int stsOT; // -1 not init, 0 - normal work, 2 - timeout
   time_t t_lastwork; // time of last stsOT = 0
   int stsT1;
   int stsT2;
@@ -56,6 +87,8 @@ public:
   int TestPar;
   int TestResponse;
   int TestStatus;
+  unsigned long RespMillis;
+  BoilerStatisic Bstat;
 
   SD_Termo(void)
   {	  
@@ -100,6 +133,7 @@ public:
       BoilerStatus = 0;
       TestCmd = TestId = TestPar =  TestResponse = 0;
       TestStatus = 0;
+      RespMillis = 0;
   }
   
   void loop(void);

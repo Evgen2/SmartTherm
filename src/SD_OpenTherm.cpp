@@ -18,7 +18,7 @@ extern AutoConnectFS::FS& FlashFS;
 #include "Smart_commands.h"
 
 
-extern int Udp_Lsend;
+extern int TcpUdp_Lsend;
 extern PACKED unsigned char *Udp_MsgOut;
 
 extern IPAddress Udp_remoteIP;  
@@ -219,7 +219,7 @@ void SD_Termo::loop(void)
          if(dt < UDPserver_repot_period)
          {   return;
          }
-        if(Udp_Lsend > 0)
+        if(TcpUdp_Lsend > 0)
             return;
 //  Serial.printf("SD_Termo::loop %li\n",  millis());
         OpenThermInfo();
@@ -230,9 +230,9 @@ void SD_Termo::loop(void)
          if(dt < TCPserver_repot_period)
          {   return;
          }
-        if(Udp_Lsend > 0)
+        if(TcpUdp_Lsend > 0)
             return;
-//  Serial.printf("SD_Termo::loop %li\n",  millis());
+  Serial.printf("SD_Termo::loop %li\n",  millis());
         OpenThermInfo();
         TCPserver_t = millis();
     }
@@ -244,9 +244,9 @@ void SD_Termo::OpenThermInfo(void)
     struct Msg1 *msg;
 
     l = 16*4+6;
-    Udp_Lsend = 6 + l;	
+    TcpUdp_Lsend = 6 + l;	
 
-    MsgOut = esp_get_buf(Udp_Lsend);
+    MsgOut = esp_get_buf(TcpUdp_Lsend);
     msg  = (struct Msg1 *)MsgOut;
 
     msg->cmd0 = 0x22;
@@ -255,35 +255,63 @@ void SD_Termo::OpenThermInfo(void)
     for(i=0; i<16*4; i++)
        msg->Buf[i] = i;
 
+    memcpy((void *)&msg->Buf[0],(void *) Mac,6); 
 
-    memcpy((void *)&msg->Buf[0],(void *)&stsOT,4); 	//i1
-    memcpy((void *)&msg->Buf[4],(void *)&BoilerStatus,4);  //f1
-    memcpy((void *)&msg->Buf[8],(void *)&BoilerT,4); 	//f2
-    memcpy((void *)&msg->Buf[12],(void *)&RetT,4);   	//f3
-    memcpy((void *)&msg->Buf[16],(void *)&dhw_t,4); 	//f4
-    memcpy((void *)&msg->Buf[20],(void *)&FlameModulation,4);	//f5 
-    memcpy((void *)&msg->Buf[24],(void *)&Pressure,4); 	//f6
-    memcpy((void *)&msg->Buf[28],(void *)&status,4); 	//i2
-    memcpy((void *)&msg->Buf[32],(void *)&t1,4); 	//f7
-    memcpy((void *)&msg->Buf[36],(void *)&t2,4); 	//f8
-    memcpy((void *)&msg->Buf[40],(void *)&rcode[0],4); 	//i3
-    memcpy((void *)&msg->Buf[44],(void *)&rcode[1],4); 	//i4
-    memcpy((void *)&msg->Buf[48],(void *)&rcode[2],4); 	//i5
-    memcpy((void *)&msg->Buf[52],(void *)&rcode[3],4); 	//i6
-    memcpy((void *)&msg->Buf[56],(void *)&rcode[4],4); 	//i7
+    memcpy((void *)&msg->Buf[6],(void *)&stsOT,2); 	
+    memcpy((void *)&msg->Buf[8],(void *)&BoilerStatus,4); 
+    memcpy((void *)&msg->Buf[12],(void *)&BoilerT,4);
+    memcpy((void *)&msg->Buf[16],(void *)&RetT,4);
+    memcpy((void *)&msg->Buf[20],(void *)&dhw_t,4);
+    memcpy((void *)&msg->Buf[24],(void *)&FlameModulation,4);
+    memcpy((void *)&msg->Buf[28],(void *)&Pressure,4);
+    memcpy((void *)&msg->Buf[32],(void *)&status,4);
+    memcpy((void *)&msg->Buf[36],(void *)&t1,4);
+    memcpy((void *)&msg->Buf[40],(void *)&t2,4);
+    memcpy((void *)&msg->Buf[44],(void *)&rcode[0],4); //todo
+    memcpy((void *)&msg->Buf[48],(void *)&rcode[1],4);
+    memcpy((void *)&msg->Buf[52],(void *)&rcode[2],4);
+    memcpy((void *)&msg->Buf[56],(void *)&rcode[3],4);
+    memcpy((void *)&msg->Buf[60],(void *)&rcode[4],4);
 
-    memcpy((void *)&msg->Buf[60],(void *)&Fault,1); 	//b1
+    memcpy((void *)&msg->Buf[64],(void *)&Fault,1); 	//b1
       
 }
     
-/* 
-void SD_Termo::udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+
+void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
+    short int B_flags;
+    Lsend = 6 + 64;
+    MsgOut = get_buf(Lsend);
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+    memcpy((void *)&MsgOut[6],(void *) Mac,6); 
 
-    Serial.printf("todo %s\n", __FUNCTION__); 
+    B_flags = 0;
+    if(enable_CentralHeating) B_flags |= 0x01;
+    if(enable_HotWater)       B_flags |= 0x02;  
+    if(HotWater_present)      B_flags |= 0x10;  
+    if(Toutside_present)      B_flags |= 0x40;  
+    if(Pressure_present)      B_flags |= 0x80; 
+         
+	 memcpy((void *)&MsgOut[12],(void *) &B_flags,2); 
+	 memcpy((void *)&MsgOut[14],(void *) &stsOT,2); 
+//    &MsgOut[16]  todo
 
+     memcpy((void *)&MsgOut[18],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+     
+	 memcpy((void *)&MsgOut[26],(void *) &BoilerStatus,4);  //20=12+8
+	 memcpy((void *)&MsgOut[30],(void *) &BoilerT,4); 
+	 memcpy((void *)&MsgOut[34],(void *) &RetT,4); 
+	 memcpy((void *)&MsgOut[38],(void *) &Tset,4); 
+	 memcpy((void *)&MsgOut[42],(void *) &Tset_r,4); 
+	 memcpy((void *)&MsgOut[46],(void *) &dhw_t,4); 
+	 memcpy((void *)&MsgOut[50],(void *) &FlameModulation,4); 
+	 memcpy((void *)&MsgOut[54],(void *) &Pressure,4); 
+	 memcpy((void *)&MsgOut[58],(void *) &status,4); 
+	 memcpy((void *)&MsgOut[62],(void *) &t1,4); 
+	 memcpy((void *)&MsgOut[66],(void *) &t2,4); 
+     //70
 }
-*/
 
 void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
@@ -331,3 +359,34 @@ void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,i
 	 memcpy((void *)&MsgOut[6+4],(void *)&TestStatus,4 ); 
 
 }
+
+/* считаем число включений горелки */
+void BoilerStatisic::calcNflame(int newSts)
+{
+    if(newSts) // включение
+    {
+        NflameOn++;
+        NflameOn_h++;
+        NflameOn_day++;
+        t_flame_on = time(nullptr);
+    } else {  //Выключение
+        t_flame_off = time(nullptr);
+    }
+}
+/* Считаем интеграл пламени */
+void BoilerStatisic::calcIntegral(float flame)
+{   time_t now; 
+    int dt;
+    float d;
+    now = time(nullptr);
+    if(now == t_I_last)
+      return;
+    dt = now - t_I_last;
+    t_I_last = now;
+    if(flame > 0.f)
+    {   d =  flame * dt;
+        ModIntegral_h += d;
+        ModIntegral_d += d;
+    }
+}
+

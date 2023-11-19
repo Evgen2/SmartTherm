@@ -33,12 +33,14 @@ extern AutoConnect portal;
 
 WiFiUDP Udp;
 WiFiClient tcp_client;
-#if defined(ARDUINO_ARCH_ESP8266)
 unsigned int g_port = 6769;
+
+#if defined(ARDUINO_ARCH_ESP8266)
 WiFiServer server(g_port);
+WiFiClient client2;
+
 #elif defined(ARDUINO_ARCH_ESP32)
 WiFiServer server;
-unsigned int g_port = 6769;
 #endif
 
 
@@ -47,7 +49,7 @@ class SmartDevice *p_sd = NULL;
 static char buf_tcpudp_out[BUFSIZE];
 static char tcpudp_incomingPacket[BUFSIZE];
 
-int Udp_Lsend=0;
+int TcpUdp_Lsend=0;
 IPAddress Udp_remoteIP;  
 IPAddress Tcp_remoteIP;  
 int Udp_RemotePort = 0;
@@ -85,7 +87,7 @@ void loop_tcp(int sts)
 {   static int count = 0;
     int rc, len;
 	static int nb = 0;
-{
+
 	static int ols_sts=-1;
 	if(tcp_sts != ols_sts)
 	{
@@ -93,9 +95,9 @@ void loop_tcp(int sts)
 		ols_sts = tcp_sts;
 	}
 
-}	
+	
 	switch(tcp_sts)
-{
+	{
 		case 0:// listen for incoming clients)
 		// Doc: Gets a client that is connected to the server and has data available for reading.
 		//      The connection persists when the returned client object goes out of scope
@@ -106,7 +108,7 @@ void loop_tcp(int sts)
 			 	tcp_client.setTimeout(5);
 				nb = 0;
 			 	tcp_sts++;
-			 } else if (sts == 2 && Udp_Lsend > 0) {
+			 } else if (sts == 2 && TcpUdp_Lsend > 0) {
 				tcp_sts = 3;
 			}
 		  break;
@@ -140,13 +142,13 @@ void loop_tcp(int sts)
 							rc = BUFSIZE-1;
 					len = tcp_client.readBytes(tcpudp_incomingPacket, rc);
 					Serial.printf("%d readBytes %d\n", millis(),  len);
-				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, Udp_Lsend, BUFSIZE, esp_get_buf);
-					Serial.printf("%d net_callback rc %d, Udp_Lsend=%d\n",  millis(), rc, Udp_Lsend) ;
+				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, BUFSIZE, esp_get_buf);
+					Serial.printf("%d net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
 					if(rc == 0)
-					{//	Serial.printf("net_callback rc=%i l=%i\n", rc, Udp_Lsend);	
+					{//	Serial.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
 					 //	Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-						tcp_client.write(Udp_MsgOut, Udp_Lsend);
-						Udp_Lsend  = 0;
+						tcp_client.write(Udp_MsgOut, TcpUdp_Lsend);
+						TcpUdp_Lsend  = 0;
 						nb = 0;
 					}
 				}
@@ -167,15 +169,22 @@ void loop_tcp(int sts)
 		  break;
 
 			case 3:
-				{	Serial.printf("send to IP:");
+				if(!p_sd->tcp_remoteIP) //Empty IP !!!
+				{	tcp_sts = 0;
+				} else {
+					int t0;
+					t0 = millis();
+					Serial.printf("send to IP:");
   					Serial.println(p_sd->tcp_remoteIP.toString());
-					Serial.printf(" port %d bytes %d\n", p_sd->TCPserver_port, Udp_Lsend);
+					Serial.printf(" port %d bytes %d\n", p_sd->TCPserver_port, TcpUdp_Lsend);
 					t00 = millis();
-					rc = asTCP.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,5000);
+					rc = asTCP.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,500);
 					if(rc == 1)
 					{	tcp_sts = 4;
+						Serial.printf("Ok connect_0 in %d ms\n", millis()-t0);
 					}  else {
-						Udp_Lsend = 0;
+						Serial.printf("Error connect_0 in %d ms\n", millis()-t0);
+						TcpUdp_Lsend = 0;
 						tcp_sts = 0;
 					}
 				}
@@ -190,7 +199,7 @@ void loop_tcp(int sts)
 						tcp_sts = 5;
 					} else {
 				    Serial.printf("Cann't establish a connection\n");
-						Udp_Lsend = 0;
+						TcpUdp_Lsend = 0;
 						tcp_sts = 0;
 						asTCP.closeTCP();
 
@@ -200,13 +209,24 @@ void loop_tcp(int sts)
 		  	case 5:
 
 #if defined(ARDUINO_ARCH_ESP8266)
-       Serial.printf("todo send sockfd\n");
+	   rc = client2.write(buf_tcpudp_out, TcpUdp_Lsend);
+		Serial.printf("client2.write rc = %d\n", rc);
+	   if (rc > 0)
+	   {	int i;
+	   		for(i=0; i<TcpUdp_Lsend; i++)
+			{
+				Serial.printf("%0x ", buf_tcpudp_out[i]);
+				if(i%16 == 15)
+						Serial.printf("\n");
+			}
+
+	   }
 #elif defined(ARDUINO_ARCH_ESP32)
 
-   				rc = send(asTCP.sockfd, buf_tcpudp_out, Udp_Lsend, 0);
-    			Serial.printf("send rc = %d\n");
+   				rc = send(asTCP.sockfd, buf_tcpudp_out, TcpUdp_Lsend, 0);
+    			Serial.printf("send rc = %d\n", rc);
 #endif //
-				Udp_Lsend = 0;
+				TcpUdp_Lsend = 0;
 				tcp_sts = 6;
 				asTCP.read_0();
 		break;
@@ -247,8 +267,8 @@ void loop_tcp(int sts)
 
 void loop_udp(int sts)
 {	int rc;
-//    if (Udp_Lsend > 0) 
-//		Serial.printf("udp send l=%i\n",  Udp_Lsend);		
+//    if (TcpUdp_Lsend > 0) 
+//		Serial.printf("udp send l=%i\n",  TcpUdp_Lsend);		
 	
 	int packetSize = Udp.parsePacket();
 	if (packetSize)
@@ -259,19 +279,19 @@ void loop_udp(int sts)
     	{
       	tcpudp_incomingPacket[len] = '\0';
     	}
-   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, Udp_Lsend, BUFSIZE, esp_get_buf);
+   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, BUFSIZE, esp_get_buf);
    	if(rc == 0)
-	{//	Serial.printf("net_callback rc=%i l=%i\n", rc, Udp_Lsend);	
+	{//	Serial.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
 		Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-		Udp.write(Udp_MsgOut, Udp_Lsend);
-		Udp_Lsend  = 0;
+		Udp.write(Udp_MsgOut, TcpUdp_Lsend);
+		TcpUdp_Lsend  = 0;
 		Udp.endPacket();
     }
-  } else if (sts && Udp_Lsend > 0) {
-		Serial.printf("udp send l=%i bytes to %s port %d\n",  Udp_Lsend, Udp_remoteIP.toString().c_str(), Udp_RemotePort);	
+  } else if (sts && TcpUdp_Lsend > 0) {
+		Serial.printf("udp send l=%i bytes to %s port %d\n",  TcpUdp_Lsend, Udp_remoteIP.toString().c_str(), Udp_RemotePort);	
 		Udp.beginPacket( Udp_remoteIP, Udp_RemotePort);
-		Udp.write(Udp_MsgOut, Udp_Lsend);
-		Udp_Lsend  = 0;
+		Udp.write(Udp_MsgOut, TcpUdp_Lsend);
+		TcpUdp_Lsend  = 0;
 		Udp.endPacket();
   }
 }
@@ -346,7 +366,7 @@ static unsigned int jj=0xffff, Nlost=0;
    }
    switch(cmd)
 		 {  case MCMD_HAND_SHAKE:
-  	   p_sd->udp_callback_HandShake(bf, MsgOut, Lsend,get_buf);
+  	   p_sd->callback_HandShake(bf, MsgOut, Lsend,get_buf);
 			 break;
 			
 		 case MCMD_ECHO: // эхо
@@ -368,21 +388,26 @@ static unsigned int jj=0xffff, Nlost=0;
 //  	   p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
 				break;
 
-      case  MCMD_TESTCMD:
+			case  MCMD_TESTCMD:
   	   p_sd->callback_testcmd(bf, MsgOut, Lsend, get_buf);
 				break;
 
-      case  MCMD_TESTCMDANSWER:
+			case  MCMD_TESTCMDANSWER:
   	   p_sd->callback_testcmdanswer(bf, MsgOut, Lsend, get_buf);
 				break;
 
 			case MCMD_SET_UDPSERVER:
-			p_sd->callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
-			p_sd->udp_remoteIP = Udp.remoteIP();
-			Udp_remoteIP = p_sd->udp_remoteIP;  
+		p_sd->callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
+		p_sd->udp_remoteIP = Udp.remoteIP();
+		Udp_remoteIP = p_sd->udp_remoteIP;  
 				break;
+
 			case MCMD_SET_TCPSERVER:
-			p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
+		p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
+				break;
+
+			case MCMD_GET_OT_INFO:
+		p_sd->callback_Get_OpenThermInfo(bf, MsgOut, Lsend, get_buf);
 				break;
 	 default:
     Serial.printf("net_callback Unknown cmd %i\n",  cmd);
@@ -402,10 +427,19 @@ static unsigned int jj=0xffff, Nlost=0;
 
 #if defined(ARDUINO_ARCH_ESP8266)
 int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
-{
-	Serial.printf("TODO %s\n", __FUNCTION__);
-    
-    return 1;
+{  int rc;
+//	Serial.printf("TODO %s\n", __FUNCTION__);
+
+	client2.setTimeout(_timeout);
+	rc = client2.connect(ip, port);
+    timeout = _timeout;
+
+//	Serial.printf("TODO %s\n", __FUNCTION__);
+//	Serial.print(ip.toString());
+//	Serial.printf(" port %d\n", port);
+
+//	Serial.printf("rc = %d\n", rc);
+    return rc;
 }
 
 // -1 - error
@@ -414,10 +448,13 @@ int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
 // 2 timeout
 
 int As_TCP::connect_a(void)
-{   int res;
+{   int rc;
 
-	Serial.printf("TODO %s\n", __FUNCTION__);
-	    return 1;
+//	Serial.printf("TODO %s\n", __FUNCTION__);
+
+	rc = client2.connected();
+	
+	return rc;
 }
 
 int As_TCP::read_0(void)
@@ -432,10 +469,18 @@ int As_TCP::read_0(void)
 // 2 timeout
 
 int As_TCP::read_a(void)
-{   int res=-1;
-	Serial.printf("TODO %s\n", __FUNCTION__);
+{   int  rc;
+	rc = client2.available();
+	if (rc == 0)
+	{
+		if(millis()-t0 > timeout)
+        {   Serial.printf("read_a returned due to timeout %d ms\n", timeout);
+			closeTCP();
+			rc = 2;
+		}
+	}
 
-	return res;
+	return rc;
 }
 
 
@@ -448,6 +493,7 @@ int As_TCP::Read(char bufin[], int len)
 void As_TCP::closeTCP(void)
 {
 	Serial.printf("TODO %s\n", __FUNCTION__);
+	client2.stop();
 
 }
 

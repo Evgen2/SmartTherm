@@ -9,7 +9,7 @@
 
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION    0
-#define MASTER_SUBVERSION 6
+#define MASTER_SUBVERSION 7
 /***************/
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
@@ -97,9 +97,14 @@ class SmartDevice
         UDPserver_repot_period = 0;
         UDPserver_sts = 0;
         UDPserver_t = 0;
+	TCPserver_port = 0;
+	TCPserver_repot_period = 0;
+	TCPserver_sts = 0;
+	TCPserver_t = 0;
+
   status = -1;
   }
-  void udp_callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void udp_callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -115,6 +120,8 @@ class SmartDevice
   virtual void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
   virtual void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  };
+  virtual void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
 
 

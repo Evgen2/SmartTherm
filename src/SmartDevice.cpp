@@ -21,18 +21,19 @@ typedef WebServer WEBServer;
 
 /*********************************************************************************/
 // MCMD_HAND_SHAKE
-void SmartDevice::udp_callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int i, l;
   l = sizeof(HAND_SHAKE_OUT);
-	Lsend = l + sizeof(short int)*3+1; //17
+	Lsend = l + sizeof(short int)*3; //16
 	MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
 
-  Serial.printf("MCMD_HAND_SHAKE\n");
-	for(i=0; i<10;i++)
-		Serial.printf("%02x ", bf[6+i]);
-
-	if((bf[6+l-1] == 0) && !strcmp((char *)&bf[6], HAND_SHAKE_INP))
+//  Serial.printf("MCMD_HAND_SHAKE\n");
+//  for(i=0; i<10;i++)
+//		Serial.printf("%02x ", bf[6+i]);
+	
+  Serial.printf("\n");
+	if((bf[6+l-1] == 0) && !strncmp((char *)&bf[6], HAND_SHAKE_INP,l))
 	{   memcpy(&MsgOut[6], HAND_SHAKE_OUT,l);
 	} else {
 	    memcpy(&MsgOut[6], HAND_SHAKE_ERR,l);
@@ -49,17 +50,20 @@ void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut
 //MD_IDENTIFY
 void SmartDevice::udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int l; 
-	
+	int i;
+//unsigned char  * __attribute__((aligned(1)))  MsgOut1;
 	l = sizeof(IDENTIFY_TEXT);
   Lsend = 6 + sizeof(int)*3 + sizeof(short int) + 6 + l;	
+  Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l, Lsend );
+  
   MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
   *((PACKED short int *) (&MsgOut[6])) = (short int)(sizeof(int)*3 + 6 + l);
-	memcpy((void *)&MsgOut[8],(void *)Mac[0],6);
+  *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
+  *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
+  *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
 
-  *((PACKED  int *) (&MsgOut[14]))  =  IDENTIFY_TYPE;
-  *((PACKED  int *) (&MsgOut[18]))  =  IDENTIFY_CODE;
-  *((PACKED  int *) (&MsgOut[22]))  =  IdNumber;	
+	memcpy((void *)&MsgOut[20],(void *)&Mac[0],6);
   memcpy((void *)&MsgOut[26],(void *)IDENTIFY_TEXT, l);
 
   Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l, Lsend );

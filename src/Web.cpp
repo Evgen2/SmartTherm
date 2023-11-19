@@ -45,7 +45,7 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
-int OTDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
+int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
 
 
@@ -143,6 +143,20 @@ String onAbout(AutoConnectAux& aux, PageArgument& args);
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 /************************************/
+
+void setup_web_common1(void)
+{
+  FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+
+  InfoPage.on(onInfo);      // Register the attribute overwrite handler.
+  portal.join(InfoPage);     // Join the hello page.
+  config.ota = AC_OTA_BUILTIN;
+  portal.config(config);
+  portal.begin();
+
+  WiFiWebServer&  webServer = portal.host();
+  webServer.on("/", onRoot);  // Register the root page redirector.
+}
 
 void setup_web_common(void)
 {
@@ -270,7 +284,8 @@ float mRSSi = 0.;
 int WiFists = -1;
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[120];
+{  char str[180];
+   int l;
 extern int minRamFree;
 
 //WiFiDebugInfo
@@ -285,12 +300,39 @@ extern int minRamFree;
    } else 
       DebugInfo3.value = "";
    sprintf(str,"OpenTherm statistics:");
+   sprintf(str,"OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d", 
+      OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
+   l = strlen(str);
+   Serial.printf("4 l=%d\n", l);
+
    DebugInfo4.value = str;
-   sprintf(str,"%d %d  %d %d  %d %d  %d %d  %d %d", 
-      OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9]);
-   DebugInfo5.value = str;
    sprintf(str,"min free RAM %d", minRamFree);
+   DebugInfo5.value = str;
+  
+  { time_t now;
+    struct tm *nowtime;
+    now = time(nullptr);
+    nowtime = localtime(&now);
+    sprintf( str, "<br>%02d.%02d.%d %d:%02d:%02d",
+          nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
+		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
+ 
+    DebugInfo5.value += str;
+  }
+
+   sprintf(str,"Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d", 
+          SmOT.Bstat.NflameOn, SmOT.Bstat.NflameOn_h, SmOT.Bstat.NflameOn_h_prev, SmOT.Bstat.NflameOn_day, SmOT.Bstat.NflameOn_day_prev);
+   l = strlen(str);
+   Serial.printf("5 l=%d\n", l);
+   
    DebugInfo6.value = str;
+   sprintf(str,"<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f", 
+          SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
+
+   l = strlen(str);
+   Serial.printf("6 l=%d\n", l);
+
+   DebugInfo6.value += str;
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -391,20 +433,24 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
        SetPar_info1.value += "вЫкл";
     }
 
-    SetPar_info1.value += " Горячая вода ";
-    if(SmOT.enable_HotWater)
-    {   SetPar_info1.value += "Вкл";
-        SmOT.need_set_dhwT = 1;
-    } else {
-       SetPar_info1.value += "вЫкл";
+    if(SmOT.HotWater_present)
+    { SetPar_info1.value += " Горячая вода ";
+      if(SmOT.enable_HotWater)
+      {   SetPar_info1.value += "Вкл";
+          SmOT.need_set_dhwT = 1;
+      } else {
+        SetPar_info1.value += "вЫкл";
+      }
     }
 
-    SetPar_info1.value += " Отопление2 ";
-    if(SmOT.enable_CentralHeating2)
-    {   SetPar_info1.value += "Вкл";
-        SmOT.need_set_T2 = 1;
-    } else {
-       SetPar_info1.value += "вЫкл";
+    if(SmOT.CH2_present)
+    { SetPar_info1.value += " Отопление2 ";
+      if(SmOT.enable_CentralHeating2)
+      {   SetPar_info1.value += "Вкл";
+          SmOT.need_set_T2 = 1;
+      } else {
+        SetPar_info1.value += "вЫкл";
+      }
     }
 
   return String();
@@ -482,7 +528,7 @@ extern OpenTherm ot;
 //  Serial.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
 
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
-    {   Info3.value = " Температура помещения ";
+    {   Info3.value = " Температура ";
         if(SmOT.stsT1 >= 0)
           Info3.value += "T1 " + String(SmOT.t1) + " ";
         if(SmOT.stsT2 >= 0)
@@ -529,7 +575,7 @@ extern OpenTherm ot;
       }
 
 // Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
-   Info5.value = "Ts "+ String(SmOT.Tset) + "Tsr "+ String(SmOT.Tset_r) + "<br>";
+   Info5.value = "Ts "+ String(SmOT.Tset) + " Tsr "+ String(SmOT.Tset_r) + "<br>";
 
 
     if(SmOT.OEMDcode || SmOT.Fault)
@@ -596,7 +642,6 @@ extern OpenTherm ot;
         Info6.value = "";
         Info7.value = "";
   }
-
  
 /********************/
   return String();
@@ -634,7 +679,7 @@ Remeha	11
 Baxi 27
 Viessmann  VITOPEND 	33
 Navinien 	148
-
+Zota Lux-x  248
 */
   if(SmOT.OTmemberCode == 8)
       Ctrl2.value += "Buderus"; 
@@ -648,6 +693,8 @@ Navinien 	148
       Ctrl2.value += "Viessmann"; 
   else if(SmOT.OTmemberCode == 148)
       Ctrl2.value += "Navinien"; 
+  else if(SmOT.OTmemberCode == 248)
+      Ctrl2.value += "Zota Lux-x"; 
   else 
       Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
 
@@ -746,6 +793,8 @@ static unsigned long t0=0; // t1=0;
         WiFiDebugInfo[rc]++;
     WiFists = rc;
   }
+
+
   if(rc ==  WL_CONNECTED)
   {  dt = millis() - t0;
      if(dt > 10000)
@@ -787,4 +836,24 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi) {
     qu = 2 * (rssi + 100);
   return qu;
 }
+
+#if defined(ARDUINO_ARCH_ESP32)
+void TestPower(void)
+{  int8_t power =-1;
+      static int p = -127;
+      int rc;
+
+      rc = esp_wifi_get_max_tx_power(&power);
+     Serial.printf("rc=%d max_tx_power =%d \n", rc, power);
+/*     
+       power = p;
+      rc = esp_wifi_set_max_tx_power(power);
+      if(rc == ESP_OK)
+     Serial.printf("| rc=%d  set to %d\n", rc, power);
+      p++;
+      if(p<-5) p += 5;
+      if(p > 127) p = -1;
+*/      
+}
+#endif
 

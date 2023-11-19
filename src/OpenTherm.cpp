@@ -22,6 +22,7 @@ OpenTherm::OpenTherm(int inPin, int outPin, bool isSlave):
 {
 	status = NOT_INITIALIZED;
 	Lastresponse = 0;
+	LastRequestId = 0;
 
 }
 
@@ -252,6 +253,7 @@ unsigned long OpenTherm::buildRequest(OpenThermMessageType type, OpenThermMessag
 	}
 	request |= ((unsigned long)id) << 16;
 	if (parity(request)) request |= (1ul << 31);
+	LastRequestId = id;
 	return request;
 }
 
