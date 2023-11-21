@@ -22,7 +22,7 @@ typedef WebServer WEBServer;
 /*********************************************************************************/
 // MCMD_HAND_SHAKE
 void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{ int i, l;
+{ int l;
   l = sizeof(HAND_SHAKE_OUT);
 	Lsend = l + sizeof(short int)*3; //16
 	MsgOut = get_buf(Lsend);
@@ -50,7 +50,6 @@ void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut
 //MD_IDENTIFY
 void SmartDevice::udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int l; 
-	int i;
 //unsigned char  * __attribute__((aligned(1)))  MsgOut1;
 	l = sizeof(IDENTIFY_TEXT);
   Lsend = 6 + sizeof(int)*3 + sizeof(short int) + 6 + l;	

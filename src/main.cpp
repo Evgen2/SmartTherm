@@ -151,7 +151,7 @@ M1:      SmOT.stsT1 = 0;
 
       Tsensor1.setResolution(12);
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
-      Serial.printf("DS18b20 (1) found on pin %i\n", DS1820_1);
+      Serial.printf("DS18b20(1) found on pin %i\n", DS1820_1);
   }
 
   if(Tsensor2.begin() == false)

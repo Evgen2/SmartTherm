@@ -141,9 +141,9 @@ void loop_tcp(int sts)
 					if(rc >= BUFSIZE)
 							rc = BUFSIZE-1;
 					len = tcp_client.readBytes(tcpudp_incomingPacket, rc);
-					Serial.printf("%d readBytes %d\n", millis(),  len);
+					Serial.printf("%ld readBytes %d\n", millis(),  len);
 				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, BUFSIZE, esp_get_buf);
-					Serial.printf("%d net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
+					Serial.printf("%li net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
 					if(rc == 0)
 					{//	Serial.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
 					 //	Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
@@ -181,9 +181,9 @@ void loop_tcp(int sts)
 					rc = asTCP.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,500);
 					if(rc == 1)
 					{	tcp_sts = 4;
-						Serial.printf("Ok connect_0 in %d ms\n", millis()-t0);
+						Serial.printf("Ok connect_0 in %ld ms\n", millis()-t0);
 					}  else {
-						Serial.printf("Error connect_0 in %d ms\n", millis()-t0);
+						Serial.printf("Error connect_0 in %ld ms\n", millis()-t0);
 						TcpUdp_Lsend = 0;
 						tcp_sts = 0;
 					}
@@ -256,7 +256,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 8:
-    			Serial.printf("case 8,  time used %d ms\n", millis()-t00);
+    			Serial.printf("case 8,  time used %ld ms\n", millis()-t00);
 						tcp_sts = 0;
 						asTCP.closeTCP();
 		break;
@@ -473,7 +473,7 @@ int As_TCP::read_a(void)
 	rc = client2.available();
 	if (rc == 0)
 	{
-		if(millis()-t0 > timeout)
+		if(int(millis()-t0) > timeout)
         {   Serial.printf("read_a returned due to timeout %d ms\n", timeout);
 			closeTCP();
 			rc = 2;

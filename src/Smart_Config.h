@@ -7,7 +7,7 @@
 #define SERIAL_DEBUG 1
 #define OT_DEBUG 0
 #define SERVER_DEBUG 0
-#define T_DEBUG 1
+#define T_DEBUG 0
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 

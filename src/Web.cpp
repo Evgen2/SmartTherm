@@ -285,7 +285,7 @@ int WiFists = -1;
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[180];
-   int l;
+  // int l;
 extern int minRamFree;
 
 //WiFiDebugInfo
@@ -302,8 +302,8 @@ extern int minRamFree;
    sprintf(str,"OpenTherm statistics:");
    sprintf(str,"OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d", 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
-   l = strlen(str);
-   Serial.printf("4 l=%d\n", l);
+   //l = strlen(str);
+   //Serial.printf("4 l=%d\n", l);
 
    DebugInfo4.value = str;
    sprintf(str,"min free RAM %d", minRamFree);
@@ -322,15 +322,15 @@ extern int minRamFree;
 
    sprintf(str,"Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d", 
           SmOT.Bstat.NflameOn, SmOT.Bstat.NflameOn_h, SmOT.Bstat.NflameOn_h_prev, SmOT.Bstat.NflameOn_day, SmOT.Bstat.NflameOn_day_prev);
-   l = strlen(str);
-   Serial.printf("5 l=%d\n", l);
+//   l = strlen(str);
+//   Serial.printf("5 l=%d\n", l);
    
    DebugInfo6.value = str;
    sprintf(str,"<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f", 
           SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
 
-   l = strlen(str);
-   Serial.printf("6 l=%d\n", l);
+//   l = strlen(str);
+//   Serial.printf("6 l=%d\n", l);
 
    DebugInfo6.value += str;
 #if 0   
