@@ -558,7 +558,7 @@ unsigned int buildRequestOnStart(void)
       break;
 
       case 2: // OpenThermMessageID::MConfigMMemberIDcode:
-          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode,  _SConfigSMemberIDcode); //3
+          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, 0/* (_SConfigSMemberIDcode&0xff) */); //3
 #if OT_DEBUG
   { unsigned int u88;
     u88 = (request & 0xffff);
