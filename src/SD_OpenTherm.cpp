@@ -290,6 +290,7 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
     if(enable_CentralHeating) B_flags |= 0x01;
     if(enable_HotWater)       B_flags |= 0x02;  
     if(HotWater_present)      B_flags |= 0x10;  
+    if(CH2_present)           B_flags |= 0x20;  
     if(Toutside_present)      B_flags |= 0x40;  
     if(Pressure_present)      B_flags |= 0x80; 
          

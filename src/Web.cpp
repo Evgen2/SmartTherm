@@ -144,20 +144,6 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 /************************************/
 
-void setup_web_common1(void)
-{
-  FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
-
-  InfoPage.on(onInfo);      // Register the attribute overwrite handler.
-  portal.join(InfoPage);     // Join the hello page.
-  config.ota = AC_OTA_BUILTIN;
-  portal.config(config);
-  portal.begin();
-
-  WiFiWebServer&  webServer = portal.host();
-  webServer.on("/", onRoot);  // Register the root page redirector.
-}
-
 void setup_web_common(void)
 {
 //  Serial.println();
@@ -673,6 +659,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   Ctrl2.value = "Котёл: "; 
   
 /*
+Baxi Fourtech/Luna 3  1
 Buderus	8
 Ferrolli 	9
 Remeha	11
@@ -681,7 +668,9 @@ Viessmann  VITOPEND 	33
 Navinien 	148
 Zota Lux-x  248
 */
-  if(SmOT.OTmemberCode == 8)
+  if(SmOT.OTmemberCode ==1)
+      Ctrl2.value += "Baxi Fourtech/Luna 3"; 
+  else if(SmOT.OTmemberCode == 8)
       Ctrl2.value += "Buderus"; 
   else if(SmOT.OTmemberCode == 9)
       Ctrl2.value += "Ferrolli"; 

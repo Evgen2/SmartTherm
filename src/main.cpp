@@ -56,6 +56,12 @@ class SD_Termo SmOT;
 
 #endif
 
+/*  некоторым котлам (например, Baxi Fourtech/Luna 3) не нравится OpenThermMessageID::SConfigSMemberIDcode
+    настолько, что они перестают отвечать на запросы
+    OTstartSts_MAX  2 - не использовать SConfigSMemberIDcode
+    OTstartSts_MAX  3 -  использовать SConfigSMemberIDcode
+*/
+#define OTstartSts_MAX 2
 
 OpenTherm ot(inPin, outPin);
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
@@ -106,7 +112,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   
 
   setupDS1820();
-//OTstartSts = 0;
+
   ot.begin(handleInterrupt, OTprocessResponse);
   setup_web_common();
   setup_tcpudp( &SmOT );
@@ -741,7 +747,8 @@ int OTloop(void)
           if((millis() - SmOT.RespMillis) < 100)
                Serial.printf("OTloop too fast: %d *************\n", int (millis() - SmOT.RespMillis));
 
-         if(OTstartSts < 3)
+//         if(OTstartSts < 3)
+         if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
             request = buildRequest();
@@ -853,7 +860,7 @@ void loop2(void)
         dt = difftime(now,SmOT.t_lastwork);
         if(dt > 10.)
         {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
-            if(OTstartSts == 3)
+            if(OTstartSts == OTstartSts_MAX)
             {   OTstartSts = 0;  // init start sequence
                 SmOT.HotWater_present = false;
                 SmOT.enable_CentralHeating2  = false; 
@@ -1007,6 +1014,16 @@ void LogOT(int code, byte id, int messagetype, unsigned int u88)
   ms = millis();
   dms = ms - ms_old;
   ms_old = ms;
+
+	if(SmOT.enable_OTlog)
+	{  //dms // 3b
+	   //code  1b
+	   //id 1b
+	   // messagetype 1b
+	   // u88 2b
+
+	}
+
   Serial.printf("%3d ", dms);
 
   switch(code)

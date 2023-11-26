@@ -87,8 +87,11 @@ public:
   int TestPar;
   int TestResponse;
   int TestStatus;
+
   unsigned long RespMillis;
   BoilerStatisic Bstat;
+
+  bool enable_OTlog; //Включаем лог OT
 
   SD_Termo(void)
   {	  
@@ -134,6 +137,7 @@ public:
       TestCmd = TestId = TestPar =  TestResponse = 0;
       TestStatus = 0;
       RespMillis = 0;
+	enable_OTlog = false;
   }
   
   void loop(void);
