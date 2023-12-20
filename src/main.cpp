@@ -1009,20 +1009,35 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
 #if OT_DEBUG
 
 void LogOT(int code, byte id, int messagetype, unsigned int u88)
-{ static int ms_old = 0;
+{ static int ms_old = 0, nm=0;
   int ms, dms;
+  short int tmp;
+  static unsigned char buf[8];
   ms = millis();
   dms = ms - ms_old;
   ms_old = ms;
 
+SmOT.enable_OTlog = 1; //test
 	if(SmOT.enable_OTlog)
-	{  //dms // 3b
+	{  
+    buf[0] = (unsigned char) (nm&0xff);
+    tmp = dms&0xffff;
+    memcpy(&buf[1], &tmp, 2);
+    //dms // 2b
+    buf[3]  = (unsigned char) (code&0xff);
 	   //code  1b
+    buf[4]  = (unsigned char) (id&0xff);
 	   //id 1b
+    buf[5]  = (unsigned char) (messagetype&0xff);
 	   // messagetype 1b
 	   // u88 2b
+    tmp = u88&0xffff;
+    memcpy(&buf[6], &tmp, 2);
+    SmOT.OTlogBuf.Add(buf);
+//  Serial.printf("LogOT: Lbuf %d \n", SmOT.OTlogBuf.Lbuf);
+//  Serial.printf("LogOT: Lbuf %d ibuf %d ifree %d\n", SmOT.OTlogBuf.GetLbuf(), SmOT.OTlogBuf.ibuf, SmOT.OTlogBuf.ifree);
 
-	}
+	} else {
 
   Serial.printf("%3d ", dms);
 
@@ -1047,6 +1062,7 @@ void LogOT(int code, byte id, int messagetype, unsigned int u88)
         break;
 
   }
+}
  }   
 
 #endif

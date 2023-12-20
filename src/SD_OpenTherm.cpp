@@ -199,6 +199,19 @@ int SD_Termo::Write_ot_fs(void)
     return rc;
 }
 
+#if defined(ARDUINO_ARCH_ESP8266)
+#define OT_DEBUGLOG_SIZE 8*4   
+#elif defined(ARDUINO_ARCH_ESP32)
+#define OT_DEBUGLOG_SIZE 8*256   
+#endif
+static char OT_DebugLog[OT_DEBUGLOG_SIZE];
+
+void SD_Termo::init(void)
+{
+  OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
+
+}
+
  
 void SD_Termo::loop(void)
 {  int dt;
@@ -358,6 +371,55 @@ void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,i
 	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 	 memcpy((void *)&MsgOut[6],(void *)&TestResponse,4); 
 	 memcpy((void *)&MsgOut[6+4],(void *)&TestStatus,4 ); 
+
+}
+
+void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{   short int logsts, nitems, l0;
+    int i, l, li;
+    unsigned char buf[8];
+
+//Set  enable_OTlog to logsts
+//if buffer is no empty - get nitems (or less)
+	 memcpy((void *)&logsts,(void *)&bf[6],sizeof(short int)); 
+	 memcpy((void *)&nitems,(void *)&bf[8],sizeof(short int)); 
+
+    li = OTlogBuf.Litem;
+    l0 = OTlogBuf.GetLbuf();
+    l = l0;
+    if(l > 0 && nitems > 0)
+    {   if(l < nitems)
+            nitems = l;
+        l *= li;
+        l += 6+6;
+        if(l > UDP_TSP_BUFSIZE)
+        {   l = UDP_TSP_BUFSIZE - (6+6);
+            nitems = l /li;
+            l = li * nitems + 6 + 6;
+        }
+        Lsend = l + 6 + 6; 
+    } else {
+        Lsend = 6 + 6; 
+        nitems = 0;
+    }
+     MsgOut = get_buf(Lsend);
+	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+     
+     i = 0;
+     if(enable_OTlog) i = 1;
+	 memcpy((void *)&MsgOut[6],(void *)&i,2); 
+	 memcpy((void *)&MsgOut[8],(void *)&l0,2);  // length of buffer in items
+	 memcpy((void *)&MsgOut[10],(void *)&nitems,2); //number of items send
+     if(nitems)
+     {  for (i = 0; i < nitems; i++)
+        {   OTlogBuf.Get(buf);
+        	memcpy((void *)&MsgOut[12+(i*li)],(void *)buf,li); 
+        }
+     }
+     if(logsts)
+        enable_OTlog = true;
+    else
+        enable_OTlog = false;
 
 }
 

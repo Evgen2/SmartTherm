@@ -29,7 +29,6 @@ U8 *esp_get_buf (U16 size);
 
 extern AutoConnectConfig config;
 extern AutoConnect portal;
-#define BUFSIZE 128
 
 WiFiUDP Udp;
 WiFiClient tcp_client;
@@ -46,8 +45,8 @@ WiFiServer server;
 
 class SmartDevice *p_sd = NULL;
 
-static char buf_tcpudp_out[BUFSIZE];
-static char tcpudp_incomingPacket[BUFSIZE];
+static char buf_tcpudp_out[UDP_TSP_BUFSIZE];
+static char tcpudp_incomingPacket[UDP_TSP_BUFSIZE];
 
 int TcpUdp_Lsend=0;
 IPAddress Udp_remoteIP;  
@@ -64,7 +63,7 @@ PACKED unsigned char *Udp_MsgOut=NULL;
 //функция, выделяющая память под буфер для отправки по UDP
 U8 *esp_get_buf (U16 size)
 {
-	if(size < BUFSIZE)
+	if(size < UDP_TSP_BUFSIZE)
 		return (U8 *)buf_tcpudp_out;
 	else 
 		return 0;
@@ -138,11 +137,13 @@ void loop_tcp(int sts)
 
 				if(rc != nb)
 				{ //	Serial.printf("%d available %d\n", millis(), rc);
-					if(rc >= BUFSIZE)
-							rc = BUFSIZE-1;
+					if(rc >= UDP_TSP_BUFSIZE)
+							rc = UDP_TSP_BUFSIZE-1;
 					len = tcp_client.readBytes(tcpudp_incomingPacket, rc);
 					Serial.printf("%ld readBytes %d\n", millis(),  len);
-				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, BUFSIZE, esp_get_buf);
+
+				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, UDP_TSP_BUFSIZE, esp_get_buf);
+
 					Serial.printf("%li net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
 					if(rc == 0)
 					{//	Serial.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
@@ -274,12 +275,12 @@ void loop_udp(int sts)
 	if (packetSize)
 	{
     	//Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
-    	int len = Udp.read(tcpudp_incomingPacket, BUFSIZE-1);
+    	int len = Udp.read(tcpudp_incomingPacket, UDP_TSP_BUFSIZE-1);
     	if (len > 0)
     	{
       	tcpudp_incomingPacket[len] = '\0';
     	}
-   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, BUFSIZE, esp_get_buf);
+   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, UDP_TSP_BUFSIZE, esp_get_buf);
    	if(rc == 0)
 	{//	Serial.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
 		Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
@@ -374,13 +375,13 @@ static unsigned int jj=0xffff, Nlost=0;
 			 break;
 		 
 		 case MCMD_IDENTIFY: // идентификация
-       p_sd->udp_callback_Identify(bf, MsgOut, Lsend,get_buf);
+       p_sd->callback_Identify(bf, MsgOut, Lsend,get_buf);
 			 break;
 			case MCMD_GETTIME:
-  	   p_sd->udp_callback_gettime(bf, MsgOut, Lsend,get_buf);
+  	   p_sd->callback_gettime(bf, MsgOut, Lsend,get_buf);
 				break;
 			case MCMD_SETTIME:
-  	   p_sd->udp_callback_settime(bf, MsgOut, Lsend, get_buf);
+  	   p_sd->callback_settime(bf, MsgOut, Lsend, get_buf);
 				break;
 
 			case MCMD_GETDATA:
@@ -408,6 +409,10 @@ static unsigned int jj=0xffff, Nlost=0;
 
 			case MCMD_GET_OT_INFO:
 		p_sd->callback_Get_OpenThermInfo(bf, MsgOut, Lsend, get_buf);
+				break;
+
+			case MCMD_OT_DEBUG:
+		p_sd->callback_GetOTLog(bf, MsgOut, Lsend, get_buf);
 				break;
 	 default:
     Serial.printf("net_callback Unknown cmd %i\n",  cmd);

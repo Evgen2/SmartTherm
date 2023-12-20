@@ -10,6 +10,8 @@
 #define T_DEBUG 0
 
 #define IDENTIFY_TYPE DS_OPENTHERM
+/* TCP/UDP buffer size in bytes */
+#define UDP_TSP_BUFSIZE 128
 
 
 //есть датчик температуры

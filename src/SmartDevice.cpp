@@ -48,7 +48,7 @@ void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut
 }
 
 //MD_IDENTIFY
-void SmartDevice::udp_callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int l; 
 //unsigned char  * __attribute__((aligned(1)))  MsgOut1;
 	l = sizeof(IDENTIFY_TEXT);
@@ -80,7 +80,7 @@ struct timeb
 */
 
 //MCMD_GETTIME  прочесть время
-void SmartDevice::udp_callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {   int  tm_l;
 
 	 tm_l = sizeof(time_t); //4 ESP32, 8 ESP8266
@@ -99,7 +99,7 @@ void SmartDevice::udp_callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,i
 }
 
 //MCMD_SETTIME  установить время
-void SmartDevice::udp_callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {   int  tm_l;
 	  time_t  now;
 	  struct timeb  tb;

@@ -3,6 +3,8 @@
 #define SD_OPENTHERM
 
 #include "SmartDevice.hpp"
+#include "mybuffer.hpp"
+
 class BoilerStatisic
 {
   public:
@@ -92,6 +94,7 @@ public:
   BoilerStatisic Bstat;
 
   bool enable_OTlog; //Включаем лог OT
+  myBuffer2 OTlogBuf;
 
   SD_Termo(void)
   {	  
@@ -140,6 +143,7 @@ public:
 	enable_OTlog = false;
   }
   
+  void init(void);
   void loop(void);
   void OpenThermInfo(void);
 //  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -147,6 +151,7 @@ public:
   void callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 
   int Write_data_fs(char *path, uint8_t *dataBuff, int len);
   int Read_data_fs(char *path, uint8_t *dataBuff, int len);

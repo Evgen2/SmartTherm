@@ -173,13 +173,15 @@ void setup_web_common(void)
     }
 
   SmOT.Read_ot_fs();
-   
+  SmOT.init();
+
   {  char str[40];
      sprintf(str,"%.1f",SmOT.Tset);
      SetBoilerTemp.value = str;
      sprintf(str,"%.1f",SmOT.TdhwSet);
      SetDHWTemp.value = str;
   }
+
 
   InfoPage.on(onInfo);      // Register the attribute overwrite handler.
   Setup_Page.on(on_Setup);
