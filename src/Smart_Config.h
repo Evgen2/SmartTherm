@@ -8,23 +8,22 @@
 #define OT_DEBUG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
+#define MQTT_USE 0
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */
 #define UDP_TSP_BUFSIZE 128
 
-
 //есть датчик температуры
 #define USE_SENSOR_T 1
-
 
 #ifndef PROSESSOR_CODE
 #if defined(ARDUINO_ARCH_ESP8266)
  #define PROSESSOR_CODE  1
- #define IDENTIFY_TEXT        		"Умный контроллер SmatrTherm ESP8266"
+ #define IDENTIFY_TEXT        		F("Умный контроллер SmatrTherm ESP8266")
 #elif defined(ARDUINO_ARCH_ESP32)
  #define PROSESSOR_CODE  2
- #define IDENTIFY_TEXT        		"Умный контроллер SmatrTherm ESP32"
+ #define IDENTIFY_TEXT        		F("Умный контроллер SmatrTherm ESP32")
 #endif
 
 #define IDENTIFY_CODE   (PROSESSOR_CODE<<24)|(USE_SENSOR_T<<8)
@@ -51,5 +50,12 @@
 error not used in this config
  #endif // !ARDUINO_ARCH_ESP8266
 #endif // PROSESSOR_CODE
+
+#if defined(ARDUINO_ARCH_ESP8266)
+//  #define LED_BUILTIN 2
+#elif defined(ARDUINO_ARCH_ESP32)
+  #define LED_BUILTIN 2
+#endif
+
 #endif //SMART_CONFIG
 

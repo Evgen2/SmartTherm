@@ -27,23 +27,24 @@ extern U8 *esp_get_buf (U16 size);
 
 //struct Msg1 msg;
 static int indcmd = 0;
-
-#define FS_BUF 128
+#if MQTT_USE
+    #define FS_BUF 192
+#else
+    #define FS_BUF 128
+#endif
 
 const char *path="/smot_par";
 
 int SD_Termo::Read_ot_fs(void)
 {  int rc, n, nw;
     uint8_t Buff[FS_BUF];
-    rc = 0;
 
-
-    nw = sizeof(enable_CentralHeating)+sizeof(enable_HotWater) + sizeof(Tset) + sizeof(TdhwSet);
-    nw += sizeof(UDPserver_repot_period) + sizeof(UDPserver_port);
-    rc = Read_data_fs((char *)path, Buff, nw);
+    rc = Read_data_fs((char *)path, Buff, FS_BUF, nw);
     if(rc)
         return 1;
-    Serial.printf("Read =%i bytes\n", nw);
+#if SERIAL_DEBUG      
+    Serial.printf("Read %i bytes\n", nw);
+#endif    
 
     n = sizeof(enable_CentralHeating);
     memcpy((void *) &enable_CentralHeating, &Buff[0], n);
@@ -57,24 +58,54 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(UDPserver_repot_period);
     memcpy((void *) &UDPserver_port, &Buff[n], sizeof(UDPserver_port));
     n += sizeof(UDPserver_port);
+    memcpy((void *) &UseID2, &Buff[n], sizeof(UseID2));
+    n += sizeof(UseID2);
+    memcpy((void *) &ID2masterID, &Buff[n], sizeof(ID2masterID));
+    n += sizeof(ID2masterID);
 
+#if MQTT_USE
+  if(n < nw)
+  {
+    memcpy((void *) &useMQTT, &Buff[n], sizeof(useMQTT));
+    n += sizeof(useMQTT);
+    memcpy((void *) MQTT_server, &Buff[n], sizeof(MQTT_server));
+    n += sizeof(MQTT_server);
+    memcpy((void *) MQTT_user, &Buff[n], sizeof(MQTT_user));
+    n += sizeof(MQTT_user);
+    memcpy((void *) MQTT_pwd, &Buff[n], sizeof(MQTT_pwd));
+    n += sizeof(MQTT_pwd);
+    memcpy((void *) MQTT_topic, &Buff[n], sizeof(MQTT_topic));
+    n += sizeof(MQTT_topic);
+    memcpy((void *) &MQTT_interval, &Buff[n], sizeof(MQTT_interval));
+    n += sizeof(MQTT_interval);
+  }
+#endif
+    if(n != nw)
+        Serial.printf("Warning:read %d bytes, use %d\n", nw, n);
+
+#if SERIAL_DEBUG      
     Serial.printf("enable_CentralHeating=%i\n", enable_CentralHeating);
     Serial.printf("enable_HotWater=%i\n", enable_HotWater);
     Serial.printf("Tset=%.1f TdhwSet=%.1f\n", Tset, TdhwSet);
     Serial.printf("UDPserver_repot_period=%d UDPserver_port=%d\n", UDPserver_repot_period, UDPserver_port);
 
+#if MQTT_USE
+    Serial.printf("useMQTT=%i\n", useMQTT);
+#endif
+#endif // SERIAL_DEBUG      
+
     return 0;
 }
 
-int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
+int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 {   int  n, nw, i, l;
     uint8_t Buff[FS_BUF];
     unsigned short int crs, crs_r, nn;
 
-    if((unsigned int)len > sizeof(Buff)-2 * sizeof(unsigned short int))
-        return 10;
-
+    rlen = 0;
+#if SERIAL_DEBUG      
     Serial.printf("Reading file: %s\r\n", _path);
+#endif
 
 #if defined(ARDUINO_ARCH_ESP8266)
 //    File file = FlashFS.open(_path,"r" );
@@ -82,8 +113,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
 //    File file = FlashFS.open(_path, FILE_READ );
 #endif
     File file = FlashFS.open(_path,"r" );
-    if(!file || file.isDirectory()){
-        Serial.println("- failed to open file for reading");
+    if(!file || file.isDirectory())
+    {   if(!file)
+                Serial.println("- failed to open file for reading");
+        else
+                Serial.println("- file.isDirectory");
         if(file)
         {   file.close();
             Serial.println("file.close()");
@@ -92,25 +126,31 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
         return 1;
     }
 
+//read 2 byte - length of data
     n = file.read((unsigned char *)&nn, sizeof(nn));
     if(n != sizeof(nn))
     {   file.close();
         Serial.printf("file.read rc %i, must be =%i\n",n,sizeof(nn));
         return 3;
     }
+    if((nn +  sizeof(unsigned short int)) > (sizeof(Buff) ))
+        return 10;
+
+    if(len  < int(nn +  sizeof(unsigned short int)))
+        return 11;
     nw = nn;
     n = sizeof(nn);
     memcpy(&Buff[0],(void *) &nn, n);
-    nw += sizeof(short int);
-    Serial.printf("read %i bytes nn=%i\n",n, nw);
+//    nw += sizeof(short int);
     l = n;
-    n = file.read((unsigned char *)&Buff[l], nw);
+    n = file.read((unsigned char *)&Buff[l], nw); //read nn bytes of data
     if(n != nw)
     {   file.close();
         Serial.printf("file.read rc %i, must be =%i\n",n,nw);
         return 3;
     }
     l += n;
+    n = file.read((unsigned char *)&crs_r, sizeof(short int));  //read 2 bytes control sum
 
 /***************************/    
 //    for(i=0; i<l; i++)
@@ -118,12 +158,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
 //    Serial.printf("\n");
 /***************************/    
 
-    l -= sizeof(crs);
     crs = 0;
-
     for(i=0; i<l; i++)
-      crs += Buff[i];
-    crs_r = *((unsigned short int *)&Buff[l]);
+    {  crs += Buff[i];
+    }
+
     if(crs !=  crs_r )
     {   file.close();
         Serial.printf("crs = %i, must be =%i\n",crs_r,crs);
@@ -131,9 +170,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len)
     }
 
     file.close();
-    
-    memcpy(&dataBuff[0], &Buff[sizeof(short int)], l-sizeof(short int));
+    Serial.printf("file.close()\n");
 
+    rlen = l-sizeof(short int);
+    memcpy(&dataBuff[0], &Buff[sizeof(short int)], rlen);
+  
     return 0;
 }
 
@@ -144,10 +185,17 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 
     if((unsigned int)len > sizeof(Buff)-2 * sizeof(unsigned short int))
         return 10;
-
+#if SERIAL_DEBUG      
     Serial.printf("Writing file: %s %d bytes\r\n", _path, len);
-    FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+#endif // SERIAL_DEBUG      
     
+ //??
+ /*  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+    if(b == false)
+    {   Serial.println("FlashFS.begin failed");
+    }
+*/
+
 //    File file = FlashFS.open(_path, FILE_WRITE);  //FILE_WRITE
     File file = FlashFS.open(_path, "w");  //FILE_WRITE
     if(!file)
@@ -183,6 +231,8 @@ int SD_Termo::Write_ot_fs(void)
     
     n = sizeof(enable_CentralHeating);
     memcpy(&Buff[0],(void *) &enable_CentralHeating, n);
+Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_CentralHeating);
+
     memcpy(&Buff[n],(void *) &enable_HotWater, sizeof(enable_HotWater));
     n += sizeof(enable_HotWater);
     memcpy(&Buff[n],(void *) &Tset, sizeof(Tset));
@@ -193,6 +243,26 @@ int SD_Termo::Write_ot_fs(void)
     n += sizeof(UDPserver_repot_period);
     memcpy(&Buff[n],(void *) &UDPserver_port, sizeof(UDPserver_port));
     n += sizeof(UDPserver_port);
+    memcpy(&Buff[n],(void *) &UseID2, sizeof(UseID2));
+    n += sizeof(UseID2);
+    memcpy(&Buff[n],(void *) &ID2masterID, sizeof(ID2masterID));
+    n += sizeof(ID2masterID);
+
+#if MQTT_USE
+    memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
+    n += sizeof(useMQTT);
+    memcpy(&Buff[n],(void *) MQTT_server, sizeof(MQTT_server));
+    n += sizeof(MQTT_server);
+    memcpy(&Buff[n],(void *) MQTT_user, sizeof(MQTT_user));
+    n += sizeof(MQTT_user);
+    memcpy(&Buff[n],(void *) MQTT_pwd, sizeof(MQTT_pwd));
+    n += sizeof(MQTT_pwd);
+    memcpy(&Buff[n],(void *) MQTT_topic, sizeof(MQTT_topic));
+    n += sizeof(MQTT_topic);
+    memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
+    n += sizeof(MQTT_interval);
+
+#endif
 
     rc = Write_data_fs((char *)path, Buff, n);
 
@@ -209,7 +279,8 @@ static char OT_DebugLog[OT_DEBUGLOG_SIZE];
 void SD_Termo::init(void)
 {
   OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
-
+  Bstat.t_I_last =time(nullptr);
+  Bstat.sec_h = Bstat.sec_d = 0;
 }
 
  
@@ -217,14 +288,19 @@ void SD_Termo::loop(void)
 {  int dt;
 
     if(need_write_f)
-    {   int rc, dt, t0;
-        char str[40];
+    {   
+#if SERIAL_DEBUG 
+        int rc,  t0;
         t0 = millis();
         rc = Write_ot_fs();
         dt = millis() - t0;
-        sprintf(str,"\nrc=%d dt = %d\n", rc, dt);
-        Serial.printf("Write_fs %d %d", rc, dt);
+        Serial.printf("Write_fs rc=%d  dt %d ms", rc, dt);
         need_write_f = 0;
+#else
+         Write_ot_fs();
+        need_write_f = 0;
+#endif // SERIAL_DEBUG      
+     
     }
     
     if(UDPserver_sts)
@@ -360,7 +436,9 @@ void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
     TestCmd = 1;
     TestResponse = -1;
     TestStatus = -1;
+#if SERIAL_DEBUG 
     Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
+#endif    
 }
 
 void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
@@ -451,5 +529,8 @@ void BoilerStatisic::calcIntegral(float flame)
         ModIntegral_h += d;
         ModIntegral_d += d;
     }
+    
+    sec_h += dt;
+    sec_d += dt;
 }
 

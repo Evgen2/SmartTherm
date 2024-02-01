@@ -52,21 +52,23 @@ extern OpenThermID OT_ids[N_OT_NIDS];
 /*********************************/
 const char* INFO_URI = "/info";
 const char* SETUP_URI = "/setup";
+const char* SETUP_ADD_URI =  "/setupadd";
 const char* ABOUT_URI = "/about";
 const char* SET_T_URI =  "/set_t";
 const char* SET_PAR_URI =  "/set_par";
+const char* SET_ADD_URI =  "/add";
 const char* DEBUG_URI = "/debug";
 
 
 /************* InfoPage ******************/
 ACText(Caption, "<b>Статус OT: </b>", "", "", AC_Tag_DIV);
-ACText(Info1, "it1", "", "", AC_Tag_DIV);
-ACText(Info2, "it2", "", "", AC_Tag_DIV);
-ACText(Info3, "it3", "", "", AC_Tag_DIV);
-ACText(Info4, "it4", "", "", AC_Tag_DIV);
-ACText(Info5, "it5", "", "", AC_Tag_DIV);
-ACText(Info6, "it6", "", "", AC_Tag_DIV);
-ACText(Info7, "it7", "", "", AC_Tag_DIV);
+ACText(Info1, "", "", "", AC_Tag_DIV);
+ACText(Info2, "", "", "", AC_Tag_DIV);
+ACText(Info3, "", "", "", AC_Tag_DIV);
+ACText(Info4, "", "", "", AC_Tag_DIV);
+ACText(Info5, "", "", "", AC_Tag_DIV);
+ACText(Info6, "", "", "", AC_Tag_DIV);
+ACText(Info7, "", "", "", AC_Tag_DIV);
 ACInput(SetBoilerTemp,"44", "Температура теплоносителя:<br>"); // Boiler Control setpoint
 ACInput(SetDHWTemp,   "43", "Температура горячей воды:<br>");  // DHW Control setpoint
 ACInput(SetBoilerTemp2,"44", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
@@ -81,42 +83,54 @@ ACText(Ctrl2, "Настройки 2", "", "", AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление 2", false, AC_Behind , AC_Tag_DIV);
+#if MQTT_USE
+AutoConnectCheckbox CtrlChB4("CtrlChB4","4", "MQTT", false, AC_Behind , AC_Tag_DIV);
+ACInput(SetMQTT_server,"", "MQTT сервер"); 
+ACInput(SetMQTT_user,"", "MQTT user"); 
+ACInput(SetMQTT_pwd,"", "MQTT pwd"); 
+ACInput(SetMQTT_topic,"", "MQTT топик"); 
+ACInput(SetMQTT_interval,"", "MQTT интервал, сек"); 
+#endif // MQTT_USE
   
 //AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
 //ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
 ACSubmit(ApplyChB, "Задать", SET_PAR_URI, AC_Tag_DIV);
+ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
+
+
+/************* SetupAdditionPage for MConfigMMemberIDcode ***************/
+AutoConnectCheckbox UseID2ChB("UseID2ChB","1", "Использовать OT ID2", false, AC_Behind , AC_Tag_BR);
+ACInput(ID2MaserID,"", "IDcode"); 
+ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar});
 
 /************* SetTempPage ***************/
-ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
-ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
+//ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
+//ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
 /************* SetParPage ***************/
-ACText(SetPar_info1, "", "", "", AC_Tag_DIV); //CH DHW CH2:
-//ACText(SetPar_info2, " ", "", "", AC_Tag_DIV);
-ACSubmit(SetPar_OK, "Ok", INFO_URI, AC_Tag_DIV);
 
 /************* debugPage( ****************/
-ACText(DebugInfo1, "D1", "", "", AC_Tag_DIV);
-ACText(DebugInfo2, "D2", "", "", AC_Tag_DIV);
-ACText(DebugInfo3, "D3", "", "", AC_Tag_DIV);
-ACText(DebugInfo4, "D4", "", "", AC_Tag_DIV);
-ACText(DebugInfo5, "D5", "", "", AC_Tag_DIV);
-ACText(DebugInfo6, "D6", "", "", AC_Tag_DIV);
 ACSubmit(DebugApply, "Обновить", DEBUG_URI, AC_Tag_DIV);
 /************* AboutPage *****************/
 ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
-ACText(About_1, "1", "", "", AC_Tag_DIV);
-ACText(About_2, "2", "", "", AC_Tag_DIV);
-ACText(About_3, "3", "", "", AC_Tag_DIV);
 /*****************************************/
 
 // AutoConnectAux for the custom Web page.
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, ApplyChB});
-AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, { SetTemp_info1,  SetTemp_OK});
-AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, { SetPar_info1,   SetPar_OK});
 
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, { DebugInfo1, DebugInfo2, DebugInfo3, DebugInfo4, DebugInfo5, DebugInfo6,  DebugApply});
-AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, About_1, About_2, About_3});
+#if MQTT_USE
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_topic, SetMQTT_interval, ApplyAdd,ApplyChB});
+#else
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, ApplyAdd, ApplyChB});
+#endif // MQTT_USE
+
+
+AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
+AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
+AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
+
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6,  DebugApply});
+AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
 AutoConnectConfig config;
 AutoConnect portal;
@@ -130,11 +144,16 @@ void loop_web(void);
 void onRoot(void);
 void loadParam(String fileName);
 void onConnect(IPAddress& ipaddr);
-
+#if MQTT_USE
+  extern void mqtt_setup(void);
+  extern void mqtt_loop(void);
+#endif
 String onInfo(AutoConnectAux& aux, PageArgument& args);
 String on_Setup(AutoConnectAux& aux, PageArgument& args);
+String on_SetupAdd(AutoConnectAux& aux, PageArgument& args);
 String onSetTemp(AutoConnectAux& aux, PageArgument& args);
 String onSetPar(AutoConnectAux& aux, PageArgument& args);
+String onSetAddPar(AutoConnectAux& aux, PageArgument& args);
 String onDebug(AutoConnectAux& aux, PageArgument& args);
 String onS(AutoConnectAux& aux, PageArgument& args);
 String onAbout(AutoConnectAux& aux, PageArgument& args);
@@ -145,20 +164,67 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 /************************************/
 
 void setup_web_common(void)
-{
+{    bool b;
+
 //  Serial.println();
-   Serial.println("setup_web_common");
-  FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+//   Serial.println("setup_web_common");
+  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+  if(b == false)
+  {   Serial.println("FlashFS.begin failed");
+  }
+    
+/**********************************/
+    // Check consistency of reported partiton size info.
+/*    
+   {  esp_err_t ret;
+        Serial.println("Performing SPIFFS_check().");
+        ret = esp_spiffs_check(NULL);
+        // Could be also used to mend broken files, to clean unreferenced pages, etc.
+        // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
+        if (ret != ESP_OK) {
+            Serial.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
+            return;
+        } else {
+            Serial.println("SPIFFS_check() successful");
+        }
+    }
+*/
+/*******************************/
+
+ #if defined(ARDUINO_ARCH_ESP32)
+{ File root = FlashFS.open("/");
+  File file = root.openNextFile();
+ 
+  while(file){
+ 
+      Serial.print("FILE: ");
+      Serial.printf( "%s %d\n", file.name(), file.size());
+      if(file.size() > 1000000)
+       { char str[80];
+         sprintf(str,"/%s",file.name() );
+         Serial.printf( "remove %s\n", str);
+         file.close();
+         b = FlashFS.remove(str);
+         Serial.printf( "remove  rc = %d\n", b);
+         break;
+       }
+      
+      file = root.openNextFile();
+      
+  }
+}
+#endif
 //  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
 
-
-#if defined(ARDUINO_ARCH_ESP8266)
+#if SERIAL_DEBUG      
+ #if defined(ARDUINO_ARCH_ESP8266)
    Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
-#elif defined(ARDUINO_ARCH_ESP32)
+ #elif defined(ARDUINO_ARCH_ESP32)
    Serial.printf("OT_ids[0].used =%d %s\n", OT_ids[0].used,  OT_ids[0].descript);
+ #endif
 #endif
 
-
+#if SERIAL_DEBUG      
     { int tBytes, uBytes; 
 #if defined(ARDUINO_ARCH_ESP8266)
       FSInfo info;
@@ -171,6 +237,7 @@ void setup_web_common(void)
 #endif      
       Serial.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
     }
+#endif //SERIAL_DEBUG     
 
   SmOT.Read_ot_fs();
   SmOT.init();
@@ -180,17 +247,31 @@ void setup_web_common(void)
      SetBoilerTemp.value = str;
      sprintf(str,"%.1f",SmOT.TdhwSet);
      SetDHWTemp.value = str;
-  }
 
+  #if MQTT_USE
+     SetMQTT_server.value = SmOT.MQTT_server;
+     SetMQTT_user.value = SmOT.MQTT_user;
+     SetMQTT_pwd.value = SmOT.MQTT_pwd;
+
+     SetMQTT_topic.value = SmOT.MQTT_topic;
+     sprintf(str,"%d",SmOT.MQTT_interval);
+     SetMQTT_interval.value = str;
+  #endif
+
+  }
 
   InfoPage.on(onInfo);      // Register the attribute overwrite handler.
   Setup_Page.on(on_Setup);
   SetTempPage.on(onSetTemp);
   SetParPage.on(onSetPar);
+  SetupAdd_Page.on(on_SetupAdd);
+  SetAddParPage.on(onSetAddPar);
+
   debugPage.on(onDebug);
   AboutPage.on(onAbout);
+
 /**/  
-  portal.join({InfoPage, Setup_Page, SetTempPage, SetParPage, debugPage,  AboutPage});     // Join pages.
+  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, debugPage,  AboutPage});     // Join pages.
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
@@ -201,33 +282,61 @@ void setup_web_common(void)
 //  config.autoReconnect = true;
 //  config.reconnectInterval = 1;
 
-#if SERIAL_DEBUG 
-  Serial.println("1");
-#endif  
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
-#if SERIAL_DEBUG 
-  Serial.println("2");
-#endif  
   portal.begin();
-#if SERIAL_DEBUG 
-  Serial.println("3");
-#endif  
 
   WiFiWebServer&  webServer = portal.host();
 
   webServer.on("/", onRoot);  // Register the root page redirector.
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
-    Serial.println("WiFi Not connected");
+    Serial.println(F("WiFi Not connected"));
   }
   else {
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
+    Serial.println(F("WiFi connected"));
+    Serial.println(F("IP address: "));
     Serial.println(WiFi.localIP());
-    Serial.println("WiFiOn");
+//    Serial.println("WiFiOn");
     WiFi.setAutoReconnect(true);
+/****************************************************/    
+{
+ // Specifying the time zone and assigning NTP.
+// Required to add the correct local time to the export file name of the
+// captured image. This assignment needs to be localized.
+// This sketch works even if you omit the NTP server specification. In that
+// case, the suffix timestamp of the captured image file is the elapsed time
+// since the ESP module was powered on.
+const char*  const _tz = "MSK-3";
+const char*  const _ntp1 = "europe.pool.ntp.org";
+const char*  const _ntp2 = "pool.ntp.org";
+#if SERIAL_DEBUG      
+	  time_t  now;
+  now = time(nullptr);
+  Serial.printf("1 %s", ctime(&now));
+#endif 
+   // By configuring NTP, the timestamp appended to the capture filename will
+    // be accurate. But this procedure is optional. It does not affect ESP32Cam
+    // execution.
+    configTzTime(_tz, _ntp1 ,_ntp2);
+   delay(1000);
+#if SERIAL_DEBUG      
+  now = time(nullptr);
+  Serial.printf("2 %s\n", ctime(&now));
+#endif  
+  // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
+#if defined(ARDUINO_ARCH_ESP8266)
+// default ntp update  1 hour
+// it can be redefined via uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
+#elif defined(ARDUINO_ARCH_ESP32)
+  Serial.print("Sync time in ms: ");
+  Serial.println(sntp_get_sync_interval());  
+#endif
+#if MQTT_USE
+     mqtt_setup();
+#endif
+}
+/****************************************************/
   }  
 
 /* get my MAC*/
@@ -240,23 +349,27 @@ void setup_web_common(void)
     } else {
       wifi_get_macaddr(STATION_IF, SmOT.Mac);
     }
-    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
+//    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
 #elif defined(ARDUINO_ARCH_ESP32)
     if(WiFi.getMode() == WIFI_MODE_NULL){
         esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
+//      Serial.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }
     else{
         esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
+//      Serial.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }  
 #endif //
 
 }
 
 void onConnect(IPAddress& ipaddr) {
+#if SERIAL_DEBUG      
   Serial.print("onConnect:WiFi connected with ");
   Serial.print(WiFi.SSID());
   Serial.print(", IP:");
   Serial.println(ipaddr.toString());
+#endif  
 }
 
 // Redirects from root to the info page.
@@ -278,24 +391,24 @@ extern int minRamFree;
 
 //WiFiDebugInfo
    sprintf(str,"WiFi statistics:");
-   DebugInfo1.value = str;
+   Info1.value = str;
    sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
       WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
-   DebugInfo2.value = str;
+   Info2.value = str;
    if(WiFists == WL_CONNECTED)
    {  sprintf(str,"RSSI: %d dBm (%i%%), среднее за 10 мин %.1f",WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()), mRSSi);
-      DebugInfo3.value = str;
+      Info3.value = str;
    } else 
-      DebugInfo3.value = "";
+      Info3.value = "";
    sprintf(str,"OpenTherm statistics:");
    sprintf(str,"OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d", 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
    //l = strlen(str);
    //Serial.printf("4 l=%d\n", l);
 
-   DebugInfo4.value = str;
+   Info4.value = str;
    sprintf(str,"min free RAM %d", minRamFree);
-   DebugInfo5.value = str;
+   Info5.value = str;
   
   { time_t now;
     struct tm *nowtime;
@@ -305,7 +418,7 @@ extern int minRamFree;
           nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
 		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
  
-    DebugInfo5.value += str;
+    Info5.value += str;
   }
 
    sprintf(str,"Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d", 
@@ -313,14 +426,14 @@ extern int minRamFree;
 //   l = strlen(str);
 //   Serial.printf("5 l=%d\n", l);
    
-   DebugInfo6.value = str;
+   Info6.value = str;
    sprintf(str,"<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f", 
           SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
 
 //   l = strlen(str);
 //   Serial.printf("6 l=%d\n", l);
 
-   DebugInfo6.value += str;
+   Info6.value += str;
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -335,51 +448,49 @@ extern int minRamFree;
         if(i > 0 && (i%10 == 9))
             DebugInfo7.value += "<br>";
       }
-
    }
 #endif //0   
   return String();
 }
 
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)
-{  char str[40];
-   float  v, v1;
+{  float  v;
    int isChange=0;
 
-
-    v = SetBoilerTemp.value.toFloat();
-    if(SmOT.enable_CentralHeating && v != SmOT.Tset) isChange = 1;
-    
-    SmOT.Tset = v;
-
-    v1 = SetDHWTemp.value.toFloat();
-    if(SmOT.enable_HotWater && v1 != SmOT.TdhwSet) isChange = 1;
-    SmOT.TdhwSet = v1;
-    str[0] = 0;
     if(SmOT.enable_CentralHeating)
-     {  sprintf(str,"Отопление %.1f",v);
+    { v = SetBoilerTemp.value.toFloat();
+      if(v != SmOT.Tset)
+      { isChange = 1;
+        SmOT.Tset = v;
         SmOT.need_set_T = 1;
-     }
-    SetTemp_info1.value =   str;
+      }
+    }
+
     if(SmOT.enable_HotWater)
-    {   sprintf(str,"Горячая вода %.1f",v1);
+    { v = SetDHWTemp.value.toFloat();
+      if(v != SmOT.TdhwSet)
+      { isChange = 1;
+        SmOT.TdhwSet = v;
         SmOT.need_set_dhwT = 1;
-       SetTemp_info1.value += " ";
-       SetTemp_info1.value +=  str;
+      }
     }
 
     if(SmOT.enable_CentralHeating2)
-    {    v = SetBoilerTemp2.value.toFloat();
-         if(v != SmOT.Tset2) isChange = 1;
+    { v = SetBoilerTemp2.value.toFloat();
+      if(v != SmOT.Tset2) 
+      {  isChange = 1;
          SmOT.Tset2 = v;
-       sprintf(str,"CH2 %.1f",v);
-        SmOT.need_set_dhwT = 1;
-       SetTemp_info1.value += " ";
-       SetTemp_info1.value +=  str;
+         SmOT.need_set_T2 = 1;
+      }
     }
 
     if(isChange)
         SmOT.need_write_f = 1;
+
+// redirect/transition to the INFO_URI.
+//work only with last false in
+//AutoConnectAux SetTempPagee(SET_PAR_URI, "SetTempPage", false, {}, false);
+  aux.redirect(INFO_URI);
 
   return String();
 }
@@ -409,37 +520,128 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SmOT.enable_CentralHeating2 = check;
   }
 
+#if MQTT_USE
+  if( CtrlChB4.checked) check = true;
+  else                  check = false;
+  if(check != SmOT.useMQTT)
+  { isChange++;
+    SmOT.useMQTT = check;
+  }
+
+   if(SmOT.useMQTT)
+   {   char str0[80];
+      int i,v;
+ 
+    SetMQTT_server.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.MQTT_server,str0))
+    { isChange++;
+       strcpy(SmOT.MQTT_server,str0);      
+    }
+
+    SetMQTT_user.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.MQTT_user,str0))
+    { isChange++;
+       strcpy(SmOT.MQTT_user,str0);      
+    }
+    SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.MQTT_pwd,str0))
+    { isChange++;
+       strcpy(SmOT.MQTT_pwd,str0);      
+    }
+
+    SetMQTT_topic.value.toCharArray(str0, sizeof(str0));
+    /* check for [a-zA-Z0-9_-] */
+    for(i=0; str0[i]; i++)
+    {  if(str0[i]>='0' && str0[i]<='9' ) continue;
+       if(str0[i]>='A' && str0[i]<='Z' ) continue;
+       if(str0[i]>='a' && str0[i]<='z' ) continue;
+       if(str0[i] =='_'  ) continue;
+       if(str0[i] =='-'  ) continue;
+       str0[i] = 0;
+       break;
+    }
+    if(strcmp(SmOT.MQTT_topic,str0))
+    { isChange++;
+       strcpy(SmOT.MQTT_topic,str0);      
+    }
+
+    v = SetMQTT_interval.value.toInt();
+    if(v !=SmOT.MQTT_interval )
+    { isChange++;
+       SmOT.MQTT_interval = v;
+    }
+   }
+
+#endif //MQTT_USE
+
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
 
-   SetPar_info1.value = "Отопление ";
-
-    if(SmOT.enable_CentralHeating)
-    {   SetPar_info1.value += "Вкл";
-        SmOT.need_set_T = 1;
+    if(SmOT.enable_CentralHeating) //Отопление Вкл
+    {     SmOT.need_set_T = 1;
     } else {
-       SetPar_info1.value += "вЫкл";
+        //Отопление вЫкл
     }
 
     if(SmOT.HotWater_present)
-    { SetPar_info1.value += " Горячая вода ";
-      if(SmOT.enable_HotWater)
-      {   SetPar_info1.value += "Вкл";
-          SmOT.need_set_dhwT = 1;
+    { if(SmOT.enable_HotWater) //Горячая вода Вкл
+      {   SmOT.need_set_dhwT = 1;
       } else {
-        SetPar_info1.value += "вЫкл";
+         //Горячая вода вЫкл
       }
     }
 
     if(SmOT.CH2_present)
-    { SetPar_info1.value += " Отопление2 ";
-      if(SmOT.enable_CentralHeating2)
-      {   SetPar_info1.value += "Вкл";
-          SmOT.need_set_T2 = 1;
+    { if(SmOT.enable_CentralHeating2) //CentralHeating2 Вкл
+      { SmOT.need_set_T2 = 1;
       } else {
-        SetPar_info1.value += "вЫкл";
+        //CentralHeating2 вЫкл
       }
     }
+
+// redirect/transition to the INFO_URI.
+//work only with last false in
+//AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
+  aux.redirect(INFO_URI);
+
+  return String();
+}
+
+String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
+{  int isChange=0;
+   unsigned short int icheck;
+   unsigned short int v2;
+
+  if( UseID2ChB.checked) icheck = 1;
+  else                   icheck = 0;
+  if(icheck != SmOT.UseID2)
+  { isChange++;
+     SmOT.UseID2 = icheck;
+  }
+
+  v2 = ID2MaserID.value.toInt();
+  if(v2 != SmOT.ID2masterID )
+  { isChange++;
+    SmOT.ID2masterID = v2;
+  }
+  
+  if(isChange)
+        SmOT.need_write_f = 1;  //need write changes to FS
+
+  aux.redirect(SETUP_URI);
+  return String();
+}
+
+String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
+{  char str[40];
+
+  if( SmOT.UseID2)
+      UseID2ChB.checked = true;
+  else
+      UseID2ChB.checked = false;
+
+  sprintf(str,"%d",SmOT.ID2masterID);
+  ID2MaserID.value = str;
 
   return String();
 }
@@ -636,13 +838,14 @@ extern OpenTherm ot;
 }
 
 // SmOT.OTmemberCode
+// see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
   else
       CtrlChB1.checked = false;
-
+ 
   if(SmOT.HotWater_present) 
   { CtrlChB2.enable  =  true;    
     if(SmOT.enable_HotWater)
@@ -668,7 +871,8 @@ Remeha	11
 Baxi 27
 Viessmann  VITOPEND 	33
 Navinien 	148
-Zota Lux-x  248
+Baxi ampera (electro) 247
+Zota Lux-x (electro)  248
 */
   if(SmOT.OTmemberCode ==1)
       Ctrl2.value += "Baxi Fourtech/Luna 3"; 
@@ -684,12 +888,47 @@ Zota Lux-x  248
       Ctrl2.value += "Viessmann"; 
   else if(SmOT.OTmemberCode == 148)
       Ctrl2.value += "Navinien"; 
+  else if(SmOT.OTmemberCode == 247)
+      Ctrl2.value += "Baxi ampera (electro)"; 
   else if(SmOT.OTmemberCode == 248)
-      Ctrl2.value += "Zota Lux-x"; 
+      Ctrl2.value += "Zota Lux-x (electro)"; 
   else 
       Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
 
-  //Serial.printf("onControl checked=%i %i\n", CtrlChB1.checked, CtrlChB2.checked);
+#if MQTT_USE
+  CtrlChB4.enable  = true;
+  if(SmOT.useMQTT) 
+  { char str[40]; 
+      CtrlChB4.checked = true;
+    SetMQTT_server.enable  = true;
+    SetMQTT_user.enable  = true;
+    SetMQTT_pwd.enable  = true;
+    SetMQTT_topic.enable  = true;
+    SetMQTT_interval.enable  = true;;
+
+      SetMQTT_server.value = SmOT.MQTT_server;
+      SetMQTT_topic.value = SmOT.MQTT_topic;
+      sprintf(str, "%d",SmOT.MQTT_interval);
+      SetMQTT_interval.value = str; 
+  } else {
+    CtrlChB4.checked = false;
+    SetMQTT_server.enable  = false;
+    SetMQTT_user.enable  = false;
+    SetMQTT_pwd.enable  = false;
+    SetMQTT_topic.enable  = false;
+    SetMQTT_interval.enable  = false;
+  }
+#else //MQTT_USE
+/*
+    CtrlChB4.enable  = false;
+    SetMQTT_server.enable  = false;
+    SetMQTT_user.enable  = false;
+    SetMQTT_pwd.enable  = false;
+    SetMQTT_topic.enable  = false;
+    SetMQTT_interval.enable  = false;
+*/    
+#endif //MQTT_USE
+
 
   return String();
 }
@@ -725,15 +964,15 @@ char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&
 
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
-  About_1.value = IDENTIFY_TEXT;
+  Info1.value = IDENTIFY_TEXT;
   sprintf(str, "Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
-  About_2.value = str;
+  Info2.value = str;
   if (WiFi.status() == WL_CONNECTED)
-  {   About_3.value = "<a href=";
-      About_3.value += SM_OT_HomePage;
-      About_3.value += ">Домашняя страница проекта</a>\n";
+  {   Info3.value = "<a href=";
+      Info3.value += SM_OT_HomePage;
+      Info3.value += ">Домашняя страница проекта</a>\n";
   } else 
-    About_3.value ="";
+    Info3.value ="";
     
   return String();
 }
@@ -749,7 +988,7 @@ static unsigned long t0=0; // t1=0;
 
   portal.handleClient();
   if(sts == 0)
-  {   Serial.println("loop_web()");
+  { //  Serial.println("loop_web()");
        sts = 1;
   }
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте
@@ -767,14 +1006,18 @@ static unsigned long t0=0; // t1=0;
   */
   rc = WiFi.status();
   if(rc != WiFists)
-  { Serial.printf("WiFi.status=%i\n", rc);
+  { 
+#if SERIAL_DEBUG      
+    Serial.printf("WiFi.status=%i\n", rc);
+#endif    
     if(rc == WL_CONNECTED)
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
+#if SERIAL_DEBUG      
       Serial.printf("RSSI: %d dBm (%i%%)\n", WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
-      
       Serial.println("IP address: ");
       Serial.println(WiFi.localIP());
+#endif      
     } else {
       LedSts = 1;
 //      digitalWrite(LED_BUILTIN, LedSts);   
@@ -801,6 +1044,11 @@ static unsigned long t0=0; // t1=0;
          }
     }
   }
+
+#if MQTT_USE
+  if(rc ==  WL_CONNECTED && SmOT.useMQTT)
+         mqtt_loop();
+#endif
 
 //  time_t now = time(nullptr);
 //  Serial.println(ctime(&now));

@@ -23,7 +23,8 @@ class BoilerStatisic
   time_t t_flame_on;  //время включения горелки
   time_t t_flame_off; //время выключения горелки
   time_t t_I_last;    //предыдущее время подсчета интеграла
-
+  unsigned int sec_h; //секунд с начала часа
+  unsigned int sec_d; //секунд с начала суток
   BoilerStatisic()
   {
       NflameOn = NflameOn_h =  NflameOn_day = NflameOn_h_prev = NflameOn_day_prev = 0;
@@ -31,6 +32,7 @@ class BoilerStatisic
        ModIntegral_h = 0.;
        ModIntegral_d = 0.;
        Eff_Mod_h = Eff_Mod_d =  Eff_Mod_h_prev =  Eff_Mod_d_prev = 0.;
+       sec_h = sec_d = 0;
   }
   void calcNflame(int newSts);
   void calcIntegral(float flame);
@@ -95,7 +97,16 @@ public:
 
   bool enable_OTlog; //Включаем лог OT
   myBuffer2 OTlogBuf;
-
+#if MQTT_USE
+  bool useMQTT;
+  char MQTT_server[40];
+  char MQTT_topic[40];
+  int MQTT_interval; //sec
+  char MQTT_user[20];
+  char MQTT_pwd[10];
+#endif
+  unsigned short int UseID2;
+  unsigned short int ID2masterID;
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -141,6 +152,16 @@ public:
       TestStatus = 0;
       RespMillis = 0;
 	enable_OTlog = false;
+#if MQTT_USE
+      useMQTT = false;
+      strcpy(MQTT_server,"192.168.1.1");
+      strcpy(MQTT_topic,"ST");
+      MQTT_user[0] = 0;
+      MQTT_pwd[0] = 0;
+      MQTT_interval = 10; //sec
+#endif       
+      UseID2 = 0;
+      ID2masterID = 0;
   }
   
   void init(void);
@@ -154,7 +175,7 @@ public:
   void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 
   int Write_data_fs(char *path, uint8_t *dataBuff, int len);
-  int Read_data_fs(char *path, uint8_t *dataBuff, int len);
+  int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen);
   int Read_ot_fs(void);
   int Write_ot_fs(void);
 

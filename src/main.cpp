@@ -30,6 +30,7 @@ extern void setup_tcpudp(SmartDevice *psd);
 
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
+
 void loop_time(void);
 
 extern void test(void);
@@ -38,7 +39,6 @@ class SD_Termo SmOT;
 
 //Задаем пины
 #if defined(ARDUINO_ARCH_ESP8266)
-//  #define LED_BUILTIN 2
 
   const int inPin = D7;  // OpenTherm  in   D7 GIP013 Nodemsu
   const int outPin = D8;  // OpenTherm out  D8 GPIO15 Nodemsu
@@ -47,7 +47,6 @@ class SD_Termo SmOT;
   const int DS1820_2 = D2; //
 
 #elif defined(ARDUINO_ARCH_ESP32)
-  #define LED_BUILTIN 2
   const int inPin = 16;  // OpenTherm  in RX2 esp32
   const int outPin = 4;  // OpenTherm out D4 esp32
 
@@ -56,12 +55,12 @@ class SD_Termo SmOT;
 
 #endif
 
-/*  некоторым котлам (например, Baxi Fourtech/Luna 3) не нравится OpenThermMessageID::SConfigSMemberIDcode
+/*  некоторым котлам (например, Baxi Fourtech/Luna 3) не нравится OpenThermMessageID::MConfigMMemberIDcode
     настолько, что они перестают отвечать на запросы
-    OTstartSts_MAX  2 - не использовать SConfigSMemberIDcode
-    OTstartSts_MAX  3 -  использовать SConfigSMemberIDcode
+    OTstartSts_MAX  2 - не использовать MConfigMMemberIDcode
+    OTstartSts_MAX  3 - использовать MConfigMMemberIDcode (if SmOT.UseID2 with code SmOT.ID2masterID)
 */
-#define OTstartSts_MAX 2
+static int OTstartSts_MAX = 2;
 
 OpenTherm ot(inPin, outPin);
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
@@ -98,24 +97,30 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
   delay(1000);
   Serial.begin(115200);
-  Serial.println();
-
-  Serial.println("Start");
+  
+  Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 
   now = time(nullptr);
   Serial.printf("Sizeof time_t= %d\n",sizeof( time_t) );
   Serial.printf("time= %s millis()=%li\n", ctime(&now), millis());
+  Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
 
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
 
+/*******************************************/
   setupDS1820();
 
   ot.begin(handleInterrupt, OTprocessResponse);
   setup_web_common();
   setup_tcpudp( &SmOT );
+
+  if(SmOT.UseID2)
+      OTstartSts_MAX = 3;
+  else 
+      OTstartSts_MAX = 2;
 
 #if SERVER_DEBUG
   SmOT.TCPserver_sts = 2;  /* статус сервера */
@@ -125,7 +130,6 @@ void setup() {
   SmOT.tcp_remoteIP.fromString("192.168.0.100");
 
   Serial.printf("TCPserver_repot_period=%d TCPserver_port=%d\n", SmOT.TCPserver_repot_period, SmOT.TCPserver_port);
-
 
 #endif	
 
@@ -147,7 +151,7 @@ void setupDS1820(void)
       Serial.printf("ERROR: No DS18b20(1) found on pin %i\n", DS1820_1);
       delay(100);
       if(Tsensor1.begin() )
-      {   Serial.printf("2nd attempt(1) Ok\n");
+      {   Serial.println(F("2nd attempt(1) Ok"));
           goto M1;
       }
 
@@ -166,7 +170,7 @@ M1:      SmOT.stsT1 = 0;
       Serial.printf("ERROR: No DS18b20(2) found on pin %i\n", DS1820_2);
       delay(100);
       if(Tsensor2.begin() )
-      {   Serial.printf("2nd attempt(2) Ok\n");
+      {   Serial.println(F("2nd attempt(2) Ok"));
           goto M2;
       }
 
@@ -203,7 +207,7 @@ void loopDS1820(void)
             { SmOT.status |= 0x04;
               nd = 2;
 #if SERIAL_DEBUG 
-              Serial.printf("ERROR: DS1 timeout or disconnect %li\n", millis());
+              Serial.println(F("ERROR: DS1 timeout or disconnect"));
 #endif                
               break;
             }
@@ -217,7 +221,7 @@ void loopDS1820(void)
           { SmOT.stsT1 = 1;
             SmOT.status |= 0x10;
 #if SERIAL_DEBUG 
-            Serial.println("ERROR: DS1 CRC error");
+            Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
           } else {
             SmOT.status &= ~0x10; // сброс бита CRC error
@@ -246,7 +250,7 @@ void loopDS1820(void)
           { SmOT.status |= 0x0400;
             nd = 0;
 #if SERIAL_DEBUG 
-            Serial.println("ERROR: DS2 timeout or disconnect");
+            Serial.println(F("ERROR: DS2 timeout or disconnect"));
 #endif                
               break;
           }
@@ -261,7 +265,7 @@ void loopDS1820(void)
           { SmOT.stsT2 = 1;
             SmOT.status |= 0x1000;
       #if SERIAL_DEBUG 
-            Serial.println("ERROR: DS2 CRC error");
+            Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
           } else {
             SmOT.status &= ~0x1000; // сброс бита CRC error
@@ -305,15 +309,25 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
         SmOT.response = response; 
         OTDebugInfo[0]++;
     } else if (status == OpenThermResponseStatus::NONE) {
+#if OT_DEBUG
+      LogOT(-3, 0,  0,  0);
+#endif         
       // SmOT.stsOT = -1;  // ??
         OTDebugInfo[2]++;
     } else if (status == OpenThermResponseStatus::INVALID) {
        //SmOT.stsOT = 1;
+#if OT_DEBUG
+      LogOT(-2, 0,  0,  0);
+#endif         
         OTDebugInfo[3]++;
     } else if (status == OpenThermResponseStatus::TIMEOUT) {
        if(SmOT.stsOT != -1)
             SmOT.stsOT = 2;
         OTDebugInfo[4]++;
+#if OT_DEBUG
+      LogOT(-1, 0,  0,  0);
+#endif         
+
         return;
     }
 
@@ -334,7 +348,7 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     if(parity)
     { OTDebugInfo[1]++;
 #if SERIAL_DEBUG 
-        Serial.printf("Parity error\n");
+        Serial.println(F("Parity error"));
 #endif        
       return;
     }
@@ -343,26 +357,29 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     if(messagetype == DATA_INVALID)
     { OTDebugInfo[7]++;
 #if SERIAL_DEBUG 
-        Serial.printf("DATA_INVALID\n");
+        Serial.println(F("DATA_INVALID"));
 #endif        
       return;
     }
+    
       
     if(messagetype == UNKNOWN_DATA_ID)
     { OTDebugInfo[8]++;
       id = (response >> 16 & 0xFF);
       ot.update_OTid(id, 0);
+         if(OTstartSts > 0)  OTstartSts++;
 //        Serial.printf("UNKNOWN_DATA_ID %d\n", id);
       return;
     }
     if(messagetype != READ_ACK && messagetype != WRITE_ACK )
     { OTDebugInfo[9]++;
+         if(OTstartSts > 0)  OTstartSts++;
 #if SERIAL_DEBUG 
         Serial.printf("Messagetype  %d!!! Status %d %d\n", messagetype, status, SmOT.stsOT );
 #endif        
       return;
     }
-      
+    
     if(SmOT.stsOT != 0)
         return;
     SmOT.t_lastwork = time(nullptr);
@@ -378,7 +395,6 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
 #endif        
       return;
     }
-
 
     switch (id)
     {
@@ -423,11 +439,16 @@ bit: description [ clear/0, set/1]
 
     case OpenThermMessageID::TSet:  // 1
         SmOT.Tset_r = t;
+        if(SmOT.Tset_r == SmOT.Tset)
+                SmOT.need_set_T = 0;
+
 //        Serial.println("Set CH temp: " + String(t));
         break;
         
     case OpenThermMessageID::MConfigMMemberIDcode: //2
          if(OTstartSts == 2)  OTstartSts++;
+       Serial.printf("OpenThermMessageID::MConfigMMemberIDcode, %d\n", OTstartSts);
+
         break;
 
     case OpenThermMessageID::SConfigSMemberIDcode:  //3
@@ -564,16 +585,14 @@ unsigned int buildRequestOnStart(void)
       break;
 
       case 2: // OpenThermMessageID::MConfigMMemberIDcode:
-          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, 0/* (_SConfigSMemberIDcode&0xff) */); //3
+          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, SmOT.ID2masterID /* (_SConfigSMemberIDcode&0xff) */); //3
 #if OT_DEBUG
   { unsigned int u88;
     u88 = (request & 0xffff);
     LogOT(4,  OpenThermMessageID::MConfigMMemberIDcode,  OpenThermMessageType::WRITE_DATA,  u88);
-//    Serial.printf("ReqS: %d WRITE_DATA %04x (MConfigMMemberIDcode %04x)\n", OpenThermMessageID::MConfigMMemberIDcode,  u88,  _SConfigSMemberIDcode);
   } 
 #endif         
         break;
-
     }
 
     return request;
@@ -604,7 +623,8 @@ M0:
           {    //Set Boiler Temperature to 
 // Serial.printf("1 Request: %d\n",OpenThermMessageID::TSet);
               request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset); //1
-               SmOT.need_set_T = 0;
+              if(SmOT.need_set_T > 0)  //test
+                  SmOT.need_set_T--;
                break;
           } else if(SmOT.need_set_dhwT) {
 // Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
@@ -618,7 +638,7 @@ M0:
             raz++;
             if(raz > 100)
             {   if(SmOT.enable_CentralHeating)
-                    SmOT.need_set_T  = 1; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+                    SmOT.need_set_T  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
                 if(SmOT.enable_HotWater) 
                     SmOT.need_set_dhwT = 1;                   
                 if(SmOT.enable_CentralHeating2)
@@ -747,7 +767,6 @@ int OTloop(void)
           if((millis() - SmOT.RespMillis) < 100)
                Serial.printf("OTloop too fast: %d *************\n", int (millis() - SmOT.RespMillis));
 
-//         if(OTstartSts < 3)
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
@@ -761,7 +780,7 @@ int OTloop(void)
          if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
               st++;
          else
-           Serial.printf("sendRequestAync:  return false\n");
+           Serial.println(F("sendRequestAync:  return false"));
 
       }
       break;
@@ -807,6 +826,7 @@ void loop(void)
    Serial.printf("loop=%d dt=%d\n", count++, dt1);
   }
 #endif
+
 
 #if 1   
    t = millis();
@@ -882,9 +902,12 @@ void loop2(void)
           irot++;
         break;
         case 2:
+   
 //Serial.printf("loop_udp\n");
 { static int oldFree = 0;
   int free, needrep=0;
+  unsigned int maxFreeBlockSize;
+
   free = ESP.getFreeHeap();
   if(minRamFree == -1)
 	    minRamFree = free;
@@ -905,7 +928,14 @@ void loop2(void)
 #endif
       needrep = 1;
   if(needrep)    
-  { Serial.printf("IRAM free: %6d bytes (min %d)\n", free, minRamFree);
+  { 
+#if defined(ARDUINO_ARCH_ESP32)
+  maxFreeBlockSize = ESP.getMaxAllocHeap();
+#else
+  maxFreeBlockSize = ESP.getMaxFreeBlockSize();
+#endif
+    
+    Serial.printf("IRAM free: %6d bytes (min %d) maxFreeBlock %6d\n", free, minRamFree, maxFreeBlockSize) ;
     oldFree = free;
   }
 }
@@ -939,25 +969,37 @@ static time_t prev = 0;
 static int hour_prev = 0;
 static int mday_prev = 0;
     struct tm *nowtime;
-    int sec_hour; //секунд с начала часа
-    int sec_d;    //секунд с начала суток
+    int year, year_prev;
+    time_t dt;
 
   now = time(nullptr);
   if(now == prev)
       return;
 
-  prev = now;
+//    SmOT.Bstat.calcIntegral(0.25); //debug
+
+  nowtime = localtime(&prev);
+  year_prev = nowtime ->tm_year;
   nowtime = localtime(&now);
-#if defined(ARDUINO_ARCH_ESP8266)
-        unsigned long Uptime_millisecs = millis();
-#elif defined(ARDUINO_ARCH_ESP32)
-        long  Uptime_millisecs = esp_timer_get_time() / 1000;
-#endif
+  year = nowtime->tm_year;
 
-#if defined(ARDUINO_ARCH_ESP32)
-//     TestPower();
-#endif
+  
+  prev = now;
 
+  if( year_prev == 70 && year  >= 123)  //change time with nttp server
+  {    noInterrupts();
+        SmOT.Bstat.NflameOn_h = 0;
+        SmOT.Bstat.ModIntegral_h = 0.;
+        SmOT.Bstat.ModIntegral_d = 0.;
+        SmOT.Bstat.sec_h = SmOT.Bstat.sec_d = 0;
+
+        SmOT.init();        
+	      interrupts();
+  }
+  
+
+//  Serial.printf("%s", ctime(&now));
+ 
 #if SERIAL_DEBUG 
 
 /*
@@ -972,36 +1014,34 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
     SmOT.Bstat.NflameOn_h_prev = SmOT.Bstat.NflameOn_h;
     SmOT.Bstat.Eff_Mod_h_prev = SmOT.Bstat.Eff_Mod_h;
     noInterrupts();
-       SmOT.Bstat.NflameOn_h = 0;
+        SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_h = 0.;
+        SmOT.Bstat.sec_h = 0;
 	   interrupts();
 
-    if((Uptime_millisecs > 3600*1000*24) && (mday_prev != nowtime->tm_mday))
+    if(mday_prev != nowtime->tm_mday)
     { SmOT.Bstat.NflameOn_day_prev = SmOT.Bstat.NflameOn_day;
       SmOT.Bstat.Eff_Mod_d_prev = SmOT.Bstat.Eff_Mod_d;
     	noInterrupts();
         SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_d = 0.;
+        SmOT.Bstat.sec_d = 0;
 	    interrupts();
       mday_prev = nowtime->tm_mday;
     }
   } else {
+    
+    dt = now - SmOT.Bstat.t_I_last;
+        if(SmOT.Bstat.sec_h)
+      SmOT.Bstat.Eff_Mod_h = SmOT.Bstat.ModIntegral_h / (float)(SmOT.Bstat.sec_h + dt);
 
-    if(Uptime_millisecs > 3600*1000)
-    { sec_hour = nowtime->tm_min*60 + nowtime->tm_sec;
-    } else {
-      sec_hour  = Uptime_millisecs/1000;
-    }
-    if(sec_hour)
-      SmOT.Bstat.Eff_Mod_h = SmOT.Bstat.ModIntegral_h / (float)sec_hour;
+//     Serial.printf("sec_hour = %d Eff_Mod_h=%f ModIntegral_h=%f\n", SmOT.Bstat.sec_h, SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.ModIntegral_h );
 
-    if(Uptime_millisecs > 3600*1000*24)
-    { sec_d =  (nowtime->tm_hour*60 + nowtime->tm_min)*60 + nowtime->tm_sec;
-    } else {
-      sec_d  = Uptime_millisecs/1000;
-    }
-    if(sec_d)
-      SmOT.Bstat.Eff_Mod_d = SmOT.Bstat.ModIntegral_d / (float)sec_d;
+
+    if(SmOT.Bstat.sec_d)
+      SmOT.Bstat.Eff_Mod_d = SmOT.Bstat.ModIntegral_d / (float)(SmOT.Bstat.sec_d + dt);
+
+//     Serial.printf("sec_d = %d Eff_Mod_d=%f ModIntegral_d=%f\n", SmOT.Bstat.sec_d, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.ModIntegral_d );
   }
 }
 
@@ -1013,11 +1053,12 @@ void LogOT(int code, byte id, int messagetype, unsigned int u88)
   int ms, dms;
   short int tmp;
   static unsigned char buf[8];
+  float t;
   ms = millis();
   dms = ms - ms_old;
   ms_old = ms;
 
-SmOT.enable_OTlog = 1; //test
+SmOT.enable_OTlog = 0; //test
 	if(SmOT.enable_OTlog)
 	{  
     buf[0] = (unsigned char) (nm&0xff);
@@ -1039,23 +1080,48 @@ SmOT.enable_OTlog = 1; //test
 
 	} else {
 
-  Serial.printf("%3d ", dms);
+  Serial.printf("%6d %3d ", ms, dms);
 
   switch(code)
-  {   case 0:
+  {
+       case -3:
+      Serial.printf("Resp: NONE\n");
+        break;
+       case -2:
+      Serial.printf("Resp: INVALID\n");
+        break;
+       case -1:
+      Serial.printf("Resp: TimeOut\n");
+        break;
+       case 0:
       Serial.printf("Resp: ParityErr %d %d %04x\n", id, messagetype, u88);
         break;
       case 1:
-        Serial.printf("Resp: %d %d %04x\n", id, messagetype, u88);
+      {   
+          switch(id)
+          {  case OpenThermMessageID::TSet:
+              t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
+              if(messagetype == WRITE_ACK)
+                   Serial.printf("Resp: TSet Write %.3f\n", t);
+              else if(messagetype == READ_ACK)
+                   Serial.printf("Resp: TSet read %.3f\n", t);
+              else
+                   Serial.printf("Resp: TSet ! %d %04x\n",  messagetype, u88);
+            break;
+
+            default:
+            Serial.printf("Resp: %d %d %04x\n", id, messagetype, u88);
+          }
+      }
         break;
       case 2:
     Serial.printf("ReqS: %d READ_DATA %04x (Status %d %d %d %d)\n", OpenThermMessageID::Status,  u88, SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling,  SmOT.enable_CentralHeating2);
         break;
       case 3:
-    Serial.printf("ReqS: %d READ_DATA %04x (SConfigSMemberIDcode)\n", OpenThermMessageID::SConfigSMemberIDcode,  u88);
+    Serial.printf("ReqS:  SConfigSMemberIDcode READ_DATA %04x\n",  u88);
         break;
       case 4:
-    Serial.printf("ReqS: %d WRITE_DATA %04x (MConfigMMemberIDcode %04x)\n", OpenThermMessageID::MConfigMMemberIDcode,  u88,  _SConfigSMemberIDcode);
+    Serial.printf("ReqS: MConfigMMemberIDcode WRITE_DATA %04x\n",   u88);
         break;
       case 5:
     Serial.printf("Req : %d %d %04x\n", id, messagetype,   u88);
