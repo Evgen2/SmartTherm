@@ -4,11 +4,12 @@
 
 #include "DeviceType.h"
 
-#define SERIAL_DEBUG 1
+#define SERIAL_DEBUG 0
 #define OT_DEBUG 0
+#define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
-#define MQTT_USE 0
+#define MQTT_USE 1
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */
@@ -41,10 +42,10 @@
 #endif
 
 #if defined(ARDUINO_ARCH_ESP8266)
-  #define AUTOCONNECT_MENU_TITLE  "SmartTherm controller ESP8266"
+  #define AUTOCONNECT_MENU_TITLE  "SmartTherm ESP8266"
   #define AUTOCONNECT_APID  "ST_ESP8266"
 #elif defined(ARDUINO_ARCH_ESP32)
-  #define AUTOCONNECT_MENU_TITLE  "SmartTherm controller ESP32"
+  #define AUTOCONNECT_MENU_TITLE  "SmartTherm ESP32"
   #define AUTOCONNECT_APID  "ST_ESP32"
  #else
 error not used in this config

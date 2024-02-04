@@ -33,7 +33,6 @@ extern void loop_tcp(int sts);
 
 void loop_time(void);
 
-extern void test(void);
 /************************************/
 class SD_Termo SmOT;
 
@@ -103,8 +102,8 @@ void setup() {
   Serial.printf("Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 
   now = time(nullptr);
-  Serial.printf("Sizeof time_t= %d\n",sizeof( time_t) );
-  Serial.printf("time= %s millis()=%li\n", ctime(&now), millis());
+//  Serial.printf("Sizeof time_t= %d\n",sizeof( time_t) );
+//  Serial.printf("time= %s millis()=%li\n", ctime(&now), millis());
   Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
 
   LedSts=1;
@@ -961,7 +960,6 @@ void loop2(void)
     }
 }
 
-extern void TestPower(void);
 
 void loop_time(void)
 { time_t now;

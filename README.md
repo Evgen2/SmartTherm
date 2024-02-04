@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.7.02 
+Version 0.7.1 
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -18,6 +18,9 @@ Features:
 * no external cloud control used
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.7.1 changes
+* Add MQTT and MQTT discovery for home assistant
 
 v 0.6 changes
 * TCP/UDP interface, Windows/Linux application [SmartServer](https://github.com/Evgen2/SmartServer) for TCP/UDP API

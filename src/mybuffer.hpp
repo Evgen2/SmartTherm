@@ -1,7 +1,9 @@
 /* mybuffer.hpp */
 #ifndef MYBUFFER
 #define MYBUFFER
+#include "Smart_Config.h"
 
+#if OT_DEBUGLOG
 class myBuffer
 {
  public:
@@ -45,4 +47,5 @@ class myBuffer2:public myBuffer
    int GetLbuf(void);
 };
 
+#endif //OT_DEBUGLOG
 #endif // MYBUFFER

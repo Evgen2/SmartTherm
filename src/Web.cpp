@@ -69,9 +69,9 @@ ACText(Info4, "", "", "", AC_Tag_DIV);
 ACText(Info5, "", "", "", AC_Tag_DIV);
 ACText(Info6, "", "", "", AC_Tag_DIV);
 ACText(Info7, "", "", "", AC_Tag_DIV);
-ACInput(SetBoilerTemp,"44", "Температура теплоносителя:<br>"); // Boiler Control setpoint
-ACInput(SetDHWTemp,   "43", "Температура горячей воды:<br>");  // DHW Control setpoint
-ACInput(SetBoilerTemp2,"44", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
+ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br>"); // Boiler Control setpoint
+ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>");  // DHW Control setpoint
+ACInput(SetBoilerTemp2,"", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
@@ -170,7 +170,7 @@ void setup_web_common(void)
 //   Serial.println("setup_web_common");
   b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
   if(b == false)
-  {   Serial.println("FlashFS.begin failed");
+  {   Serial.println(F("FlashFS.begin failed"));
   }
     
 /**********************************/
@@ -365,9 +365,9 @@ const char*  const _ntp2 = "pool.ntp.org";
 
 void onConnect(IPAddress& ipaddr) {
 #if SERIAL_DEBUG      
-  Serial.print("onConnect:WiFi connected with ");
+  Serial.print(F("onConnect:WiFi connected with "));
   Serial.print(WiFi.SSID());
-  Serial.print(", IP:");
+  Serial.print(F(", IP:"));
   Serial.println(ipaddr.toString());
 #endif  
 }
@@ -390,8 +390,9 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
 extern int minRamFree;
 
 //WiFiDebugInfo
-   sprintf(str,"WiFi statistics:");
-   Info1.value = str;
+//   sprintf(str,"WiFi statistics:");
+//   Info1.value = str;
+   Info1.value = F("WiFi statistics:");
    sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
       WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
    Info2.value = str;
@@ -400,7 +401,6 @@ extern int minRamFree;
       Info3.value = str;
    } else 
       Info3.value = "";
-   sprintf(str,"OpenTherm statistics:");
    sprintf(str,"OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d", 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
    //l = strlen(str);

@@ -20,6 +20,7 @@ using WiFiWebServer = WebServer;
 
 #if MQTT_USE 
 
+
 #include <ArduinoHA.h>
 #include <PubSubClient.h>
 
@@ -37,20 +38,88 @@ extern OpenTherm ot;
 #define MQTT_VERS 1
 
 #if MQTT_VERS == 1
-#if 1
+
 /*******************************************************************************/
 //HADevice *pHAdevice;
 //HAMqtt *pMqtt;
 
 HADevice device;
-HAMqtt mqtt(espClient, device);
+HAMqtt mqtt(espClient, device,12);
 
-//HABinarySensor sensor("SmartThermSensor");
+
 HABinarySensor sensorOT("OpenTherm");
+HABinarySensor sensorFlame("Flame");
 HASensor  sensorBoilerT("BoilerT");
+HASensor  sensorModulation("Modulation");
+HASensor  sensorBoilerRetT("RetT");
+HASensor  sensorPressure("Pressure");
+HASensor  sensorT1("T1");
+HASensor  sensorT2("T2");
+HASensor  sensorText("Text");
+HASensor  sensorFreeRam("FreeRAM");
+
+const char * temperature_str = "temperature";
+// By default HAHVAC supports only reporting of the temperature.
+// You can enable feature you need using the second argument of the constructor.
+// Please check the documentation of the HAHVAC class.
+HAHVAC hvac(
+  "st",
+  HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature |HAHVAC::ActionFeature,
+  HANumber::PrecisionP2
+);
+//
+// HAHVAC::ActionFeature
+
+/* 
+| HAHVAC::AuxHeatingFeature
+MQTT entities with auxiliary heat support found
+Это приведет к неисправностям в версии 2024.3.0. Пожалуйста, устраните эту проблему перед обновлением. 
+Entity climate.st_test_mqtt_mqtt_hvac has auxiliary heat support enabled, which has been deprecated for MQTT climate devices. Please adjust your configuration and remove deprecated config options from your configuration and restart Home Assistant to fix this issue
+*/
 unsigned long lastReadAt = millis();
 unsigned long lastAvailabilityToggleAt = millis();
 bool lastInputState = false;
+
+void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
+    float temperatureFloat = temperature.toFloat();
+
+    Serial.print("Target temperature: ");
+    Serial.println(temperatureFloat);
+    SmOT.Tset = temperatureFloat;
+    SmOT.need_set_T = 2;
+    sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+}
+
+void onPowerCommand(bool state, HAHVAC* sender) {
+  if (state) {
+    Serial.println("Power on");
+  } else {
+    Serial.println("Power off");
+  }
+}
+
+void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
+    Serial.print("Mode: ");
+    if (mode == HAHVAC::OffMode) {
+        Serial.println(F("off"));
+        SmOT.enable_CentralHeating = false;
+    } else if (mode == HAHVAC::HeatMode) {
+        Serial.println("heat");
+        SmOT.enable_CentralHeating = true;
+#if 0        
+    } else if (mode == HAHVAC::AutoMode) {
+        Serial.println("auto");
+    } else if (mode == HAHVAC::CoolMode) {
+        Serial.println("cool");
+    } else if (mode == HAHVAC::DryMode) {
+        Serial.println("dry");
+    } else if (mode == HAHVAC::FanOnlyMode) {
+        Serial.println("fan only");
+#endif        
+    }
+
+    sender->setMode(mode); // report mode back to the HA panel
+}
 
 void mqtt_setup(void)
 {  bool rc;
@@ -58,50 +127,87 @@ void mqtt_setup(void)
         return;
   Serial.printf("todo %s\n",__FUNCTION__ );
 
-
-  Serial.printf("0 in %s\n",__FUNCTION__ );
-
-/* 
-  pHAdevice = new HADevice(SmOT.MQTT_topic);
-  if(pHAdevice == NULL)
-      Serial.printf("pHAdevice = NULL in %s\n",__FUNCTION__ );
-  Serial.printf("1 in %s\n",__FUNCTION__ );
-//  pHAdevice->setName(AUTOCONNECT_APID); //должно быть static!!
-  pHAdevice->setName("ST_TEST_MQTT"); //должно быть static!!
-  { static char str[40];
-    sprintf(str,"%d.%d", SmOT.Vers,SmOT.SubVers);
-    pHAdevice->setSoftwareVersion(str); //должно быть static!!
+  if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
+  {
+      Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
+  
   }
-  */
 
    device.setUniqueIdStr(SmOT.MQTT_topic);
 
-   device.setName("ST_TEST_MQTT"); //должно быть static!!
+   device.setName("ST"); //должно быть static!!
   { static char str[40];
     sprintf(str,"%d.%d", SmOT.Vers,SmOT.SubVers);
     device.setSoftwareVersion(str); //должно быть static!!
   }
 
-  Serial.printf("2 in %s\n",__FUNCTION__ );
-/*
-  pMqtt = new HAMqtt(espClient, *pHAdevice);
-  if(pMqtt == NULL)
-      Serial.printf("pMqtt = NULL in %s\n",__FUNCTION__ );
-*/      
-  Serial.printf("3 in %s\n",__FUNCTION__ );
     lastReadAt = millis();
     lastAvailabilityToggleAt = millis();
-
- Serial.printf("4 in %s\n",__FUNCTION__ );
     sensorOT.setAvailability(false);
-// Serial.printf("5 in %s\n",__FUNCTION__ );
-    sensorOT.setCurrentState(false); // optional
-    sensorOT.setName("OpenTherm connecton"); // optional
-    sensorOT.setDeviceClass("connectivity"); // optional
-     Serial.printf("6 in %s\n",__FUNCTION__ );
-    sensorBoilerT.setAvailability(true);
-    sensorBoilerT.setName("BoilerT"); // optional
-    sensorBoilerT.setDeviceClass("temperature"); // optional
+    sensorOT.setCurrentState(false); 
+    sensorOT.setName("OpenTherm"); 
+    sensorOT.setDeviceClass("connectivity"); 
+    
+    sensorFlame.setName("Горелка");
+    sensorFlame.setCurrentState(false); 
+    sensorFlame.setAvailability(false);
+    sensorFlame.setIcon("mdi:fire");
+//    sensorFlame.setDeviceClass("None");
+
+    sensorModulation.setName("Модуляция");
+    sensorModulation.setAvailability(false);
+    sensorModulation.setIcon("mdi:fire");
+    sensorModulation.setDeviceClass("power_factor"); //"temperature"
+
+    sensorBoilerT.setAvailability(false);
+    sensorBoilerT.setName("Температура теплоносителя"); 
+    sensorBoilerT.setDeviceClass(temperature_str);
+
+    sensorBoilerRetT.setAvailability(false);
+    sensorBoilerRetT.setName("Обратка");
+    sensorBoilerRetT.setDeviceClass(temperature_str); 
+
+    sensorPressure.setAvailability(false);
+    sensorPressure.setName("Давление");
+    sensorPressure.setDeviceClass("pressure"); 
+
+    sensorFreeRam.setAvailability(true);
+    sensorFreeRam.setName("Free RAM");
+    sensorFreeRam.setDeviceClass("data_size"); 
+
+
+    // assign callbacks (optional)
+    hvac.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    hvac.onPowerCommand(onPowerCommand);
+    hvac.onModeCommand(onModeCommand);
+
+    // configure HVAC (optional)
+    hvac.setName("Котёл");
+    hvac.setMinTemp(10);
+    hvac.setMaxTemp(80);
+    hvac.setTempStep(0.1);
+    hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
+    hvac.setMode(HAHVAC::HeatMode);
+    hvac.setAvailability(false);
+  
+
+    if(SmOT.stsT1 >= 0 )
+      sensorT1.setAvailability(true);
+    else 
+      sensorT1.setAvailability(false);
+    sensorT1.setName("T1");
+    sensorT1.setDeviceClass(temperature_str); 
+    if(SmOT.stsT2 >= 0 )
+      sensorT2.setAvailability(true);
+    else
+    sensorT2.setAvailability(false);
+    sensorT2.setName("T2");
+    sensorT2.setDeviceClass(temperature_str); 
+
+    sensorText.setAvailability(false);
+    sensorText.setName("Text");
+    sensorText.setDeviceClass(temperature_str); 
+
 
 //    rc= pMqtt->begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
     rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
@@ -110,26 +216,26 @@ void mqtt_setup(void)
    Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
 
     }
-  Serial.printf("endof %s\n",__FUNCTION__ );
 
 }
 
-
 int statemqtt = -1;
 int state_mqtt = -10000;
+
 void mqtt_loop(void)
 { int sts;
   char str[40];
+static int st_old = -2;  
 //      pMqtt->loop();
       mqtt.loop();
 //      if(pMqtt->isConnected())
       if(mqtt.isConnected())
       {   if(statemqtt != 1)
-              Serial.printf("MQTT connected\n");
+              Serial.println(F("MQTT connected"));
           statemqtt = 1;
       } else {
           if(statemqtt != 0)
-              Serial.printf("MQTT DiSconnected\n");
+              Serial.println(F("MQTT DiSconnected"));
           statemqtt = 0;
       }
 
@@ -140,169 +246,77 @@ void mqtt_loop(void)
           state_mqtt = sts;
       }
 //Serial.printf("todo %s\n",__FUNCTION__ );
-    if ((millis() - lastAvailabilityToggleAt) > 15000) {
+    if ((millis() - lastAvailabilityToggleAt) > 10000) {
 
         if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
         } else {
           sensorOT.setAvailability(true);
           if(SmOT.stsOT == 2)
-          { sensorOT.setCurrentState(false);
-          } else {
-            sensorOT.setCurrentState(true); 
-          }
-          sprintf(str,"%.3f", SmOT.BoilerT);
-          sensorBoilerT.setValue(str);
+          { 
+            sensorOT.setState(false);
+            hvac.setAvailability(false);
+            sensorBoilerT.setAvailability(false);
+            sensorFlame.setAvailability(false);
+            sensorModulation.setAvailability(false);
+            sensorBoilerRetT.setAvailability(false);
+            sensorPressure.setAvailability(false);
+            sensorText.setAvailability(false);
 
+          } else {
+            if(st_old != SmOT.stsOT)
+            {
+              sensorOT.setState(true);
+              sensorBoilerT.setAvailability(true);
+              hvac.setAvailability(true);
+              sensorFlame.setAvailability(true);
+              sensorModulation.setAvailability(true);
+              sensorBoilerRetT.setAvailability(true);
+              sensorPressure.setAvailability(true);
+              sensorText.setAvailability(true);
+            }
+
+            sprintf(str,"%.3f", SmOT.BoilerT);
+            sensorBoilerT.setValue(str);
+        hvac.setCurrentTemperature(SmOT.BoilerT);
+        hvac.setTargetTemperature(SmOT.Tset);
+            if(SmOT.BoilerStatus & 0x08)
+                  sensorFlame.setState(true); 
+            else
+                  sensorFlame.setState(false); 
+
+            sprintf(str,"%.3f", SmOT.FlameModulation);
+            sensorModulation.setValue(str);
+            sprintf(str,"%.3f", SmOT.RetT);
+            sensorBoilerRetT.setValue(str);  
+            sprintf(str,"%.3f", SmOT.Pressure);
+            sensorPressure.setValue(str);  
+            sprintf(str,"%.3f", SmOT.Toutside);
+            sensorText.setValue(str);  
+          }
+        }
+        st_old = SmOT.stsOT;
+
+        if(SmOT.stsT1 >= 0)
+        {   sprintf(str,"%.3f", SmOT.t1);
+            sensorT1.setValue(str);  
+        }
+        if(SmOT.stsT2 >= 0)
+        {   sprintf(str,"%.3f", SmOT.t2);
+            sensorT2.setValue(str);  
         }
 
+         sprintf(str,"%d",  ESP.getFreeHeap() );
+         sensorFreeRam.setValue(str);  
+
         lastAvailabilityToggleAt = millis();
     }
 
-
 }
-#else //0
-
-HADevice device;
-HAMqtt mqtt(espClient, device);
-
-HAButton buttonA("myButtonA");
-HAButton buttonB("myButtonB");
-HASwitch switch1("mySwitch1");
-HASwitch switch2("mySwitch2");
-
-// "myInput" is unique ID of the sensor. You should define you own ID.
-HABinarySensor sensor("myInput");
-unsigned long lastReadAt = millis();
-unsigned long lastAvailabilityToggleAt = millis();
-bool lastInputState = false;
-
-void onButtonCommand(HAButton* sender)
-{
-    if (sender == &buttonA) {
-        // button A was clicked, do your logic here
-   Serial.printf("onButtonCommand A\n");
-    } else if (sender == &buttonB) {
-   Serial.printf("onButtonCommand B\n");
-        // button B was clicked, do your logic here
-    }
-}
-void onSwitchCommand(bool state, HASwitch* sender)
-{
-    if (sender == &switch1) {
-        // the switch1 has been toggled
-   Serial.printf("onSwitchCommand 1 %d\n", state);
-        // state == true means ON state
-    } else if (sender == &switch2) {
-        // the switch2 has been toggled
-        // state == true means ON state
-   Serial.printf("onSwitchCommand 2 %d\n", state);
-    }
-
-    sender->setState(state); // report state back to the Home Assistant
-}
-
-
-void mqtt_setup() {
-  bool rc;
-  if (WiFi.status() != WL_CONNECTED)  
-        return;
-    // you don't need to verify return status
-//    Ethernet.begin(mac);
-   Serial.printf("mqtt_setup\n");
-
-{
-  HADevice *device1;
-  device1 = new HADevice(SmOT.MQTT_topic);
-  device = *device1;
-//  delete device1;
-}
-    // optional device's details
-    device.setName("ST_TEST_MQTT"); //должно быть static!!
-//    device.setName("Her");
-//    device.setName("Arduino");
-{
- static char str[40];
-    sprintf(str,"%d.%d", SmOT.Vers,SmOT.SubVers);
-   device.setSoftwareVersion(str); //должно быть static!!
-//     device.setSoftwareVersion("1.1");
-   Serial.printf("SoftwareVersion %s\n", str);
-//    device.setSoftwareVersion("1.0.0");
-//    device.setUniqueId((const byte*)SmOT.MQTT_topic, strlen(SmOT.MQTT_topic));
-
-}
-    // optional properties
-    buttonA.setIcon("mdi:fire");
-    buttonA.setName("Click me A");
-    buttonB.setIcon("mdi:home");
-    buttonB.setName("Click me B");
-
-    // press callbacks
-    buttonA.onCommand(onButtonCommand);
-    buttonB.onCommand(onButtonCommand);
-
-    // turn on "availability" feature
-    // this method also sets initial availability so you can use "true" or "false"
-    sensor.setAvailability(true);
-    lastReadAt = millis();
-    lastAvailabilityToggleAt = millis();
-    sensor.setCurrentState(lastInputState); // optional
-    sensor.setName("Door sensor"); // optional
-    sensor.setDeviceClass("door"); // optional
-
-    switch1.setName("Pretty label 1");
-    switch1.setIcon("mdi:lightbulb");
-    switch1.onCommand(onSwitchCommand);
-    switch1.setState(false); 
-
-    switch2.setName("Pretty label 2");
-    switch2.setIcon("mdi:lightbulb");
-    switch2.onCommand(onSwitchCommand);    
-    switch2.setState(true); 
-
-
-    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
-    if(rc == true)
-    {
-   Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
-
-    }
-}
-
-void mqtt_loop() {
-//    Ethernet.maintain();
-    mqtt.loop();
-
-    if ((millis() - lastAvailabilityToggleAt) > 15000) {
-         Serial.printf("sensor.isOnline() %d\n", sensor.isOnline());
-
-        sensor.setAvailability(!sensor.isOnline());
-        lastAvailabilityToggleAt = millis();
-    }
-
-    if ((millis() - lastReadAt) > 30000) { // read in 30ms interval
-        // library produces MQTT message if a new state is different than the previous one
-        static int sts = 0;
-        sensor.setState(sts);
-        lastInputState = sensor.getCurrentState();
-         Serial.printf("lastInputState %d\n", lastInputState);
-        sts = (sts+1) &0x01;
-        if(sts)
-            switch2.setState(true); 
-        else
-            switch2.setState(false); 
-
-        lastReadAt = millis();
-    }
-
-
-}
-
-#endif // 0
 
 int MQTT_pub_data(void)
 {
-Serial.printf("todo %s\n",__FUNCTION__ );
+//Serial.printf("todo %s\n",__FUNCTION__ );
     return 0;
 
 }

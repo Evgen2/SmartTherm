@@ -4,7 +4,7 @@
 
 #include "mybuffer.hpp"
 
-void QueryCom(void);
+#if OT_DEBUGLOG
 
 /* отдаем под myBuffer lb байт по адресу pb */
 void myBuffer::Init(char *pb, int Lb)
@@ -123,7 +123,6 @@ void myBuffer::EndRead(void)
 int myBuffer::GetUnread(void)
 {   int l, l2;
 /*******************/
-//QueryCom(); //PC
      l = ifree - ibuf;
 	 if(l < 0) l += Lbuf;	// l = длина буфера
 	 if(l <= 0)
@@ -169,7 +168,6 @@ int myBuffer::GetFree(void)
 /* Длина занятого буфера в char */
 int myBuffer::GetLbuf(void)
 {  int l;
-// QueryCom(); //PC
      l = ifree - ibuf;
 	 if(l < 0) l += Lbuf;	
 	return l;
@@ -182,3 +180,4 @@ int myBuffer2::GetLbuf(void)
 	return l/Litem;
 }
 
+#endif //OT_DEBUGLOG

@@ -269,16 +269,20 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     return rc;
 }
 
-#if defined(ARDUINO_ARCH_ESP8266)
-#define OT_DEBUGLOG_SIZE 8*4   
-#elif defined(ARDUINO_ARCH_ESP32)
-#define OT_DEBUGLOG_SIZE 8*256   
-#endif
-static char OT_DebugLog[OT_DEBUGLOG_SIZE];
+#if OT_DEBUGLOG
+ #if defined(ARDUINO_ARCH_ESP8266)
+  #define OT_DEBUGLOG_SIZE 8*4   
+ #elif defined(ARDUINO_ARCH_ESP32)
+  #define OT_DEBUGLOG_SIZE 8*256   
+ #endif
+ static char OT_DebugLog[OT_DEBUGLOG_SIZE];
+#endif //OT_DEBUGLOG
 
 void SD_Termo::init(void)
 {
+#if OT_DEBUGLOG
   OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
+#endif  
   Bstat.t_I_last =time(nullptr);
   Bstat.sec_h = Bstat.sec_d = 0;
 }
@@ -452,6 +456,7 @@ void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,i
 
 }
 
+#if OT_DEBUGLOG
 void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {   short int logsts, nitems, l0;
     int i, l, li;
@@ -500,6 +505,7 @@ void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
         enable_OTlog = false;
 
 }
+#endif //OT_DEBUGLOG
 
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)

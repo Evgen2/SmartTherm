@@ -94,9 +94,11 @@ public:
 
   unsigned long RespMillis;
   BoilerStatisic Bstat;
-
+#if OT_DEBUGLOG
   bool enable_OTlog; //Включаем лог OT
   myBuffer2 OTlogBuf;
+#endif // OT_DEBUGLOG
+  
 #if MQTT_USE
   bool useMQTT;
   char MQTT_server[40];
@@ -104,7 +106,7 @@ public:
   int MQTT_interval; //sec
   char MQTT_user[20];
   char MQTT_pwd[10];
-#endif
+#endif //MQTT_USE
   unsigned short int UseID2;
   unsigned short int ID2masterID;
   SD_Termo(void)
@@ -151,7 +153,9 @@ public:
       TestCmd = TestId = TestPar =  TestResponse = 0;
       TestStatus = 0;
       RespMillis = 0;
-	enable_OTlog = false;
+#if OT_DEBUGLOG
+    	enable_OTlog = false;
+#endif            
 #if MQTT_USE
       useMQTT = false;
       strcpy(MQTT_server,"192.168.1.1");
@@ -172,8 +176,9 @@ public:
   void callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+#if OT_DEBUGLOG
   void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
-
+#endif
   int Write_data_fs(char *path, uint8_t *dataBuff, int len);
   int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen);
   int Read_ot_fs(void);
