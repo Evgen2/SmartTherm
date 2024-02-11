@@ -78,18 +78,19 @@ ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
 /************* SetupPage ***************/
 ACText(Ctrl1, "Настройки котла:", "", "", AC_Tag_DIV);
-ACText(Ctrl2, "Настройки 2", "", "", AC_Tag_DIV);
+ACText(Ctrl2, "", "", "", AC_Tag_DIV);
 //ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление 2", false, AC_Behind , AC_Tag_DIV);
 #if MQTT_USE
 AutoConnectCheckbox CtrlChB4("CtrlChB4","4", "MQTT", false, AC_Behind , AC_Tag_DIV);
-ACInput(SetMQTT_server,"", "MQTT сервер"); 
-ACInput(SetMQTT_user,"", "MQTT user"); 
-ACInput(SetMQTT_pwd,"", "MQTT pwd"); 
-ACInput(SetMQTT_topic,"", "MQTT топик"); 
-ACInput(SetMQTT_interval,"", "MQTT интервал, сек"); 
+ACInput(SetMQTT_server,"", "сервер"); 
+ACInput(SetMQTT_user,"", "user"); 
+ACInput(SetMQTT_pwd,"", "pwd"); 
+ACInput(SetMQTT_topic,"", "топик"); 
+ACInput(SetMQTT_devname,"", "имя устройства"); 
+ACInput(SetMQTT_interval,"", "интервал, сек"); 
 #endif // MQTT_USE
   
 //AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
@@ -99,7 +100,7 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
 
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
-AutoConnectCheckbox UseID2ChB("UseID2ChB","1", "Использовать OT ID2", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_BR);
 ACInput(ID2MaserID,"", "IDcode"); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar});
@@ -119,7 +120,7 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 
 #if MQTT_USE
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_topic, SetMQTT_interval, ApplyAdd,ApplyChB});
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, ApplyAdd,ApplyChB, Info1});
 #else
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, ApplyAdd, ApplyChB});
 #endif // MQTT_USE
@@ -140,6 +141,7 @@ AutoConnect portal;
 //int test_fs(void);
 
 void setup_web_common(void);
+int setup_web_common_onconnect(void);
 void loop_web(void);
 void onRoot(void);
 void loadParam(String fileName);
@@ -256,6 +258,7 @@ void setup_web_common(void)
      SetMQTT_topic.value = SmOT.MQTT_topic;
      sprintf(str,"%d",SmOT.MQTT_interval);
      SetMQTT_interval.value = str;
+     SetMQTT_devname.value = SmOT.MQTT_devname;
   #endif
 
   }
@@ -292,11 +295,41 @@ void setup_web_common(void)
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
     Serial.println(F("WiFi Not connected"));
-  }
-  else {
-    Serial.println(F("WiFi connected"));
-    Serial.println(F("IP address: "));
-    Serial.println(WiFi.localIP());
+  }  else {
+    setup_web_common_onconnect();
+  }  
+
+/* get my MAC*/
+#if defined(ARDUINO_ARCH_ESP8266)
+//    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
+    if(WiFi.getMode() == WIFI_OFF)
+    {
+      wifi_get_macaddr(STATION_IF, SmOT.Mac);
+
+    } else {
+      wifi_get_macaddr(STATION_IF, SmOT.Mac);
+    }
+//    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
+#elif defined(ARDUINO_ARCH_ESP32)
+    if(WiFi.getMode() == WIFI_MODE_NULL){
+        esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
+//      Serial.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
+    }
+    else{
+        esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
+//      Serial.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
+    }  
+#endif //
+
+}
+
+int setup_web_common_onconnect(void)
+{ static int init = 0;
+  if(init)
+    return 1;
+  Serial.println(F("WiFi connected"));
+  Serial.println(F("IP address: "));
+  Serial.println(WiFi.localIP());
 //    Serial.println("WiFiOn");
     WiFi.setAutoReconnect(true);
 /****************************************************/    
@@ -332,44 +365,31 @@ const char*  const _ntp2 = "pool.ntp.org";
   Serial.print("Sync time in ms: ");
   Serial.println(sntp_get_sync_interval());  
 #endif
+
 #if MQTT_USE
+   if(SmOT.useMQTT == 0x03) 
      mqtt_setup();
 #endif
 }
 /****************************************************/
-  }  
 
-/* get my MAC*/
-#if defined(ARDUINO_ARCH_ESP8266)
-//    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
-    if(WiFi.getMode() == WIFI_OFF)
-    {
-      wifi_get_macaddr(STATION_IF, SmOT.Mac);
-
-    } else {
-      wifi_get_macaddr(STATION_IF, SmOT.Mac);
-    }
-//    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
-#elif defined(ARDUINO_ARCH_ESP32)
-    if(WiFi.getMode() == WIFI_MODE_NULL){
-        esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
-//      Serial.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
-    }
-    else{
-        esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
-//      Serial.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
-    }  
-#endif //
-
+  init  = 1;
+  return 0;
 }
 
-void onConnect(IPAddress& ipaddr) {
+
+void onConnect(IPAddress& ipaddr) 
+{ int rc;
+  rc = setup_web_common_onconnect();
+  if(rc)
+  {
 #if SERIAL_DEBUG      
   Serial.print(F("onConnect:WiFi connected with "));
   Serial.print(WiFi.SSID());
   Serial.print(F(", IP:"));
   Serial.println(ipaddr.toString());
 #endif  
+  }
 }
 
 // Redirects from root to the info page.
@@ -496,7 +516,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 }
 
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0;
+{  int isChange=0,  redir = 0;
    bool check;
 
   if( CtrlChB1.checked) check = true;
@@ -523,12 +543,23 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 #if MQTT_USE
   if( CtrlChB4.checked) check = true;
   else                  check = false;
-  if(check != SmOT.useMQTT)
-  { isChange++;
-    SmOT.useMQTT = check;
+
+  if(check)
+  { if(SmOT.useMQTT == 0)
+    { SmOT.useMQTT = 1;
+      redir = 1;  
+    } else if(SmOT.useMQTT == 1) { 
+      SmOT.useMQTT = 0x3;
+      isChange++;
+    }
+  } else {
+    if(SmOT.useMQTT != 0)
+    { SmOT.useMQTT = 0;
+      isChange++;
+    }
   }
 
-   if(SmOT.useMQTT)
+   if(SmOT.useMQTT && redir== 0)
    {   char str0[80];
       int i,v;
  
@@ -547,6 +578,12 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     if(strcmp(SmOT.MQTT_pwd,str0))
     { isChange++;
        strcpy(SmOT.MQTT_pwd,str0);      
+    }
+
+    SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.MQTT_devname,str0))
+    { isChange++;
+       strcpy(SmOT.MQTT_devname,str0);      
     }
 
     SetMQTT_topic.value.toCharArray(str0, sizeof(str0));
@@ -602,7 +639,15 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // redirect/transition to the INFO_URI.
 //work only with last false in
 //AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
-  aux.redirect(INFO_URI);
+
+if(redir)
+   Serial.printf("redir = %d uri=%s isChange %d\n", redir, SETUP_URI, isChange);
+else
+   Serial.printf("redir = %d uri=%s isChange %d\n", redir, INFO_URI, isChange);
+  if(redir)
+    aux.redirect(SETUP_URI);
+  else
+    aux.redirect(INFO_URI);
 
   return String();
 }
@@ -861,6 +906,8 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   else
      CtrlChB3.enable  = false;
 
+  Info1.value ="";
+
   Ctrl2.value = "Котёл: "; 
   
 /*
@@ -899,17 +946,22 @@ Zota Lux-x (electro)  248
   CtrlChB4.enable  = true;
   if(SmOT.useMQTT) 
   { char str[40]; 
-      CtrlChB4.checked = true;
+    if(SmOT.useMQTT == 1) 
+      Info1.value = "Нужен Reset"; 
+    CtrlChB4.checked = true;
     SetMQTT_server.enable  = true;
     SetMQTT_user.enable  = true;
     SetMQTT_pwd.enable  = true;
     SetMQTT_topic.enable  = true;
-    SetMQTT_interval.enable  = true;;
+    SetMQTT_interval.enable  = true;
+    SetMQTT_devname.enable  = true;
 
       SetMQTT_server.value = SmOT.MQTT_server;
       SetMQTT_topic.value = SmOT.MQTT_topic;
       sprintf(str, "%d",SmOT.MQTT_interval);
       SetMQTT_interval.value = str; 
+      SetMQTT_devname.value = SmOT.MQTT_devname;
+    
   } else {
     CtrlChB4.checked = false;
     SetMQTT_server.enable  = false;
@@ -917,8 +969,10 @@ Zota Lux-x (electro)  248
     SetMQTT_pwd.enable  = false;
     SetMQTT_topic.enable  = false;
     SetMQTT_interval.enable  = false;
+    SetMQTT_devname.enable  = false;
   }
 #else //MQTT_USE
+
 /*
     CtrlChB4.enable  = false;
     SetMQTT_server.enable  = false;
@@ -1046,7 +1100,7 @@ static unsigned long t0=0; // t1=0;
   }
 
 #if MQTT_USE
-  if(rc ==  WL_CONNECTED && SmOT.useMQTT)
+  if(rc ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
          mqtt_loop();
 #endif
 

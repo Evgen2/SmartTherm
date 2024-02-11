@@ -54,7 +54,9 @@ public:
     bool enable_HotWater;
     bool enable_Cooling;
     bool enable_CentralHeating2;
+
     bool HotWater_present;
+    bool RetT_present;
     bool CH2_present;
     bool Toutside_present; 
     bool Pressure_present;
@@ -100,12 +102,25 @@ public:
 #endif // OT_DEBUGLOG
   
 #if MQTT_USE
-  bool useMQTT;
+  byte useMQTT;  //0 = not use, 1 use but not setup, 0x3 - use & setup
+  byte stsMQTT;
+ #if defined(ARDUINO_ARCH_ESP8266)
+ //20+20+4+10+10+10= 74
+  char MQTT_server[20]; 
+  char MQTT_topic[20];
+  int  MQTT_interval; //sec
+  char MQTT_user[10];
+  char MQTT_pwd[10];
+  char MQTT_devname[10];
+ #elif defined(ARDUINO_ARCH_ESP32)
+ //40+40+4+40+20+40=  184 (+110)
   char MQTT_server[40];
   char MQTT_topic[40];
   int MQTT_interval; //sec
-  char MQTT_user[20];
-  char MQTT_pwd[10];
+  char MQTT_user[40];
+  char MQTT_pwd[20];
+  char MQTT_devname[40];
+ #endif
 #endif //MQTT_USE
   unsigned short int UseID2;
   unsigned short int ID2masterID;
@@ -116,7 +131,11 @@ public:
     enable_HotWater = true;
     enable_Cooling = false;
     enable_CentralHeating2 = false;
+
+    HotWater_present  = false;;
+    RetT_present  = false;;
     CH2_present  = false;
+    RetT_present  = false; 
     Toutside_present  = false; 
     Pressure_present  = false;
 
@@ -157,9 +176,11 @@ public:
     	enable_OTlog = false;
 #endif            
 #if MQTT_USE
-      useMQTT = false;
+      useMQTT = 0;
+      stsMQTT = 0;
       strcpy(MQTT_server,"192.168.1.1");
       strcpy(MQTT_topic,"ST");
+      strcpy(MQTT_devname,"Boiler");
       MQTT_user[0] = 0;
       MQTT_pwd[0] = 0;
       MQTT_interval = 10; //sec

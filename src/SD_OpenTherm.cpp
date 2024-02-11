@@ -27,10 +27,16 @@ extern U8 *esp_get_buf (U16 size);
 
 //struct Msg1 msg;
 static int indcmd = 0;
+
 #if MQTT_USE
-    #define FS_BUF 192
+  #if defined(ARDUINO_ARCH_ESP8266)
+//-110 = 102
+    #define FS_BUF 104  
+  #elif defined(ARDUINO_ARCH_ESP32)
+    #define FS_BUF 212
+  #endif
 #else
-    #define FS_BUF 128
+    #define FS_BUF 64  
 #endif
 
 const char *path="/smot_par";
@@ -76,9 +82,12 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(MQTT_pwd);
     memcpy((void *) MQTT_topic, &Buff[n], sizeof(MQTT_topic));
     n += sizeof(MQTT_topic);
+    memcpy((void *) MQTT_devname, &Buff[n], sizeof(MQTT_devname));
+    n += sizeof(MQTT_devname);
     memcpy((void *) &MQTT_interval, &Buff[n], sizeof(MQTT_interval));
     n += sizeof(MQTT_interval);
   }
+
 #endif
     if(n != nw)
         Serial.printf("Warning:read %d bytes, use %d\n", nw, n);
@@ -97,10 +106,11 @@ int SD_Termo::Read_ot_fs(void)
     return 0;
 }
 
+
 int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 {   int  n, nw, i, l;
-    uint8_t Buff[FS_BUF];
     unsigned short int crs, crs_r, nn;
+    uint8_t Buff[FS_BUF];
 
     rlen = 0;
 #if SERIAL_DEBUG      
@@ -178,17 +188,24 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
     return 0;
 }
 
+
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int rc=0, i, n, nw;
-    uint8_t Buff[FS_BUF];
     unsigned short int crs, nn;
+    uint8_t Buff[FS_BUF];
 
-    if((unsigned int)len > sizeof(Buff)-2 * sizeof(unsigned short int))
+    if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
+    {
+#if SERIAL_DEBUG      
+    Serial.printf("Error: Writing %d bytes to %d buff\n",  len, sizeof(Buff));
+#endif // SERIAL_DEBUG      
+
         return 10;
+    }
+
 #if SERIAL_DEBUG      
     Serial.printf("Writing file: %s %d bytes\r\n", _path, len);
 #endif // SERIAL_DEBUG      
-    
  //??
  /*  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
     if(b == false)
@@ -202,6 +219,7 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
     {   Serial.println("- failed to open file for writing");
         return 1;
     }
+
     nn = len;
     n = sizeof(unsigned short int);
     memcpy(&Buff[0],(void *) &nn, n);
@@ -248,6 +266,7 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     memcpy(&Buff[n],(void *) &ID2masterID, sizeof(ID2masterID));
     n += sizeof(ID2masterID);
 
+
 #if MQTT_USE
     memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
     n += sizeof(useMQTT);
@@ -259,6 +278,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(MQTT_pwd);
     memcpy(&Buff[n],(void *) MQTT_topic, sizeof(MQTT_topic));
     n += sizeof(MQTT_topic);
+    memcpy(&Buff[n],(void *) MQTT_devname, sizeof(MQTT_devname));
+    n += sizeof(MQTT_devname);
+
     memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
     n += sizeof(MQTT_interval);
 

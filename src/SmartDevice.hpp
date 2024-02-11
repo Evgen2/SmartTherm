@@ -8,8 +8,9 @@
 
 
 #define MASTER_BIOSCODE   23
-#define MASTER_VERSION    0
-#define MASTER_SUBVERSION 7
+#define MASTER_VERSION     0
+#define MASTER_SUBVERSION  7
+#define MASTER_SUBVERSION1 1
 /***************/
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
@@ -48,6 +49,7 @@ class SmartDevice
   const int BiosCode;     /* код биоса */
   const int Vers;         /* версия */
   const int SubVers;      /* подверсия */
+  const int SubVers1;     /* дверсия подверсии */
 #if defined(ARDUINO_ARCH_ESP8266)
   static char  BiosDate[12];     /* дата компиляции биоса */
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -83,11 +85,15 @@ class SmartDevice
 
 #if defined(ARDUINO_ARCH_ESP8266)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
-               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), SubVers(MASTER_SUBVERSION),
+               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), 
+               SubVers(MASTER_SUBVERSION), SubVers1(MASTER_SUBVERSION1),
 							 ReservParam()
 #elif defined(ARDUINO_ARCH_ESP32)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
-               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), SubVers(MASTER_SUBVERSION), BiosDate(__DATE__),
+               BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), 
+               SubVers(MASTER_SUBVERSION), 
+               SubVers1(MASTER_SUBVERSION1), 
+               BiosDate(__DATE__),
 							 ReservParam()
 #endif
 			   

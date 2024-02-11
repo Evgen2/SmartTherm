@@ -91,7 +91,6 @@ static int OTstartSts = 0;
 int LedSts = 0; //LOW
 
 void setup() {
-  time_t now;
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
   delay(1000);
@@ -101,9 +100,6 @@ void setup() {
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 
-  now = time(nullptr);
-//  Serial.printf("Sizeof time_t= %d\n",sizeof( time_t) );
-//  Serial.printf("time= %s millis()=%li\n", ctime(&now), millis());
   Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
 
   LedSts=1;
@@ -1047,18 +1043,19 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
 #if OT_DEBUG
 
 void LogOT(int code, byte id, int messagetype, unsigned int u88)
-{ static int ms_old = 0, nm=0;
+{ static int ms_old = 0;
   int ms, dms;
-  short int tmp;
-  static unsigned char buf[8];
   float t;
   ms = millis();
   dms = ms - ms_old;
   ms_old = ms;
 
+#if OT_DEBUGLOG
 SmOT.enable_OTlog = 0; //test
 	if(SmOT.enable_OTlog)
-	{  
+	{ short int tmp;
+    static unsigned char buf[8];
+    static int nm=0;
     buf[0] = (unsigned char) (nm&0xff);
     tmp = dms&0xffff;
     memcpy(&buf[1], &tmp, 2);
@@ -1077,7 +1074,10 @@ SmOT.enable_OTlog = 0; //test
 //  Serial.printf("LogOT: Lbuf %d ibuf %d ifree %d\n", SmOT.OTlogBuf.GetLbuf(), SmOT.OTlogBuf.ibuf, SmOT.OTlogBuf.ifree);
 
 	} else {
-
+#endif //OT_DEBUGLOG
+if(dms < 1000)
+    return;
+    
   Serial.printf("%6d %3d ", ms, dms);
 
   switch(code)
@@ -1126,7 +1126,9 @@ SmOT.enable_OTlog = 0; //test
         break;
 
   }
+#if OT_DEBUGLOG  
 }
+#endif
  }   
 
 #endif

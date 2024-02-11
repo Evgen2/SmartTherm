@@ -46,39 +46,33 @@ extern OpenTherm ot;
 HADevice device;
 HAMqtt mqtt(espClient, device,12);
 
-
-HABinarySensor sensorOT("OpenTherm");
-HABinarySensor sensorFlame("Flame");
-HASensor  sensorBoilerT("BoilerT");
-HASensor  sensorModulation("Modulation");
-HASensor  sensorBoilerRetT("RetT");
-HASensor  sensorPressure("Pressure");
-HASensor  sensorT1("T1");
-HASensor  sensorT2("T2");
-HASensor  sensorText("Text");
-HASensor  sensorFreeRam("FreeRAM");
-
 const char * temperature_str = "temperature";
+
+HABinarySensor sensorOT(NULL);
+HABinarySensor sensorFlame(NULL);
+HASensor sensorModulation(NULL);
+HASensor sensorBoilerT(NULL);
+HASensor sensorBoilerRetT(NULL);
+HASensor sensorPressure(NULL);
+HASensor sensorT1(NULL);
+HASensor sensorT2(NULL);
+HASensor sensorText(NULL);
+HASensor sensorFreeRam(NULL);
+HASensor sensorState(NULL);
+
 // By default HAHVAC supports only reporting of the temperature.
 // You can enable feature you need using the second argument of the constructor.
 // Please check the documentation of the HAHVAC class.
 HAHVAC hvac(
-  "st",
+  NULL,
   HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature |HAHVAC::ActionFeature,
   HANumber::PrecisionP2
 );
-//
-// HAHVAC::ActionFeature
 
-/* 
-| HAHVAC::AuxHeatingFeature
-MQTT entities with auxiliary heat support found
-Это приведет к неисправностям в версии 2024.3.0. Пожалуйста, устраните эту проблему перед обновлением. 
-Entity climate.st_test_mqtt_mqtt_hvac has auxiliary heat support enabled, which has been deprecated for MQTT climate devices. Please adjust your configuration and remove deprecated config options from your configuration and restart Home Assistant to fix this issue
-*/
 unsigned long lastReadAt = millis();
 unsigned long lastAvailabilityToggleAt = millis();
 bool lastInputState = false;
+
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     float temperatureFloat = temperature.toFloat();
@@ -97,6 +91,8 @@ void onPowerCommand(bool state, HAHVAC* sender) {
     Serial.println("Power off");
   }
 }
+
+
 
 void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     Serial.print("Mode: ");
@@ -135,9 +131,9 @@ void mqtt_setup(void)
 
    device.setUniqueIdStr(SmOT.MQTT_topic);
 
-   device.setName("ST"); //должно быть static!!
+   device.setName(SmOT.MQTT_topic,SmOT.MQTT_devname); //должно быть static!!
   { static char str[40];
-    sprintf(str,"%d.%d", SmOT.Vers,SmOT.SubVers);
+    sprintf(str,"%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
     device.setSoftwareVersion(str); //должно быть static!!
   }
 
@@ -145,36 +141,44 @@ void mqtt_setup(void)
     lastAvailabilityToggleAt = millis();
     sensorOT.setAvailability(false);
     sensorOT.setCurrentState(false); 
-    sensorOT.setName("OpenTherm"); 
+
+    sensorOT.setNameUniqueIdStr(SmOT.MQTT_topic,"OpenTherm", "OT" );
     sensorOT.setDeviceClass("connectivity"); 
-    
-    sensorFlame.setName("Горелка");
+
+    sensorState.setAvailability(true);
+    sensorState.setNameUniqueIdStr(SmOT.MQTT_topic,"Ошибки", "Err" );
+    sensorState.setIcon("mdi:alert-box");
+    sensorState.setValue("");
+
+    sensorFlame.setNameUniqueIdStr(SmOT.MQTT_topic,"Горелка", "Flame");
     sensorFlame.setCurrentState(false); 
     sensorFlame.setAvailability(false);
     sensorFlame.setIcon("mdi:fire");
 //    sensorFlame.setDeviceClass("None");
-
-    sensorModulation.setName("Модуляция");
+    
+    sensorModulation.setNameUniqueIdStr(SmOT.MQTT_topic,"Модуляция", "Modulation");
     sensorModulation.setAvailability(false);
     sensorModulation.setIcon("mdi:fire");
     sensorModulation.setDeviceClass("power_factor"); //"temperature"
+    sensorModulation.setUnitOfMeasurement("%");
 
+    sensorBoilerT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура теплоносителя", "BoilerT");
     sensorBoilerT.setAvailability(false);
-    sensorBoilerT.setName("Температура теплоносителя"); 
     sensorBoilerT.setDeviceClass(temperature_str);
+    sensorBoilerT.setUnitOfMeasurement("°C");
 
+    sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
     sensorBoilerRetT.setAvailability(false);
-    sensorBoilerRetT.setName("Обратка");
     sensorBoilerRetT.setDeviceClass(temperature_str); 
+    sensorBoilerRetT.setUnitOfMeasurement("°C");
 
+    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
     sensorPressure.setAvailability(false);
-    sensorPressure.setName("Давление");
     sensorPressure.setDeviceClass("pressure"); 
 
     sensorFreeRam.setAvailability(true);
-    sensorFreeRam.setName("Free RAM");
+    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
     sensorFreeRam.setDeviceClass("data_size"); 
-
 
     // assign callbacks (optional)
     hvac.onTargetTemperatureCommand(onTargetTemperatureCommand);
@@ -182,51 +186,81 @@ void mqtt_setup(void)
     hvac.onModeCommand(onModeCommand);
 
     // configure HVAC (optional)
-    hvac.setName("Котёл");
+    hvac.setNameUniqueIdStr(SmOT.MQTT_topic,"Котёл", "Boiler");
+
     hvac.setMinTemp(10);
     hvac.setMaxTemp(80);
     hvac.setTempStep(0.1);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
-    hvac.setMode(HAHVAC::HeatMode);
+    if(SmOT.enable_CentralHeating)
+          hvac.setMode(HAHVAC::HeatMode);
+    else
+          hvac.setMode(HAHVAC::OffMode);
+
     hvac.setAvailability(false);
-  
 
     if(SmOT.stsT1 >= 0 )
       sensorT1.setAvailability(true);
     else 
       sensorT1.setAvailability(false);
-    sensorT1.setName("T1");
+    sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
     sensorT1.setDeviceClass(temperature_str); 
+
     if(SmOT.stsT2 >= 0 )
       sensorT2.setAvailability(true);
     else
-    sensorT2.setAvailability(false);
-    sensorT2.setName("T2");
+      sensorT2.setAvailability(false);
+    sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
     sensorT2.setDeviceClass(temperature_str); 
 
     sensorText.setAvailability(false);
-    sensorText.setName("Text");
+    sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
     sensorText.setDeviceClass(temperature_str); 
 
+    SmOT.stsMQTT = 1;
+    mqtt._mqtt->setSocketTimeout(1); //not work ???
 
-//    rc= pMqtt->begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
     rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
     {
    Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+      SmOT.stsMQTT = 2;
+
+    } else {
+   Serial.printf("mqtt.begin false\n");
 
     }
-
 }
 
 int statemqtt = -1;
 int state_mqtt = -10000;
+int attempt_mqtt = 0;
 
 void mqtt_loop(void)
 { int sts;
-  char str[40];
+  char str[80];
 static int st_old = -2;  
+static unsigned int t0=0;
+unsigned long t1;
+int dt;
 //      pMqtt->loop();
+      if(SmOT.stsMQTT == 0)
+          return;
+/*******************/    
+   t1 = millis();   
+  if(state_mqtt == -2) 
+  {  dt = t1 - t0;
+    if(dt < 5000 *(attempt_mqtt+3))
+        return;
+// Serial.printf("*********** state_mqtt=2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
+    if(attempt_mqtt < 100)
+      attempt_mqtt++;
+  }  else {
+    attempt_mqtt = 0;
+  }   
+  t0 = t1;
+/*******************/          
+
       mqtt.loop();
 //      if(pMqtt->isConnected())
       if(mqtt.isConnected())
@@ -246,10 +280,11 @@ static int st_old = -2;
           state_mqtt = sts;
       }
 //Serial.printf("todo %s\n",__FUNCTION__ );
-    if ((millis() - lastAvailabilityToggleAt) > 10000) {
+    if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000) {
 
         if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
+          sensorState.setValue("OpenTherm не подключен");
         } else {
           sensorOT.setAvailability(true);
           if(SmOT.stsOT == 2)
@@ -262,29 +297,29 @@ static int st_old = -2;
             sensorBoilerRetT.setAvailability(false);
             sensorPressure.setAvailability(false);
             sensorText.setAvailability(false);
-
+            sensorState.setValue("OpenTherm: потеря связи");
           } else {
             if(st_old != SmOT.stsOT)
             {
               sensorOT.setState(true);
               sensorBoilerT.setAvailability(true);
               hvac.setAvailability(true);
+Serial.printf("hvac.setAvailability(true)\n");
               sensorFlame.setAvailability(true);
               sensorModulation.setAvailability(true);
               sensorBoilerRetT.setAvailability(true);
               sensorPressure.setAvailability(true);
               sensorText.setAvailability(true);
             }
-
-            sprintf(str,"%.3f", SmOT.BoilerT);
+            sprintf(str,"%.3f", SmOT.BoilerT);           
             sensorBoilerT.setValue(str);
         hvac.setCurrentTemperature(SmOT.BoilerT);
         hvac.setTargetTemperature(SmOT.Tset);
+
             if(SmOT.BoilerStatus & 0x08)
                   sensorFlame.setState(true); 
             else
                   sensorFlame.setState(false); 
-
             sprintf(str,"%.3f", SmOT.FlameModulation);
             sensorModulation.setValue(str);
             sprintf(str,"%.3f", SmOT.RetT);
@@ -292,11 +327,58 @@ static int st_old = -2;
             sprintf(str,"%.3f", SmOT.Pressure);
             sensorPressure.setValue(str);  
             sprintf(str,"%.3f", SmOT.Toutside);
-            sensorText.setValue(str);  
+            sensorText.setValue(str);
+/*************************************************/            
+    if(SmOT.OEMDcode || SmOT.Fault)
+    { 
+       if(SmOT.Fault)
+       { if (SmOT.OEMDcode)
+         {
+           sprintf(str, "OT Fault %x OEMDcode %x", SmOT.Fault, SmOT.OEMDcode);
+         } else {
+           sprintf(str, "OT Fault %x", SmOT.Fault, SmOT.OEMDcode);
+         }
+       } else if (SmOT.OEMDcode) {
+           sprintf(str, "OEMDcode %x", SmOT.OEMDcode);
+       }
+       sensorState.setValue(str);
+    } else {
+        sensorState.setValue("нет");
+    }
+
+#if 0       
+      if(SmOT.Fault)
+      { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
+        Info6.value += str0;
+        if(SmOT.Fault & 0xff00)
+        {    if(SmOT.Fault & 0x0100)
+                 Info6.value += " Service request";
+             if(SmOT.Fault & 0x0200)
+                 Info6.value += " Lockout-reset";
+             if(SmOT.Fault & 0x0400)
+                 Info6.value += " Lowwater press";
+             if(SmOT.Fault & 0x0800)
+                 Info6.value += " Gas/flame fault";
+             if(SmOT.Fault & 0x01000)
+                 Info6.value += " Air press fault";
+             if(SmOT.Fault & 0x02000)
+                 Info6.value += " Water over-temp fault";
+        }
+        if(SmOT.Fault & 0x00ff)
+        {    sprintf(str0, " OEM-specific fault/error cod = %d ( hex %x)", (SmOT.Fault&0xff), (SmOT.Fault&0xff));
+            Info6.value += str0;
+        }
+        Info6.value += "<br>";
+      }
+      if(SmOT.OEMDcode)
+      {     sprintf(str0, "OEM-specific diagnostic/service code = %d  ( hex %x)<br>", SmOT.OEMDcode, SmOT.OEMDcode);
+            Info6.value += str0;
+      }
+#endif //0
+/*******************************************/
           }
         }
         st_old = SmOT.stsOT;
-
         if(SmOT.stsT1 >= 0)
         {   sprintf(str,"%.3f", SmOT.t1);
             sensorT1.setValue(str);  
@@ -308,7 +390,6 @@ static int st_old = -2;
 
          sprintf(str,"%d",  ESP.getFreeHeap() );
          sensorFreeRam.setValue(str);  
-
         lastAvailabilityToggleAt = millis();
     }
 
