@@ -52,29 +52,29 @@ void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut
 
 //MD_IDENTIFY
 void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{ int l; 
-//unsigned char  * __attribute__((aligned(1)))  MsgOut1;
-//	l = sizeof(IDENTIFY_TEXT); //4
-//  l1 = strlen_P((PGM_P)IDENTIFY_TEXT); 
+{ int l, lp; 
+
   l = strlen((PGM_P)IDENTIFY_TEXT); 
 
-//  Serial.printf("IDENTIFY_TEXT l=%i l1 =%i l2=%d\n", l, l1, l2 );
-
-  Lsend = 6 + sizeof(int)*3 + sizeof(short int) + 6 + l;	
+  lp =  sizeof(int)*6 + + 6 + 12 + l;
+  Lsend = 6 +  sizeof(short int) + lp;	
   
   MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
-  *((PACKED short int *) (&MsgOut[6])) = (short int)(sizeof(int)*3 + 6 + l);
+  *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
   *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
   *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
   *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
+  *((PACKED int *) (&MsgOut[20]))  =  Vers;	
+  *((PACKED int *) (&MsgOut[24]))  =  SubVers;	
+  *((PACKED int *) (&MsgOut[28]))  =  SubVers1;	
+ 	memcpy((void *)&MsgOut[32],(void *)BiosDate,12);
 
-	memcpy((void *)&MsgOut[20],(void *)&Mac[0],6);
-  memcpy((void *)&MsgOut[26],(void *)IDENTIFY_TEXT, l);
-
-//  Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l1, Lsend );
+	memcpy((void *)&MsgOut[44],(void *)&Mac[0],6);
+  memcpy_P((void *)&MsgOut[50],(void *)(PGM_P)IDENTIFY_TEXT, l);
+  
+//  Serial.printf("IDENTIFY_TEXT 4 l=%i Lsend =%i\n", l, Lsend );
 //  Serial.print(IDENTIFY_TEXT);
-
 }
 
 /*

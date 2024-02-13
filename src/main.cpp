@@ -82,7 +82,6 @@ DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
 extern int OTDebugInfo[12];
 
-//char *Jopa = "12345678901234567890123456789012345678901234567890";
 
 void IRAM_ATTR handleInterrupt() {
     ot.handleInterrupt();
@@ -100,7 +99,8 @@ void setup() {
   //Serial.println(Jopa);
   Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
-  Serial.printf("Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
+  Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
+
 // Serial.printf((PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 
 //  Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
