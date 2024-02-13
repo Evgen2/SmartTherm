@@ -49,7 +49,7 @@ int SD_Termo::Read_ot_fs(void)
     if(rc)
         return 1;
 #if SERIAL_DEBUG      
-    Serial.printf("Read %i bytes\n", nw);
+    Serial.printf((PGM_P)F("Read %i bytes\n"), nw);
 #endif    
 
     n = sizeof(enable_CentralHeating);
@@ -89,17 +89,16 @@ int SD_Termo::Read_ot_fs(void)
   }
 
 #endif
-    if(n != nw)
-        Serial.printf("Warning:read %d bytes, use %d\n", nw, n);
-
 #if SERIAL_DEBUG      
-    Serial.printf("enable_CentralHeating=%i\n", enable_CentralHeating);
-    Serial.printf("enable_HotWater=%i\n", enable_HotWater);
-    Serial.printf("Tset=%.1f TdhwSet=%.1f\n", Tset, TdhwSet);
-    Serial.printf("UDPserver_repot_period=%d UDPserver_port=%d\n", UDPserver_repot_period, UDPserver_port);
+    if(n != nw)
+        Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
+
+    Serial.printf((PGM_P)F("enable_CentralHeating=%i\n"), enable_CentralHeating);
+    Serial.printf((PGM_P)F("enable_HotWater=%i\n"), enable_HotWater);
+    Serial.printf((PGM_P)F("Tset=%.1f TdhwSet=%.1f\n"), Tset, TdhwSet);
 
 #if MQTT_USE
-    Serial.printf("useMQTT=%i\n", useMQTT);
+    Serial.printf((PGM_P)F("useMQTT=%i\n"), useMQTT);
 #endif
 #endif // SERIAL_DEBUG      
 
@@ -114,7 +113,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 
     rlen = 0;
 #if SERIAL_DEBUG      
-    Serial.printf("Reading file: %s\r\n", _path);
+    Serial.printf((PGM_P)F("Reading file: %s\n"), _path);
 #endif
 
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -124,13 +123,18 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #endif
     File file = FlashFS.open(_path,"r" );
     if(!file || file.isDirectory())
-    {   if(!file)
-                Serial.println("- failed to open file for reading");
+    {  
+#if SERIAL_DEBUG      
+         if(!file)
+                Serial.println(F("- failed to open file for reading"));
         else
-                Serial.println("- file.isDirectory");
+                Serial.println(F("- file.isDirectory"));
+#endif                
         if(file)
         {   file.close();
-            Serial.println("file.close()");
+#if SERIAL_DEBUG      
+            Serial.println(F("file.close()"));
+#endif            
         }
 
         return 1;
@@ -140,7 +144,9 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
     n = file.read((unsigned char *)&nn, sizeof(nn));
     if(n != sizeof(nn))
     {   file.close();
-        Serial.printf("file.read rc %i, must be =%i\n",n,sizeof(nn));
+#if SERIAL_DEBUG      
+        Serial.printf((PGM_P)F("file.read rc %i, must be =%i\n"),n,sizeof(nn));
+#endif        
         return 3;
     }
     if((nn +  sizeof(unsigned short int)) > (sizeof(Buff) ))
@@ -156,7 +162,9 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
     n = file.read((unsigned char *)&Buff[l], nw); //read nn bytes of data
     if(n != nw)
     {   file.close();
-        Serial.printf("file.read rc %i, must be =%i\n",n,nw);
+#if SERIAL_DEBUG      
+        Serial.printf((PGM_P)F("file.read rc %i, must be =%i\n"),n,nw);
+#endif        
         return 3;
     }
     l += n;
@@ -175,13 +183,16 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 
     if(crs !=  crs_r )
     {   file.close();
-        Serial.printf("crs = %i, must be =%i\n",crs_r,crs);
+#if SERIAL_DEBUG      
+        Serial.printf((PGM_P)F("crs = %i, must be =%i\n"),crs_r,crs);
+#endif        
         return 4;
     }
 
     file.close();
-    Serial.printf("file.close()\n");
-
+#if SERIAL_DEBUG      
+    Serial.println(F("file.close()"));
+#endif
     rlen = l-sizeof(short int);
     memcpy(&dataBuff[0], &Buff[sizeof(short int)], rlen);
   
@@ -197,14 +208,14 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
     if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
     {
 #if SERIAL_DEBUG      
-    Serial.printf("Error: Writing %d bytes to %d buff\n",  len, sizeof(Buff));
+    Serial.printf((PGM_P)F("Error: Writing %d bytes to %d buff\n"),  len, sizeof(Buff));
 #endif // SERIAL_DEBUG      
 
         return 10;
     }
 
 #if SERIAL_DEBUG      
-    Serial.printf("Writing file: %s %d bytes\r\n", _path, len);
+    Serial.printf((PGM_P)F("Writing file: %s %d bytes\n"), _path, len);
 #endif // SERIAL_DEBUG      
  //??
  /*  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
@@ -216,7 +227,10 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 //    File file = FlashFS.open(_path, FILE_WRITE);  //FILE_WRITE
     File file = FlashFS.open(_path, "w");  //FILE_WRITE
     if(!file)
-    {   Serial.println("- failed to open file for writing");
+    {  
+#if SERIAL_DEBUG      
+         Serial.println(F("- failed to open file for writing"));
+#endif         
         return 1;
     }
 
@@ -249,8 +263,9 @@ int SD_Termo::Write_ot_fs(void)
     
     n = sizeof(enable_CentralHeating);
     memcpy(&Buff[0],(void *) &enable_CentralHeating, n);
+#if SERIAL_DEBUG      
 Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_CentralHeating);
-
+#endif
     memcpy(&Buff[n],(void *) &enable_HotWater, sizeof(enable_HotWater));
     n += sizeof(enable_HotWater);
     memcpy(&Buff[n],(void *) &Tset, sizeof(Tset));
@@ -347,12 +362,13 @@ void SD_Termo::loop(void)
          }
         if(TcpUdp_Lsend > 0)
             return;
-  Serial.printf("SD_Termo::loop %li\n",  millis());
+  
         OpenThermInfo();
         TCPserver_t = millis();
     }
 }
-  
+
+//send to remote MCMD_OT_INFO  
 void SD_Termo::OpenThermInfo(void)
 {   int i,l;
     unsigned char * MsgOut;
@@ -392,7 +408,7 @@ void SD_Termo::OpenThermInfo(void)
       
 }
     
-
+//MCMD_GET_OT_INFO
 void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
     short int B_flags;
@@ -447,8 +463,9 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[40],(void *)&t1,4); 
 	 memcpy((void *)&MsgOut[44],(void *)&t2,4); 
 
-    Serial.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
-
+#if SERIAL_DEBUG      
+  Serial.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
+#endif
 }
 
 void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))

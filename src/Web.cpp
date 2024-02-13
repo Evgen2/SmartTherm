@@ -413,41 +413,41 @@ extern int minRamFree;
 //   sprintf(str,"WiFi statistics:");
 //   Info1.value = str;
    Info1.value = F("WiFi statistics:");
-   sprintf(str,"%d %d  %d %d  %d %d  %d %d", 
+   sprintf(str,(PGM_P)F("%d %d  %d %d  %d %d  %d %d"), 
       WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
    Info2.value = str;
    if(WiFists == WL_CONNECTED)
-   {  sprintf(str,"RSSI: %d dBm (%i%%), среднее за 10 мин %.1f",WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()), mRSSi);
+   {  sprintf(str,(PGM_P)F("RSSI: %d dBm (%i%%), среднее за 10 мин %.1f"),WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()), mRSSi);
       Info3.value = str;
    } else 
       Info3.value = "";
-   sprintf(str,"OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d", 
+   sprintf(str,(PGM_P)F("OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d"), 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
    //l = strlen(str);
    //Serial.printf("4 l=%d\n", l);
 
    Info4.value = str;
-   sprintf(str,"min free RAM %d", minRamFree);
+   sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
    Info5.value = str;
   
   { time_t now;
     struct tm *nowtime;
     now = time(nullptr);
     nowtime = localtime(&now);
-    sprintf( str, "<br>%02d.%02d.%d %d:%02d:%02d",
+    sprintf( str, (PGM_P)F("<br>%02d.%02d.%d %d:%02d:%02d"),
           nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
 		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
  
     Info5.value += str;
   }
 
-   sprintf(str,"Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d", 
+   sprintf(str,(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
           SmOT.Bstat.NflameOn, SmOT.Bstat.NflameOn_h, SmOT.Bstat.NflameOn_h_prev, SmOT.Bstat.NflameOn_day, SmOT.Bstat.NflameOn_day_prev);
 //   l = strlen(str);
 //   Serial.printf("5 l=%d\n", l);
    
    Info6.value = str;
-   sprintf(str,"<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f", 
+   sprintf(str,(PGM_P)F("<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f"), 
           SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
 
 //   l = strlen(str);
@@ -640,10 +640,6 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 //work only with last false in
 //AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
 
-if(redir)
-   Serial.printf("redir = %d uri=%s isChange %d\n", redir, SETUP_URI, isChange);
-else
-   Serial.printf("redir = %d uri=%s isChange %d\n", redir, INFO_URI, isChange);
   if(redir)
     aux.redirect(SETUP_URI);
   else
@@ -749,10 +745,10 @@ extern OpenTherm ot;
         double dt;
         dt = difftime(now,SmOT.t_lastwork);
         if(dt < 3600.)
-        {   sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
+        {   sprintf(str0, (PGM_P)F("Потеря связи с котлом %.f сек назад"), dt);
 
         } else {        
-            sprintf(str0, "Потеря связи связи с котлом %.1f час(ов) назад", dt);
+            sprintf(str0, (PGM_P)F("Потеря связи связи с котлом %.1f час(ов) назад"), dt);
         }
         Info1.value =  String(SmOT.stsOT) + " : <b>Ошибка:</b> ";
         Info1.value +=  str0;
@@ -835,13 +831,13 @@ extern OpenTherm ot;
                  Info6.value += " Water over-temp fault";
         }
         if(SmOT.Fault & 0x00ff)
-        {    sprintf(str0, " OEM-specific fault/error cod = %d ( hex %x)", (SmOT.Fault&0xff), (SmOT.Fault&0xff));
+        {    sprintf(str0, (PGM_P)F(" OEM-specific fault/error cod = %d ( hex %x)"), (SmOT.Fault&0xff), (SmOT.Fault&0xff));
             Info6.value += str0;
         }
         Info6.value += "<br>";
       }
       if(SmOT.OEMDcode)
-      {     sprintf(str0, "OEM-specific diagnostic/service code = %d  ( hex %x)<br>", SmOT.OEMDcode, SmOT.OEMDcode);
+      {     sprintf(str0, (PGM_P)F("OEM-specific diagnostic/service code = %d  ( hex %x)<br>"), SmOT.OEMDcode, SmOT.OEMDcode);
             Info6.value += str0;
       }
     } else {
@@ -1019,7 +1015,7 @@ char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
   Info1.value = IDENTIFY_TEXT;
-  sprintf(str, "Vers %d.%d build %s\n",SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
+  sprintf(str, (PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
   Info2.value = str;
   if (WiFi.status() == WL_CONNECTED)
   {   Info3.value = "<a href=";
@@ -1068,8 +1064,8 @@ static unsigned long t0=0; // t1=0;
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
 #if SERIAL_DEBUG      
-      Serial.printf("RSSI: %d dBm (%i%%)\n", WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
-      Serial.println("IP address: ");
+      Serial.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
+      Serial.println(F("IP address: "));
       Serial.println(WiFi.localIP());
 #endif      
     } else {

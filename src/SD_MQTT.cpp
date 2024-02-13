@@ -166,7 +166,7 @@ void mqtt_setup(void)
     sensorBoilerT.setAvailability(false);
     sensorBoilerT.setDeviceClass(temperature_str);
     sensorBoilerT.setUnitOfMeasurement("°C");
-
+    
     sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
     sensorBoilerRetT.setAvailability(false);
     sensorBoilerRetT.setDeviceClass(temperature_str); 
@@ -336,7 +336,7 @@ Serial.printf("hvac.setAvailability(true)\n");
          {
            sprintf(str, "OT Fault %x OEMDcode %x", SmOT.Fault, SmOT.OEMDcode);
          } else {
-           sprintf(str, "OT Fault %x", SmOT.Fault, SmOT.OEMDcode);
+           sprintf(str, "OT Fault %x", SmOT.Fault);
          }
        } else if (SmOT.OEMDcode) {
            sprintf(str, "OEMDcode %x", SmOT.OEMDcode);

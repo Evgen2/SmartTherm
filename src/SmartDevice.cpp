@@ -28,16 +28,19 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
 
+  Serial.printf("MCMD_HAND_SHAKE  Lsend=%i\n", Lsend );
+
 //  Serial.printf("MCMD_HAND_SHAKE\n");
-//  for(i=0; i<10;i++)
-//		Serial.printf("%02x ", bf[6+i]);
 	
-  Serial.printf("\n");
+  
 	if((bf[6+l-1] == 0) && !strncmp((char *)&bf[6], HAND_SHAKE_INP,l))
 	{   memcpy(&MsgOut[6], HAND_SHAKE_OUT,l);
 	} else {
 	    memcpy(&MsgOut[6], HAND_SHAKE_ERR,l);
 	}		 	
+  for(int i=0; i<Lsend;i++)
+		Serial.printf("%d ", MsgOut[i]);
+Serial.printf("\n");
 }
 
 //MD_ECHO
@@ -51,9 +54,13 @@ void SmartDevice::callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut
 void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { int l; 
 //unsigned char  * __attribute__((aligned(1)))  MsgOut1;
-	l = sizeof(IDENTIFY_TEXT);
+//	l = sizeof(IDENTIFY_TEXT); //4
+//  l1 = strlen_P((PGM_P)IDENTIFY_TEXT); 
+  l = strlen((PGM_P)IDENTIFY_TEXT); 
+
+//  Serial.printf("IDENTIFY_TEXT l=%i l1 =%i l2=%d\n", l, l1, l2 );
+
   Lsend = 6 + sizeof(int)*3 + sizeof(short int) + 6 + l;	
-  Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l, Lsend );
   
   MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
@@ -65,8 +72,8 @@ void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int 
 	memcpy((void *)&MsgOut[20],(void *)&Mac[0],6);
   memcpy((void *)&MsgOut[26],(void *)IDENTIFY_TEXT, l);
 
-  Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l, Lsend );
-  Serial.print(IDENTIFY_TEXT);
+//  Serial.printf("IDENTIFY_TEXT l=%i Lsend =%i\n", l1, Lsend );
+//  Serial.print(IDENTIFY_TEXT);
 
 }
 
@@ -101,7 +108,6 @@ void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 //MCMD_SETTIME  установить время
 void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {   int  tm_l;
-	  time_t  now;
 	  struct timeb  tb;
 //	  int i;
     char tzbuf[20];
@@ -136,23 +142,33 @@ sprintf(tzbuf,"TZ%i", tb.timezone/60);
 setenv("TZ", tzbuf, 1); 
 tzset();
 
+#if SERIAL_DEBUG 
+
 #if defined(ARDUINO_ARCH_ESP32)
   Serial.printf("t=%ld %d %d %d\n", tb.time, tb.millitm, tb.timezone, tb.dstflag);
 #else  
   Serial.printf("t=%lld %d %d %d\n", tb.time, tb.millitm, tb.timezone, tb.dstflag);
 #endif  
+#endif
 
+#if SERIAL_DEBUG 
+{  time_t now;
   now = time(nullptr);
   Serial.printf("1 %s\n", ctime(&now));
  
   Serial.printf("Set time to:");
-
+}
+#endif
   // А теперь магические строчки
 	//settimeofday(&tv, &tz);
   settimeofday(&tv, nullptr);
   
+#if SERIAL_DEBUG 
+{  time_t now;
   now = time(nullptr);
   Serial.printf("2 %s\n", ctime(&now));
+}  
+#endif  
 }
 
 //MCMD_SET_TCPSERVER
@@ -169,11 +185,13 @@ void SmartDevice::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOu
 	memcpy((void *)&s,(void *)&bf[6],4); 
   memcpy((void *)buf,(void *)&bf[10],20); 
 
+#if SERIAL_DEBUG 
   Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
   tcp_remoteIP.fromString(buf);
   Serial.printf("==");
   Serial.println(tcp_remoteIP); // print the parsed IPAddress 
 
+#endif
   memcpy((void *)&dt, (void *)&bf[30],4); 
   memcpy((void *)&p,(void *)&bf[34],4); 
 
