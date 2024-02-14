@@ -1027,7 +1027,6 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-int sts = 0;
 int sRSSI = 0;
 int razRSSI = 0;
 extern int LedSts; 
@@ -1037,10 +1036,6 @@ void loop_web()
 static unsigned long t0=0; // t1=0;
 
   portal.handleClient();
-  if(sts == 0)
-  { //  Serial.println("loop_web()");
-       sts = 1;
-  }
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте
   typedef enum {
     WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
