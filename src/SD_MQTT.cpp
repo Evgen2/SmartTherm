@@ -129,6 +129,8 @@ void mqtt_setup(void)
   
   }
 
+  Serial.printf(" Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
+
    device.setUniqueIdStr(SmOT.MQTT_topic);
 
    device.setName(SmOT.MQTT_topic,SmOT.MQTT_devname); //должно быть static!!
@@ -200,18 +202,20 @@ void mqtt_setup(void)
     hvac.setAvailability(false);
 
     if(SmOT.stsT1 >= 0 )
-      sensorT1.setAvailability(true);
-    else 
+    { sensorT1.setAvailability(true);
+      sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
+      sensorT1.setDeviceClass(temperature_str); 
+    }  else {
       sensorT1.setAvailability(false);
-    sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
-    sensorT1.setDeviceClass(temperature_str); 
+    }
 
     if(SmOT.stsT2 >= 0 )
-      sensorT2.setAvailability(true);
-    else
+    { sensorT2.setAvailability(true);
+      sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
+      sensorT2.setDeviceClass(temperature_str); 
+    }  else {
       sensorT2.setAvailability(false);
-    sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
-    sensorT2.setDeviceClass(temperature_str); 
+    }
 
     sensorText.setAvailability(false);
     sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
@@ -252,7 +256,7 @@ int dt;
   {  dt = t1 - t0;
     if(dt < 5000 *(attempt_mqtt+3))
         return;
-// Serial.printf("*********** state_mqtt=2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
+ Serial.printf("*********** state_mqtt= -2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
     if(attempt_mqtt < 100)
       attempt_mqtt++;
   }  else {
@@ -261,28 +265,27 @@ int dt;
   t0 = t1;
 /*******************/          
 
-      mqtt.loop();
+    mqtt.loop();
 //      if(pMqtt->isConnected())
-      if(mqtt.isConnected())
-      {   if(statemqtt != 1)
-              Serial.println(F("MQTT connected"));
-          statemqtt = 1;
-      } else {
-          if(statemqtt != 0)
-              Serial.println(F("MQTT DiSconnected"));
-          statemqtt = 0;
-      }
+    if(mqtt.isConnected())
+    {   if(statemqtt != 1)
+            Serial.println(F("MQTT connected"));
+        statemqtt = 1;
+    } else {
+        if(statemqtt != 0)
+            Serial.println(F("MQTT DiSconnected"));
+        statemqtt = 0;
+        return; // return from   mqtt_loop() if not connected
+    }
 
-//    sts = pMqtt->_mqtt->state(); 
     sts = mqtt._mqtt->state(); 
-      if(sts !=state_mqtt )
-      {   Serial.printf("MQTT state=%d\n", sts);
-          state_mqtt = sts;
-      }
-//Serial.printf("todo %s\n",__FUNCTION__ );
-    if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000) {
+    if(sts !=state_mqtt )
+    {   Serial.printf("MQTT state=%d\n", sts);
+        state_mqtt = sts;
+    }
 
-        if(SmOT.stsOT == -1)
+    if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000)
+    {   if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
           sensorState.setValue("OpenTherm не подключен");
         } else {

@@ -756,6 +756,70 @@ extern OpenTherm ot;
         break;
    }
 
+/***************************************/
+#if MQTT_USE 
+if(SmOT.useMQTT)
+{  extern int statemqtt;
+   extern int state_mqtt;
+   extern int attempt_mqtt;
+   Info1.value += "<br>";
+
+  switch(statemqtt)
+  {   case -1:
+        Info1.value += "MQTT not connected";
+        break;
+      case 0:
+        Info1.value += "MQTT DiSconnected";
+        break;
+      case 1:
+        Info1.value += "MQTT connected";
+        break;
+  }
+
+  switch(state_mqtt)
+  {  
+      case -1:
+        Info1.value += " disconnected";
+        break;
+
+      case -2:
+        Info1.value += " Connect failed";
+        break;
+
+      case -3:
+        Info1.value += " Connection lost";
+        break;
+      case -4:
+        Info1.value += " Connection timeout";
+        break;
+      case 1:
+        Info1.value += " Bad protocol";
+        break;
+
+      case 2:
+        Info1.value += " Bad client id";
+        break;
+
+      case 3:
+        Info1.value += " unavailable";
+        break;
+
+      case 4:
+        Info1.value += " Bad credentials";
+        break;
+
+      case 5:
+        Info1.value += " Unauthorized";
+        break;
+  }
+
+}
+
+#endif // MQTT_USE 
+
+
+/***************************************/
+
 //  Serial.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
 
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
