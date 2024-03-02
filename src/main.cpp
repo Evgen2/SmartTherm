@@ -1095,7 +1095,7 @@ SmOT.enable_OTlog = 0; //test
 
 	} else {
 #endif //OT_DEBUGLOG
-if(dms < 1000)
+if(dms < 500)
     return;
     
   Serial.printf("%6d %3d ", ms, dms);

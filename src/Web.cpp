@@ -282,12 +282,13 @@ void setup_web_common(void)
   config.autoRise = true;
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
-//  config.autoReconnect = true;
-//  config.reconnectInterval = 1;
+  config.autoReconnect = true;
+  config.reconnectInterval = 1;
 
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
+
 
   WiFiWebServer&  webServer = portal.host();
 
@@ -295,6 +296,7 @@ void setup_web_common(void)
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
     Serial.println(F("WiFi Not connected"));
+    WiFi.setAutoReconnect(true);
   }  else {
     setup_web_common_onconnect();
   }  
@@ -330,8 +332,10 @@ int setup_web_common_onconnect(void)
   Serial.println(F("WiFi connected"));
   Serial.println(F("IP address: "));
   Serial.println(WiFi.localIP());
-//    Serial.println("WiFiOn");
-    WiFi.setAutoReconnect(true);
+
+   WiFi.setAutoReconnect(true);
+
+
 /****************************************************/    
 {
  // Specifying the time zone and assigning NTP.
@@ -1100,6 +1104,7 @@ void loop_web()
 static unsigned long t0=0; // t1=0;
 
   portal.handleClient();
+
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте
   typedef enum {
     WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
@@ -1128,6 +1133,7 @@ static unsigned long t0=0; // t1=0;
       Serial.println(WiFi.localIP());
 #endif      
     } else {
+      Serial.printf("WiFi disconnected (sts=%d)\n", rc);
       LedSts = 1;
 //      digitalWrite(LED_BUILTIN, LedSts);   
     }
