@@ -305,12 +305,16 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     if(SmOT.TestCmd == 2)
     {
       id = (response >> 16 & 0xFF);
-      if(id == SmOT.TestId)
+      if(id == (SmOT.TestId & 0xff))
       {
-//        Serial.printf("TestCmd processResponse %d %d\n", response,  status);
+#if OT_DEBUG
+    Serial.printf("TestCmd processResponse %x %x\n", response,  status);
+#endif
+    Serial.printf("TestCmd processResponse %x %x\n", response,  status);
         SmOT.TestResponse = response;
         SmOT.TestStatus = status;
         SmOT.TestCmd = 0;
+        return;
       }
     }
   
@@ -436,6 +440,7 @@ bit: description [ clear/0, set/1]
              SmOT.Bstat.calcNflame(u88 & 0x08);
 
         SmOT.BoilerStatus = u88;
+//        Serial.printf("BoilerStatus: %x %x\n", u88, response);
 
 //        Serial.println("Central Heating: " + String(ot.isCentralHeatingActive(response) ? "on" : "off"));
 //        Serial.println("Hot Water: " + String(ot.isHotWaterActive(response) ? "on" : "off"));
@@ -565,7 +570,15 @@ An OEM-specific fault/error cod
 //  TestCmd = TestId = TestPar =  TestResponce = 0;
 unsigned int buildTestRequest(void)
 {   unsigned int request = 0;
+    if(SmOT.TestId & 0x1000)
+          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, ( OpenThermMessageID) (SmOT.TestId & 0x0ff), SmOT.TestPar);
+    else
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, ( OpenThermMessageID) SmOT.TestId, SmOT.TestPar);
+    
+    Serial.printf("TestRequest: %x SmOT.TestId %x\n", request, SmOT.TestId);
+#if OT_DEBUG
+    Serial.printf("TestRequest: %x\n", request);
+#endif    
     return request;
 }
 

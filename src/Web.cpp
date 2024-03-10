@@ -284,6 +284,7 @@ void setup_web_common(void)
   // even once it is disconnected.
   config.autoReconnect = true;
   config.reconnectInterval = 1;
+  config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
 
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
@@ -1078,17 +1079,19 @@ T1 = T_ds18b20(1)
 T2 = T_ds18b20(2)
 */   
 
-char SM_OT_HomePage[]=  "https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
+const char SM_OT_HomePage[]= "https://t.me/smartTherm";
+//"https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
 
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
   Info1.value = IDENTIFY_TEXT;
-  sprintf(str, (PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
+  sprintf(str, (PGM_P)F("Vers %d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
+
   Info2.value = str;
   if (WiFi.status() == WL_CONNECTED)
   {   Info3.value = "<a href=";
       Info3.value += SM_OT_HomePage;
-      Info3.value += ">Домашняя страница проекта</a>\n";
+      Info3.value += F(">Поддрержка проекта</a>\n");
   } else 
     Info3.value ="";
     

@@ -445,9 +445,10 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
      //70
 }
 
+//MCMD_GETDATA
 void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
-   Lsend = 6 + 6 + sizeof(int)*2 + sizeof(float)*7; 
+   Lsend = 6 + 6 + sizeof(int)*2 + sizeof(float)*9; 
 
    MsgOut = get_buf(Lsend);
 
@@ -459,9 +460,11 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[24],(void *)&dhw_t, 4); 
 	 memcpy((void *)&MsgOut[28],(void *)&FlameModulation, 4); 
 	 memcpy((void *)&MsgOut[32],(void *)&Pressure, 4); 
-	 memcpy((void *)&MsgOut[36],(void *)&status, 4);  //статус внешних датчиков температуры - (не OT)
-	 memcpy((void *)&MsgOut[40],(void *)&t1,4); 
-	 memcpy((void *)&MsgOut[44],(void *)&t2,4); 
+	 memcpy((void *)&MsgOut[36],(void *)&Tset, 4); 
+	 memcpy((void *)&MsgOut[40],(void *)&TdhwSet, 4); 
+	 memcpy((void *)&MsgOut[44],(void *)&status, 4);  //статус внешних датчиков температуры - (не OT)
+	 memcpy((void *)&MsgOut[48],(void *)&t1,4); 
+	 memcpy((void *)&MsgOut[52],(void *)&t2,4); 
 
 #if SERIAL_DEBUG      
   Serial.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
@@ -475,7 +478,7 @@ void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	
 	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 	 memcpy((void *)&TestId,(void *)&bf[6],4); 
-	 memcpy((void *)&TestStatus,(void *)&bf[6+4],4); 
+	 memcpy((void *)&TestPar,(void *)&bf[6+4],4); 
     TestCmd = 1;
     TestResponse = -1;
     TestStatus = -1;

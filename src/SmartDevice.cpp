@@ -56,7 +56,7 @@ void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int 
 
   l = strlen((PGM_P)IDENTIFY_TEXT); 
 
-  lp =  sizeof(int)*6 + + 6 + 12 + l;
+  lp =  sizeof(int)*6 + 6 + 12 + l;
   Lsend = 6 +  sizeof(short int) + lp;	
   
   MsgOut = get_buf(Lsend);
