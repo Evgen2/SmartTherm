@@ -1,0 +1,37 @@
+# Настройки->Автоматизации и сцены->Автоматизации->Создать автоматизацию->текстовый редактор
+# Автоматизация для передачи в SmartTherm комнатной температуры с датчика
+# для SmartTherm v 0.7.4 - требуется ввести NAME из настроек в вебинтерфейсе + в настройках PID
+# указать "Источник температуры в комнате:" 3
+# и подставить вместо YOUR_SENSOR ваш датчик температуры в HA
+
+alias: Report indoor temp to SmarTherm controller
+description: Script for reporting indoor(outdoor) temperature to the SmartTerm controller from home
+  assistant temperature sensor
+trigger:
+  - platform: time_pattern
+    seconds: /30
+condition:
+  - condition: template
+    value_template: "{{ states(source_entity) != 'unavailable'}}"
+action:
+  - if:
+      - condition: template
+        value_template: >-
+          {{ (states(source_entity)|float(0) - states(target_entity)|float(0)) |
+          abs | round(2) >= 0.01 }}
+    then:
+      - service: number.set_value
+        data:
+          value: "{{ states(source_entity)|float(0)|round(2) }}"
+        target:
+          entity_id: "{{ target_entity }}"
+variables:
+  source_entity: sensor.YOUR_SENSOR
+  target_entity: number.NAME_t_indoor
+# target_entity: number.NAME_t_outdoor
+# NAME - name from SmartTherm web interface ->Setup -> MQTT device name
+# example:  device name Navien 
+# target_entity: number.navien_t_indoor
+# target_entity: number.navien_t_outdoor
+
+mode: single

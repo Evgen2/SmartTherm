@@ -44,7 +44,11 @@ extern OpenTherm ot;
 //HAMqtt *pMqtt;
 
 HADevice device;
+#if PID_USE
+HAMqtt mqtt(espClient, device,22);
+#else
 HAMqtt mqtt(espClient, device,12);
+#endif
 
 const char * temperature_str = "temperature";
 
@@ -59,6 +63,19 @@ HASensor sensorT2(NULL);
 HASensor sensorText(NULL);
 HASensor sensorFreeRam(NULL);
 HASensor sensorState(NULL);
+#if PID_USE
+//HAText  textTargetTemp(NULL);
+//HAText  textPIDinfo(NULL);
+//HANumber numPID_v(NULL,HANumber::PrecisionP3);
+HANumber numT_outdoor(NULL,HANumber::PrecisionP3);
+HANumber numT_indoor(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_P(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_D(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_I(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_U(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_U0(NULL,HANumber::PrecisionP3);
+
+#endif
 
 // By default HAHVAC supports only reporting of the temperature.
 // You can enable feature you need using the second argument of the constructor.
@@ -76,9 +93,10 @@ bool lastInputState = false;
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     float temperatureFloat = temperature.toFloat();
-
+#if SERIAL_DEBUG      
     Serial.print("Target temperature: ");
     Serial.println(temperatureFloat);
+#endif    
     SmOT.Tset = temperatureFloat;
     SmOT.need_set_T = 2;
     sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
@@ -117,19 +135,56 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     sender->setMode(mode); // report mode back to the HA panel
 }
 
+#if PID_USE
+
+void onNumberCommand(HANumeric number, HANumber* sender)
+{   float t = number.toFloat();
+//    if (sender == &numPID_v) {
+//      Serial.printf("NumberCommand numPID_v: %f\n",t);
+//
+//    } else 
+    
+    if (sender == &numT_outdoor) {
+#if SERIAL_DEBUG      
+      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
+#endif      
+      SmOT.OnChangeT(t,4);
+        
+    } else if (sender == &numT_indoor) {
+#if SERIAL_DEBUG      
+      Serial.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
+#endif      
+      SmOT.OnChangeT(t,3);
+    }
+
+    if (!number.isSet()) {
+        // the reset command was send by Home Assistant
+    } else {
+        // you can do whatever you want with the number as follows:
+        int8_t numberInt8 = number.toInt8();
+        int16_t numberInt16 = number.toInt16();
+        int32_t numberInt32 = number.toInt32();
+        uint8_t numberUInt8 = number.toUInt8();
+        uint16_t numberUInt16 = number.toUInt16();
+        uint32_t numberUInt32 = number.toUInt32();
+        float numberFloat = number.toFloat();
+    }
+
+    sender->setState(number); // report the selected option back to the HA panel
+}
+#endif
+
+/************************************************************/
 void mqtt_setup(void)
 {  bool rc;
   if (WiFi.status() != WL_CONNECTED)  
         return;
-  Serial.printf("todo %s\n",__FUNCTION__ );
 
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
   
   }
-
-  Serial.printf(" Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
 
    device.setUniqueIdStr(SmOT.MQTT_topic);
 
@@ -221,6 +276,65 @@ void mqtt_setup(void)
     sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
     sensorText.setDeviceClass(temperature_str); 
 
+#if PID_USE
+/*
+    textTargetTemp.setAvailability(true);
+    textTargetTemp.setNameUniqueIdStr(SmOT.MQTT_topic,"Target Temp", "TargetTemp");
+    textTargetTemp.setValue("22");
+
+    textPIDinfo.setAvailability(true);
+    textPIDinfo.setNameUniqueIdStr(SmOT.MQTT_topic,"PID info", "PIDinfo");
+    textPIDinfo.setValue("BlaBlaBla");
+
+    numPID_v.setAvailability(true);
+    numPID_v.setNameUniqueIdStr(SmOT.MQTT_topic,"PID  numv", "PIDnumv");
+    numPID_v.setMode(HANumber::ModeBox);
+    numPID_v.setState(23.f, true);
+    numPID_v.setCurrentState(22.f);
+    numPID_v.setStep(0.1);
+    numPID_v.setMin(-50.);
+    numPID_v.setMax( 100.);
+    numPID_v.onCommand(onNumberCommand);
+*/
+    numT_outdoor.setAvailability(true);
+    numT_outdoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T outdoor", "Toutdoor");
+    numT_outdoor.setMode(HANumber::ModeBox);
+    numT_outdoor.setState(23.f, true);
+    numT_outdoor.setCurrentState(22.f);
+    numT_outdoor.setStep(0.1);
+    numT_outdoor.setMin(-50.);
+    numT_outdoor.setMax( 100.);
+    numT_outdoor.onCommand(onNumberCommand);
+
+    numT_indoor.setAvailability(true);
+    numT_indoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T indoor", "Tindoor");
+    numT_indoor.setMode(HANumber::ModeBox);
+    numT_indoor.setState(33.f, true);
+    numT_indoor.setStep(0.1);
+    numT_indoor.setMin(-50.);
+    numT_indoor.setMax( 100.);
+    numT_indoor.onCommand(onNumberCommand);
+
+
+    sensorPID_P.setAvailability(true);
+    sensorPID_P.setNameUniqueIdStr(SmOT.MQTT_topic,"dP", "pid_dp");
+    sensorPID_P.setDeviceClass(temperature_str); 
+    sensorPID_D.setAvailability(true);
+    sensorPID_D.setNameUniqueIdStr(SmOT.MQTT_topic,"dD", "pid_dd");
+    sensorPID_D.setDeviceClass(temperature_str); 
+    sensorPID_I.setAvailability(true);
+    sensorPID_I.setNameUniqueIdStr(SmOT.MQTT_topic,"dI", "pid_di");
+    sensorPID_I.setDeviceClass(temperature_str); 
+    sensorPID_U.setAvailability(true);
+    sensorPID_U.setNameUniqueIdStr(SmOT.MQTT_topic,"U", "pid_u");
+    sensorPID_U.setDeviceClass(temperature_str); 
+    sensorPID_U0.setAvailability(true);
+    sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
+    sensorPID_U0.setDeviceClass(temperature_str); 
+
+#endif
+
+
     SmOT.stsMQTT = 1;
     mqtt._mqtt->setSocketTimeout(1); //not work ???
 
@@ -252,8 +366,11 @@ int dt;
           return;
 /*******************/    
    t1 = millis();   
+ if(state_mqtt != 0)
+    Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, t1-t0);
   if(state_mqtt == -2) 
   {  dt = t1 - t0;
+ Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
     if(dt < 5000 *(attempt_mqtt+3))
         return;
  Serial.printf("*********** state_mqtt= -2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
@@ -307,7 +424,7 @@ int dt;
               sensorOT.setState(true);
               sensorBoilerT.setAvailability(true);
               hvac.setAvailability(true);
-Serial.printf("hvac.setAvailability(true)\n");
+//Serial.printf("hvac.setAvailability(true)\n");
               sensorFlame.setAvailability(true);
               sensorModulation.setAvailability(true);
               sensorBoilerRetT.setAvailability(true);
@@ -331,6 +448,37 @@ Serial.printf("hvac.setAvailability(true)\n");
             sensorPressure.setValue(str);  
             sprintf(str,"%.3f", SmOT.Toutside);
             sensorText.setValue(str);
+
+#if PID_USE
+        if(SmOT.need_report)
+        {
+            sprintf(str,"%.4f", SmOT.mypid.dP);
+            sensorPID_P.setValue(str);
+            sprintf(str,"%.4f", SmOT.mypid.dD);
+            sensorPID_D.setValue(str);
+            sprintf(str,"%.4f", SmOT.mypid.dI);
+            sensorPID_I.setValue(str);
+            sprintf(str,"%.4f", SmOT.mypid.u);
+            sensorPID_U.setValue(str);
+            sprintf(str,"%.4f", SmOT.mypid.ub);
+            sensorPID_U0.setValue(str);
+
+//            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
+//            textPIDinfo.setValue(str);
+
+            SmOT.need_report = 0;
+        }
+
+/*
+{  static float v = 0.;
+    numPID_v.setState(v, true);
+    v += 0.1;
+    textTargetTemp.setValue("22");
+    textPIDinfo.setValue("BlaBlaBla");
+}
+*/
+#endif
+
 /*************************************************/            
     if(SmOT.OEMDcode || SmOT.Fault)
     { 

@@ -3,7 +3,39 @@
 #define SD_OPENTHERM
 
 #include "SmartDevice.hpp"
+#include "pid.hpp"
 #include "mybuffer.hpp"
+
+class x_mean
+{
+  public:
+   float x;
+   float xmean; //среднее для вычисления x
+   int nx;       // число отсчетов xmean
+   int isset;
+   x_mean(void)
+   { x = 0.;
+     init();
+     isset = -1; 
+   }
+
+   void init(void)
+   {  xmean = 0;
+      isset = 0;
+      nx = 0;
+   }
+   void add(float _x)
+   {  xmean += _x;
+      nx++;
+   }
+   float get(void)
+   {  if(nx > 0) 
+      { x = xmean/float(nx);
+        isset = 1;
+      }
+      return x;
+   }
+};
 
 class BoilerStatisic
 {
@@ -122,6 +154,14 @@ public:
   char MQTT_devname[40];
  #endif
 #endif //MQTT_USE
+#if PID_USE
+  byte usePID; // 1/0 использовать PID да/нет
+  byte srcTroom; // источник температуры в комнате 0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT0 
+  byte srcText;  // источник температуры на улице  0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT1 
+  class pid mypid;
+  x_mean t_mean[8];
+  int need_report;
+#endif
   unsigned short int UseID2;
   unsigned short int ID2masterID;
   SD_Termo(void)
@@ -184,7 +224,12 @@ public:
       MQTT_user[0] = 0;
       MQTT_pwd[0] = 0;
       MQTT_interval = 10; //sec
-#endif       
+#endif     
+#if PID_USE
+      usePID = 0;
+      srcTroom =  srcText = 0;
+      need_report = 0;
+#endif
       UseID2 = 0;
       ID2masterID = 0;
   }
@@ -205,6 +250,10 @@ public:
   int Read_ot_fs(void);
   int Write_ot_fs(void);
 
+  void OnChangeT(float t, int src);
+#if PID_USE
+  void loop_PID(void);
+#endif
 };
 
 #endif // SD_OPENTHERM

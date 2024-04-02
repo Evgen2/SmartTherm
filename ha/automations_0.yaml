@@ -1,0 +1,34 @@
+# Настройки->Автоматизации и сцены->Автоматизации->Создать автоматизацию->текстовый редактор
+# Автоматизация для Weather forecast from met.no, delivered by the Norwegian Meteorological Institute.
+# и SmartTherm v 0.7.4 - требуется ввести NAME из настроек в вебинтерфейсе
+alias: Report outdoor temp to SmartTerm from weather
+description: >-
+  Script for reporting outdoor temperature to the SmartTerm controller from home
+  assistant weather integration
+trigger:
+  - platform: time_pattern
+    seconds: /30
+condition:
+  - condition: template
+    value_template: >-
+      {{ states(source_entity) != 'unavailable' and states(target_entity) !=
+      'unavailable' }}
+action:
+  - if:
+      - condition: template
+        value_template: >-
+          {{ (state_attr(source_entity, 'temperature')|float(0) -
+          states(target_entity)|float(0)) | abs | round(2) >= 0.1 }}
+    then:
+      - service: number.set_value
+        data:
+          value: "{{ state_attr(source_entity, 'temperature')|float(0)|round(2) }}"
+        target:
+          entity_id: "{{ target_entity }}"
+variables:
+  source_entity: weather.forecast_home_assistant
+  target_entity: number.NAME_t_outdoor
+# NAME - name from SmartTherm web interface ->Setup -> MQTT device name
+# example:  device name Navien 
+# target_entity: number.navien_t_outdoor
+mode: single

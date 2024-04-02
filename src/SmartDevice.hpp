@@ -10,7 +10,7 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  7
-#define MASTER_SUBVERSION1 3
+#define MASTER_SUBVERSION1 4
 /***************/
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
@@ -49,7 +49,7 @@ class SmartDevice
   const int BiosCode;     /* код биоса */
   const int Vers;         /* версия */
   const int SubVers;      /* подверсия */
-  const int SubVers1;     /* дверсия подверсии */
+  const int SubVers1;     /* версия подверсии */
 #if defined(ARDUINO_ARCH_ESP8266)
   static char  BiosDate[12];     /* дата компиляции биоса */
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -62,6 +62,7 @@ class SmartDevice
 #elif defined(ARDUINO_ARCH_ESP32)
   unsigned char Mac[6];   /* mac - адрес */
 #endif
+  int TZoffset; /* *time zone offset */
   int UDPserver_port;  /* порт сервера */
   int UDPserver_repot_period;  /* периодичность отправки данных серверу, сек */
   int UDPserver_sts;  /* статус сервера */
@@ -82,7 +83,6 @@ class SmartDevice
   int sts;                 /* состояние       */  
   int sts_next;            /* состояние на следующий такт  */
   
-
 #if defined(ARDUINO_ARCH_ESP8266)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
                BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), 
@@ -107,7 +107,7 @@ class SmartDevice
 	TCPserver_repot_period = 0;
 	TCPserver_sts = 0;
 	TCPserver_t = 0;
-
+  TZoffset = 3600*3; //MSK-3
   status = -1;
   }
   void callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

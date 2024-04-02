@@ -59,6 +59,10 @@ const char* SET_PAR_URI =  "/set_par";
 const char* SET_ADD_URI =  "/add";
 const char* DEBUG_URI = "/debug";
 
+#if PID_USE
+const char* PID_URI = "/pid";
+const char* SET_PID_URI = "/set_pid";
+#endif
 
 /************* InfoPage ******************/
 ACText(Caption, "<b>Статус OT: </b>", "", "", AC_Tag_DIV);
@@ -103,8 +107,38 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_BR);
 ACInput(ID2MaserID,"", "IDcode"); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
+#if PID_USE
+ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar, SetupPID});
+#else
 AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar});
+#endif //#if PID_USE
 
+#if MQTT_USE
+
+/************* SetPID ******************/
+#if PID_USE
+AutoConnectCheckbox UsePID("UsePID","", "Использовать PID", false, AC_Behind , AC_Tag_BR);
+ACInput(SetXtagPID,"", "Xtag:"); // 
+ACInput(SetTempSrcPID,"", "Источник температуры в комнате:"); // 
+ACInput(SetTempExtSrcPID,"", "Источник температуры на улице:"); // 
+ACInput(SetKpPID,"", "Kp:","","",AC_Tag_None); //  
+ACInput(SetKdPID,"", "Kd:","","",AC_Tag_None); // 
+ACInput(SetKiPID,"", "Ki:","","",AC_Tag_BR); // 
+ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None); // 
+ACInput(SetTminPID,"", "Tmin:"); // 
+ACInput(Set_u0_PID,"", "u0:","","",AC_Tag_None); // 
+ACInput(Set_t0_PID,"", "t0:"); // 
+ACInput(Set_u1_PID,"", "u1:","","",AC_Tag_None); // 
+ACInput(Set_t1_PID,"", "t1:"); // 
+
+ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
+AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, Info1,SetXtagPID,  SetTempSrcPID, SetTempExtSrcPID, 
+                      SetKpPID, SetKdPID, SetKiPID, SetTmaxPID, SetTminPID, Info2,
+                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Info5, Info6,  ApplyPID });
+#endif
+/************* SetPID end ***************/
+#endif
 /************* SetTempPage ***************/
 //ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
 //ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
@@ -129,7 +163,9 @@ AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2,
 AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
 AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
 AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
-
+#if PID_USE
+AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
+#endif
 AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6,  DebugApply});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
@@ -159,6 +195,12 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args);
 String onDebug(AutoConnectAux& aux, PageArgument& args);
 String onS(AutoConnectAux& aux, PageArgument& args);
 String onAbout(AutoConnectAux& aux, PageArgument& args);
+#if PID_USE
+String onSetupPID(AutoConnectAux& aux, PageArgument& args);
+String onSetPID(AutoConnectAux& aux, PageArgument& args);
+#endif
+
+String utc_time_jc;
 
 /************************************/
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
@@ -269,17 +311,31 @@ void setup_web_common(void)
   SetParPage.on(onSetPar);
   SetupAdd_Page.on(on_SetupAdd);
   SetAddParPage.on(onSetAddPar);
-
+  
+#if PID_USE
+  PID_Page.on(onSetupPID);
+  SetPIDPage.on(onSetPID);
+#endif  
   debugPage.on(onDebug);
   AboutPage.on(onAbout);
-
 /**/  
+#if MQTT_USE
+#if PID_USE
+  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
+               SetAddParPage, PID_Page, SetPIDPage, debugPage,  AboutPage});     // Join pages.
+#else
+  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
+               SetAddParPage, debugPage,  AboutPage});     // Join pages.
+#endif               
+#else
   portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, debugPage,  AboutPage});     // Join pages.
+#endif
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
   config.retainPortal = true; 
   config.autoRise = true;
+  //config.hostName = AUTOCONNECT_APID;
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
   config.autoReconnect = true;
@@ -328,26 +384,30 @@ void setup_web_common(void)
 
 int setup_web_common_onconnect(void)
 { static int init = 0;
-  if(init)
-    return 1;
+
+  Serial.printf("setup_web_common_onconnect init %d\n", init);
+
   Serial.println(F("WiFi connected"));
   Serial.println(F("IP address: "));
   Serial.println(WiFi.localIP());
 
-   WiFi.setAutoReconnect(true);
+  if(init)
+    return 1;
 
+   WiFi.setAutoReconnect(true);
 
 /****************************************************/    
 {
+
  // Specifying the time zone and assigning NTP.
 // Required to add the correct local time to the export file name of the
 // captured image. This assignment needs to be localized.
 // This sketch works even if you omit the NTP server specification. In that
 // case, the suffix timestamp of the captured image file is the elapsed time
 // since the ESP module was powered on.
-const char*  const _tz = "MSK-3";
 const char*  const _ntp1 = "europe.pool.ntp.org";
 const char*  const _ntp2 = "pool.ntp.org";
+
 #if SERIAL_DEBUG      
 	  time_t  now;
   now = time(nullptr);
@@ -356,12 +416,19 @@ const char*  const _ntp2 = "pool.ntp.org";
    // By configuring NTP, the timestamp appended to the capture filename will
     // be accurate. But this procedure is optional. It does not affect ESP32Cam
     // execution.
-    configTzTime(_tz, _ntp1 ,_ntp2);
+//    configTzTime(_tz, _ntp1 ,_ntp2);
+    configTzTime("UTC0", _ntp1 ,_ntp2);
+
+    //TZoffset
    delay(1000);
 #if SERIAL_DEBUG      
   now = time(nullptr);
   Serial.printf("2 %s\n", ctime(&now));
 #endif  
+{ time_t now;
+  now = time(nullptr);
+  Serial.printf("2 %s\n", ctime(&now));
+}
   // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #if defined(ARDUINO_ARCH_ESP8266)
 // default ntp update  1 hour
@@ -370,6 +437,7 @@ const char*  const _ntp2 = "pool.ntp.org";
   Serial.print("Sync time in ms: ");
   Serial.println(sntp_get_sync_interval());  
 #endif
+
 
 #if MQTT_USE
    if(SmOT.useMQTT == 0x03) 
@@ -409,6 +477,8 @@ void onRoot() {
 float mRSSi = 0.;
 int WiFists = -1;
 
+int OutUTCtime(time_t now);
+
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[180];
   // int l;
@@ -436,14 +506,12 @@ extern int minRamFree;
    Info5.value = str;
   
   { time_t now;
-    struct tm *nowtime;
-    now = time(nullptr);
-    nowtime = localtime(&now);
-    sprintf( str, (PGM_P)F("<br>%02d.%02d.%d %d:%02d:%02d"),
-          nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
-		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
- 
-    Info5.value += str;
+      
+   OutUTCtime(time(nullptr));
+
+    Info5.value += (PGM_P)F("<br>Время:");
+    Info5.value += utc_time_jc;
+
   }
 
    sprintf(str,(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
@@ -488,7 +556,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
       { isChange = 1;
         SmOT.Tset = v;
         SmOT.need_set_T = 1;
-      }
+      } 
     }
 
     if(SmOT.enable_HotWater)
@@ -653,6 +721,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
+// SetAddParPage 
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
 {  int isChange=0;
    unsigned short int icheck;
@@ -691,7 +760,6 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 
   return String();
 }
-
 
 // Load the attribute of th
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
@@ -951,11 +1019,14 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  
+
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
   else
       CtrlChB1.checked = false;
- 
+/*********************************/      
+ if (SmOT.stsOT >= 0)
+ {
   if(SmOT.HotWater_present) 
   { CtrlChB2.enable  =  true;    
     if(SmOT.enable_HotWater)
@@ -1006,7 +1077,14 @@ Zota Lux-x (electro)  248
       Ctrl2.value += "Zota Lux-x (electro)"; 
   else 
       Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
-
+/*********************************/      
+ } else {
+    CtrlChB2.enable  = false;
+    CtrlChB3.enable  = false;
+    Info1.value ="";
+    Ctrl2.value = ""; 
+ }
+ 
 #if MQTT_USE
   CtrlChB4.enable  = true;
   if(SmOT.useMQTT) 
@@ -1052,32 +1130,168 @@ Zota Lux-x (electro)  248
   return String();
 }
 
+#if PID_USE
 
-//расшифровка битов статуса бойлера для бестолковых
-//decoding the status bits of the boiler for dummies
-/*  LB: Slave status   
-bit: description [ clear/0, set/1]
-0: fault indication [ no fault, fault ]
-1: CH mode [CH not active, CH active]
-2: DHW mode [ DHW not active, DHW active]
-3: Flame status [ flame off, flame on ]
-4: Cooling status [ cooling mode not active, cooling mode active ]
-5: CH2 mode [CH2 not active, CH2 active]
-6: diagnostic indication [no diagnostics, diagnostic event]
-7: reserved 
+String onSetPID(AutoConnectAux& aux, PageArgument& args)
+{  int isChange=0;
+   unsigned short int icheck;
+   unsigned short int iv;
+   float v;
 
-E = Error 0/1
-H = CH = CentralHeating 0/1
-W = DHW = HotWater 0/1
-F = Flame status  0/1
-D =  diagnostic indication 0/1
+   Serial.printf((PGM_P)F("onSetPID\n"));
 
-Tb = BoilerT
-Tr = RetT
-Th = dhw_t
-T1 = T_ds18b20(1)
-T2 = T_ds18b20(2)
-*/   
+  if( UsePID.checked) icheck = 1;
+  else               icheck = 0;
+  if(icheck != SmOT.usePID)
+
+  if(icheck != SmOT.usePID)
+  { SmOT.usePID = icheck;
+    isChange = 1;
+  }
+
+  if(SmOT.usePID)
+  { 
+    iv = SetTempSrcPID.value.toInt();
+    if(iv != SmOT.srcTroom)
+    { SmOT.srcTroom = iv;
+      isChange = 1;
+    }
+    iv = SetTempExtSrcPID.value.toInt();
+    if(iv != SmOT.srcText)
+    { SmOT.srcText = iv;
+      isChange = 1;
+    }
+    v = SetKpPID.value.toFloat();
+    if(v != SmOT.mypid.Kp)
+    { SmOT.mypid.Kp = v;
+      isChange = 1;
+    }
+    v = SetKdPID.value.toFloat();
+    if(v != SmOT.mypid.Kd)
+    { SmOT.mypid.Kd = v;
+      isChange = 1;
+    }
+    v = SetKiPID.value.toFloat();
+    if(v != SmOT.mypid.Ki)
+    { SmOT.mypid.Ki = v;
+      isChange = 1;
+    }
+    v = SetXtagPID.value.toFloat();
+    if(v != SmOT.mypid.xTag)
+    { SmOT.mypid.xTag = v;
+      isChange = 1;
+    }
+    v = SetTmaxPID.value.toFloat();
+    if( v > 80.)  v = 80.;
+    else if(v<40) v = 40.;
+    if(v != SmOT.mypid.umax)
+    { SmOT.mypid.umax = v;
+      isChange = 1;
+    }
+
+    v = SetTminPID.value.toFloat();
+    if( v > SmOT.mypid.umax - 1.)  v = SmOT.mypid.umax -1.;
+    else if(v<35.) v = 35.;
+    if(v != SmOT.mypid.umin)
+    { SmOT.mypid.umin = v;
+      isChange = 1;
+    }
+
+    v = Set_u0_PID.value.toFloat();
+    if( v > SmOT.mypid.umax)  v = SmOT.mypid.umax;
+    else if(v<35.) v = 35.;
+    if(v != SmOT.mypid.u0)
+    { SmOT.mypid.u0 = v;
+      isChange = 1;
+    }
+
+    v = Set_t0_PID.value.toFloat();
+    if( v > 40.)  v = 40.;
+    else if(v<-80.) v = -80.;
+    if(v != SmOT.mypid.y0)
+    { SmOT.mypid.y0 = v;
+      isChange = 1;
+    }
+
+    v = Set_u1_PID.value.toFloat();
+    if( v > SmOT.mypid.umax)  v = SmOT.mypid.umax;
+    else if(v<35.) v = 35.;
+    if(v != SmOT.mypid.u1)
+    { SmOT.mypid.u1 = v;
+      isChange = 1;
+    }
+
+    v = Set_t1_PID.value.toFloat();
+    if( v > 40.)  v = 40.;
+    else if(v<-80.) v = -80.;
+    if(v != SmOT.mypid.y1)
+    { SmOT.mypid.y1 = v;
+      isChange = 1;
+    }
+  }
+
+  if(isChange)
+        SmOT.need_write_f = 1;  //need write changes to FS
+
+//  Serial.printf("isChange %d onSetPID usePID %d srcText %d srcTroom %d\n",
+//         isChange, SmOT.usePID, SmOT.srcText,  SmOT.srcTroom );
+
+  aux.redirect(SETUP_URI);
+  return String();
+}
+
+// PID_Page
+String onSetupPID(AutoConnectAux& aux, PageArgument& args)
+{ char str0[80];
+  if(SmOT.usePID) 
+  { UsePID.checked = true;
+  } else {
+    UsePID.checked = false;    
+  }
+
+  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, 3/4=MQTT0/1";
+
+  sprintf(str0,"%d",SmOT.srcTroom);
+  SetTempSrcPID.value = str0;
+  sprintf(str0,"%d",SmOT.srcText);
+  SetTempExtSrcPID.value = str0;
+  sprintf(str0,"%.4f",SmOT.mypid.Kp);
+  SetKpPID.value = str0;
+  sprintf(str0,"%.4f",SmOT.mypid.Kd);
+  SetKdPID.value = str0;
+  sprintf(str0,"%.4f",SmOT.mypid.Ki);
+  SetKiPID.value = str0;
+  sprintf(str0,"%.2f",SmOT.mypid.xTag);
+  SetXtagPID.value = str0;
+
+  Info2.value = "Tmax <= 80, Tmin >= 30 (конденсатный котел, иначе 40)";
+
+  sprintf(str0,"%.2f",SmOT.mypid.umax);
+  SetTmaxPID.value = str0;
+  sprintf(str0,"%.2f",SmOT.mypid.umin);
+  SetTminPID.value = str0;
+ 
+  Info2.value = "ПЗА: темп.отопления | наружная";
+
+  sprintf(str0,"%.2f",SmOT.mypid.u0);
+  Set_u0_PID.value = str0;
+  sprintf(str0,"%.2f",SmOT.mypid.y0);
+  Set_t0_PID.value = str0;
+  sprintf(str0,"%.2f",SmOT.mypid.u1);
+  Set_u1_PID.value = str0;
+  sprintf(str0,"%.2f",SmOT.mypid.y1);
+  Set_t1_PID.value = str0;
+
+  Info3.value = "";
+  Info4.value = "";
+  Info5.value = "";
+
+  return String();
+
+}
+
+#endif
+
 
 const char SM_OT_HomePage[]= "https://t.me/smartTherm";
 //"https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
@@ -1104,7 +1318,7 @@ extern int LedSts;
 
 void loop_web()
 {  int rc,  dt;
-static unsigned long t0=0; // t1=0;
+static unsigned long t0=0, raz=0; // t1=0;
 
   portal.handleClient();
 
@@ -1122,6 +1336,7 @@ static unsigned long t0=0; // t1=0;
 } wl_status_t; 
   */
   rc = WiFi.status();
+//    Serial.printf("WiFi.status=%i %d\n", rc, raz++);
   if(rc != WiFists)
   { 
 #if SERIAL_DEBUG      
@@ -1214,3 +1429,39 @@ void TestPower(void)
 }
 #endif
 
+int OutUTCtime(time_t now)
+{   char str[312];
+    char buffer[26];
+    struct tm* tm_info;
+    const char *s0 = "<em id=\"utcl\"></em><time id=\"upd_at\" dt=\"";
+    const char *s1 = "\"></time><script>";
+    const char *s2 =
+"const src_el=document.getElementById('upd_at');\
+const d=new Date(src_el.getAttribute('dt')).toLocaleString();\
+document.getElementById(\"utcl\").innerHTML=d;</script>";
+
+/*
+<em id="utcl"></em>
+<time id="upd_at" dt="2021-06-30 12:21:17Z"></time>
+<script>
+const src_el = document.getElementById('upd_at');
+const d = new Date(src_el.getAttribute('dt')).toLocaleString();
+document.getElementById("utcl").innerHTML = d;
+</script>
+*/  
+
+  now = time(nullptr);
+//  Serial.printf("2 %s\n", ctime(&now));
+  tm_info = localtime(&now);
+
+  strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
+  buffer[25] = 0;
+//  Serial.printf("3 %s\n", buffer);
+  sprintf(str,"%s%sZ%s%s", s0,buffer,s1, s2);
+  utc_time_jc = str;
+/*  
+  Serial.printf("%s len=%d\n", str, strlen(str));
+  Serial.println(utc_time_jc);
+*/
+  return 0;
+}

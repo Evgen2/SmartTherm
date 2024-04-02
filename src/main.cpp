@@ -18,9 +18,9 @@ typedef ESP8266WebServer WEBServer;
 typedef WebServer WEBServer;
 #endif
 
+#include "Smart_Config.h"
 #include "OpenTherm.h"
 #include "SmartDevice.hpp"
-#include "Smart_Config.h"
 #include "SD_OpenTherm.hpp"
 
 /************************************/
@@ -100,6 +100,7 @@ void setup() {
   Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
+
 
 // Serial.printf((PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 
@@ -229,7 +230,8 @@ void loopDS1820(void)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
                 SmOT.t1 = t;
-        SmOT.stsT1 = 1;
+            SmOT.stsT1 = 1;
+            SmOT.OnChangeT(t,0);    
 //            Serial.printf("SmOT T1= %f\n",   SmOT.t1);
           }
           SmOT.status &= ~0x04;
@@ -279,6 +281,7 @@ void loopDS1820(void)
             else
                 SmOT.t2 = t;
             SmOT.stsT2 = 1;
+            SmOT.OnChangeT(t,1);    
 
 //            Serial.printf("SmOT T2= %f\n",   SmOT.t2);
           }
@@ -301,6 +304,8 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     uint16_t u88;
     byte id;
     int parity, messagetype;
+static int timeOutcounter = 0;
+
     SmOT.RespMillis = millis();
     if(SmOT.TestCmd == 2)
     {
@@ -319,7 +324,7 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     }
   
     if (status == OpenThermResponseStatus::SUCCESS) {
-        SmOT.stsOT = 0;
+        SmOT.stsOT = timeOutcounter = 0;
         SmOT.response = response; 
         OTDebugInfo[0]++;
     } else if (status == OpenThermResponseStatus::NONE) {
@@ -335,14 +340,18 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
 #endif         
         OTDebugInfo[3]++;
     } else if (status == OpenThermResponseStatus::TIMEOUT) {
-       if(SmOT.stsOT != -1)
-            SmOT.stsOT = 2;
-        OTDebugInfo[4]++;
+      if(SmOT.stsOT != -1)
+	    { if(timeOutcounter > 10)
+		    {	SmOT.stsOT = 2;
+		    } else {
+			    timeOutcounter++;
+		    }	
+      }
+      OTDebugInfo[4]++;
 #if OT_DEBUG
       LogOT(-1, 0,  0,  0);
 #endif         
-
-        return;
+      return;
     }
 
 #if OT_DEBUG
@@ -500,6 +509,8 @@ bit: description [ clear/0, set/1]
       SmOT.Toutside = (SmOT.Toutside + t) * 0.5;
     else
       SmOT.Toutside = t;
+    SmOT.OnChangeT(t,2);
+
         break;
 
     case OpenThermMessageID::Tret: //28
@@ -654,7 +665,7 @@ M0:
                break;
           } else if(SmOT.need_set_dhwT) {
 // Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
-              request = ot.setDHWSetpoint(SmOT.TdhwSet); //56
+              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.TdhwSet); //56
               SmOT.need_set_dhwT = 0;
           } else if(SmOT.need_set_T2) {
               request = ot.buildSetBoilerCH2TemperatureRequest(SmOT.Tset2); //8
@@ -1003,6 +1014,10 @@ static int mday_prev = 0;
   if(now == prev)
       return;
 
+#if PID_USE
+    SmOT.loop_PID();
+#endif
+
 //    SmOT.Bstat.calcIntegral(0.25); //debug
 
   nowtime = localtime(&prev);
@@ -1108,8 +1123,8 @@ SmOT.enable_OTlog = 0; //test
 
 	} else {
 #endif //OT_DEBUGLOG
-if(dms < 500)
-    return;
+//if(dms < 500)
+//    return;
     
   Serial.printf("%6d %3d ", ms, dms);
 

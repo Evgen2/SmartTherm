@@ -33,7 +33,7 @@ static int indcmd = 0;
 //-110 = 102
     #define FS_BUF 104  
   #elif defined(ARDUINO_ARCH_ESP32)
-    #define FS_BUF 212
+    #define FS_BUF 254
   #endif
 #else
     #define FS_BUF 64  
@@ -87,8 +87,54 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &MQTT_interval, &Buff[n], sizeof(MQTT_interval));
     n += sizeof(MQTT_interval);
   }
-
 #endif
+#if PID_USE
+    if(n >= nw) goto END;
+    memcpy((void *) &usePID, &Buff[n], sizeof(usePID));
+    n += sizeof(usePID);
+    if(n >= nw) goto END;
+        Serial.printf("usePID=%d\n", usePID);
+    memcpy((void *) &srcTroom, &Buff[n], sizeof(srcTroom));
+    n += sizeof(srcTroom);
+    if(n >= nw) goto END;
+    memcpy((void *) &srcText, &Buff[n], sizeof(srcText));
+    n += sizeof(srcText);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.Kp, &Buff[n], sizeof(mypid.Kp));
+    n += sizeof(mypid.Kp);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.Kd, &Buff[n], sizeof(mypid.Kd));
+    n += sizeof(mypid.Kd);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.Ki, &Buff[n], sizeof(mypid.Ki));
+    n += sizeof(mypid.Ki);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.xTag, &Buff[n], sizeof(mypid.xTag));
+    n += sizeof(mypid.xTag);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.umax, &Buff[n], sizeof(mypid.umax));
+    n += sizeof(mypid.umax);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.umin, &Buff[n], sizeof(mypid.umin));
+    n += sizeof(mypid.umin);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.u0, &Buff[n], sizeof(mypid.u0));
+    n += sizeof(mypid.u0);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.y0, &Buff[n], sizeof(mypid.y0));
+    n += sizeof(mypid.y0);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.u1, &Buff[n], sizeof(mypid.u1));
+    n += sizeof(mypid.u1);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
+    n += sizeof(mypid.y1);
+    
+#endif
+END:
+    if(n != nw)
+        Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
+
 #if SERIAL_DEBUG      
     if(n != nw)
         Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
@@ -207,8 +253,8 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 
     if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
     {
+        Serial.printf((PGM_P)F("Error: Writing %d bytes to %d buff\n"),  len +2 * sizeof(unsigned short int), sizeof(Buff));
 #if SERIAL_DEBUG      
-    Serial.printf((PGM_P)F("Error: Writing %d bytes to %d buff\n"),  len, sizeof(Buff));
 #endif // SERIAL_DEBUG      
 
         return 10;
@@ -300,7 +346,41 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(MQTT_interval);
 
 #endif
+#if PID_USE
+    memcpy(&Buff[n],(void *) &usePID, sizeof(usePID));
+    n += sizeof(usePID);
+    memcpy(&Buff[n],(void *) &srcTroom , sizeof(srcTroom));
+    n += sizeof(srcTroom);
+    memcpy(&Buff[n],(void *) &srcText , sizeof(srcText));
+    n += sizeof(srcText);
+    memcpy(&Buff[n],(void *) &mypid.Kp , sizeof(mypid.Kp));
+    n += sizeof(mypid.Kp);
+    memcpy(&Buff[n],(void *) &mypid.Kd , sizeof(mypid.Kd));
+    n += sizeof(mypid.Kd);
+    memcpy(&Buff[n],(void *) &mypid.Ki , sizeof(mypid.Ki));
+    n += sizeof(mypid.Ki);
+    memcpy(&Buff[n],(void *) &mypid.xTag , sizeof(mypid.xTag));
+    n += sizeof(mypid.xTag);
+    memcpy(&Buff[n],(void *) &mypid.umax , sizeof(mypid.umax));
+    n += sizeof(mypid.umax);
+    memcpy(&Buff[n],(void *) &mypid.umin , sizeof(mypid.umin));
+    n += sizeof(mypid.umin);
+    memcpy(&Buff[n],(void *) &mypid.u0 , sizeof(mypid.u0));
+    n += sizeof(mypid.u0);
+    memcpy(&Buff[n],(void *) &mypid.y0 , sizeof(mypid.y0));
+    n += sizeof(mypid.y0);
+    memcpy(&Buff[n],(void *) &mypid.u1 , sizeof(mypid.u1));
+    n += sizeof(mypid.u1);
+    memcpy(&Buff[n],(void *) &mypid.y1 , sizeof(mypid.y1));
+    n += sizeof(mypid.y1);
+#endif
 
+#if SERIAL_DEBUG      
+    if( n >= sizeof(Buff) )    
+         Serial.printf("Error: %s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
+#endif         
+    
+   Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
     rc = Write_data_fs((char *)path, Buff, n);
 
     return rc;
@@ -497,6 +577,131 @@ void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,i
 	 memcpy((void *)&MsgOut[6+4],(void *)&TestStatus,4 ); 
 
 }
+
+//src 0/1 - T1/T2, 2 - Text, 3  MQTT0 4 MQTT1 
+void SD_Termo::OnChangeT(float t, int src)
+{
+#if PID_USE
+    if(src>= 0 && src <5)
+    {
+        t_mean[src].add(t);
+//    Serial.printf("OnChangeT src =%d, t =%f mean =%f nx=%d\n", src, t, t_mean[src].xmean, t_mean[src].nx); 
+    }
+#endif
+}
+
+#if PID_USE
+void SD_Termo::loop_PID(void)
+{  static int start = 2;
+   static  unsigned long int start_t=0, t0=0;
+   unsigned long int t;
+   float tempindoor=0., tempoutdoor=0.;
+   float u;
+   int rc;
+
+   int is = 0;
+    if(!usePID)
+        return;
+    t = millis();
+    if(t - t0 < 30000)
+            return;
+    t0 = t;
+       
+/**********************************************/
+    if(start)
+    {   if(start == 2)
+        {   start_t = t;
+            start = 1;
+            mypid.NextTact();
+        }
+
+        if(srcTroom < 0 || srcTroom > 4)
+        {  is = 0;
+        } else {
+//  Serial.printf("0 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
+//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
+
+            if(t_mean[srcTroom].isset == -1)
+            {   if(t_mean[srcTroom].nx > 1)
+                {    tempindoor = t_mean[srcTroom].xmean / float(t_mean[srcTroom].nx) ; 
+                    is |= 1;
+                }
+            } else {
+                tempindoor = t_mean[srcTroom].x;
+                is |= 1;
+                start = 0; //
+            }
+            if(srcText < 0 || srcText > 4) 
+            {
+                is &= ~2;
+
+            } else if(t_mean[srcText].isset == -1) {
+                if(t_mean[srcText].nx > 1)
+                {    tempoutdoor = t_mean[srcText].xmean / float(t_mean[srcText].nx) ; 
+                    is |= 2;
+                }
+            } else {
+                tempoutdoor = t_mean[srcText].x;
+                is |= 2;
+            }
+        }
+//        Serial.printf("0 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
+    } else {  // start == 0
+
+        if(srcTroom >= 0 && srcTroom <= 3) //3!!
+        {
+//    Serial.printf("00 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
+//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
+
+            if(t_mean[srcTroom].isset >= 0)
+            {   tempindoor = t_mean[srcTroom].x;
+                is |= 1;
+            }
+        }
+        if(srcText >= 0 && srcText <= 4) //4!!
+        {
+            if(t_mean[srcText].isset >= 0)
+            {   tempoutdoor = t_mean[srcText].x;
+                is |= 2;
+            }
+        }
+//    Serial.printf("1 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
+    }
+/************ endof  if(start) **********************************/
+
+    if(is & 0x02)
+    {   
+        u = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+
+//        Serial.printf("2 u = %f u0 %f u1 %f y0 %f y1 %f\n", u, mypid.u0, mypid.u1, mypid.y0, mypid.y1); 
+
+//      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  //40* 4/12
+
+    } else {
+        u = mypid.u0;
+//        Serial.printf("2a u = %f\n", u); 
+    } 
+
+    if(is & 0x01)
+    {   rc = mypid.Pid(tempindoor, u);
+        if(rc == 1)
+        {  Tset = mypid.u;
+           need_set_T = 1;  // for OpenTherm
+           need_report = 1; // for MQTT
+    for(int i=0; i < 8; i++)
+    {
+//Serial.printf( "%d isset %d nx %d\n", i,t_mean[i].isset,t_mean[i].nx );
+         if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
+            continue;
+        t_mean[i].get();
+        if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
+                t_mean[i].init();
+    }
+
+        }
+    }
+}
+#endif
 
 #if OT_DEBUGLOG
 void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))

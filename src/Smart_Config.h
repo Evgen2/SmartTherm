@@ -9,7 +9,12 @@
 #define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
-#define MQTT_USE 0
+#define MQTT_USE 1
+#if MQTT_USE
+  #define PID_USE 1
+#else
+  #define PID_USE 0
+#endif
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */
@@ -21,10 +26,10 @@
 #ifndef PROSESSOR_CODE
 #if defined(ARDUINO_ARCH_ESP8266)
  #define PROSESSOR_CODE  1
- #define IDENTIFY_TEXT        		F("Умный контроллер SmatrTherm ESP8266")
+ #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP8266")
 #elif defined(ARDUINO_ARCH_ESP32)
  #define PROSESSOR_CODE  2
- #define IDENTIFY_TEXT        		F("Умный контроллер SmatrTherm ESP32")
+ #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP32")
 #endif
 
 #define IDENTIFY_CODE   (PROSESSOR_CODE<<24)|(USE_SENSOR_T<<8)
