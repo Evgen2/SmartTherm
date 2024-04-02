@@ -183,6 +183,7 @@ public:
 	unsigned long buildSetBoilerCH2TemperatureRequest(float temperature);
 	unsigned long buildGetBoilerTemperatureRequest();
 	unsigned long buildGetBoilerCH2TemperatureRequest();
+	unsigned long buildSetDHWSetpointTemperatureRequest(float temperature);
 
 	//responses
 	bool isFault(unsigned long response);
@@ -196,6 +197,7 @@ public:
 	unsigned int temperatureToData(float temperature);
 
 	//basic requests
+#if 0	
 	unsigned long setBoilerStatus(bool enableCentralHeating, bool enableHotWater = false, bool enableCooling = false, bool enableOutsideTemperatureCompensation = false, bool enableCentralHeating2 = false);
 	bool setBoilerTemperature(float temperature);
 	float getBoilerTemperature();
@@ -205,7 +207,7 @@ public:
     float getModulation();
     float getPressure();
     unsigned char getFault();
-
+#endif
 private:
 	const int inPin;
 	const int outPin;

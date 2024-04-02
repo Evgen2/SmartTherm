@@ -330,6 +330,10 @@ unsigned long OpenTherm::buildSetBoilerCH2TemperatureRequest(float temperature) 
 	return buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TsetCH2, data);
 }
 
+unsigned long OpenTherm::buildSetDHWSetpointTemperatureRequest(float temperature) {
+	unsigned int data = temperatureToData(temperature);
+	return buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TdhwSet, data);
+}
 
 unsigned long OpenTherm::buildGetBoilerTemperatureRequest() {
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tboiler, 0);
@@ -384,6 +388,7 @@ unsigned int OpenTherm::temperatureToData(float temperature) {
 }
 
 //basic requests
+#if 0    
 
 unsigned long OpenTherm::setBoilerStatus(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2) {
 	return sendRequest(buildSetBoilerStatusRequest(enableCentralHeating, enableHotWater, enableCooling, enableOutsideTemperatureCompensation, enableCentralHeating2));
@@ -409,7 +414,7 @@ bool OpenTherm::setDHWSetpoint(float temperature) {
     unsigned long response_tmp = sendRequest(buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TdhwSet, data));
     return isValidResponse(response_tmp);
 }
-    
+
 float OpenTherm::getDHWTemperature() {
     unsigned long response_tmp = sendRequest(buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0));
     return isValidResponse(response_tmp) ? getFloat(response_tmp) : 0;
@@ -428,6 +433,8 @@ float OpenTherm::getPressure() {
 unsigned char OpenTherm::getFault() {
     return ((sendRequest(buildRequest(OpenThermRequestType::READ, OpenThermMessageID::ASFflags, 0)) >> 8) & 0xff);
 }
+
+#endif //0
 
 #if defined(ARDUINO_ARCH_ESP8266)
 	#define OTD(x) 
@@ -520,12 +527,13 @@ void OpenTherm::init_OTids(void)
 
 
 int OpenTherm::OTid_used(OpenThermMessageID id)
-{	int ind, rc = 0 ;
+{	int ind;
+//	int ind, rc = 0 ;
 	ind = id_to_index[id];
-// Serial.printf("id =%d ind= %d\n", id, ind);
 
-	if(OT_ids[ind].used) rc = 1;
-	return rc;
+//	if(OT_ids[ind].used) rc = 1;
+//	return rc;
+	return OT_ids[ind].used;
 }
 
 

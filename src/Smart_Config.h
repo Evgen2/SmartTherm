@@ -9,7 +9,7 @@
 #define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
-#define MQTT_USE 1
+#define MQTT_USE 0
 #if MQTT_USE
   #define PID_USE 1
 #else

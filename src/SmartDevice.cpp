@@ -27,9 +27,9 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	Lsend = l + sizeof(short int)*3; //16
 	MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
-
+#if SERIAL_DEBUG 
   Serial.printf("MCMD_HAND_SHAKE  Lsend=%i\n", Lsend );
-
+#endif
 //  Serial.printf("MCMD_HAND_SHAKE\n");
 	
   
@@ -37,10 +37,12 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	{   memcpy(&MsgOut[6], HAND_SHAKE_OUT,l);
 	} else {
 	    memcpy(&MsgOut[6], HAND_SHAKE_ERR,l);
-	}		 	
+	}
+/*  		 	
   for(int i=0; i<Lsend;i++)
 		Serial.printf("%d ", MsgOut[i]);
 Serial.printf("\n");
+*/
 }
 
 //MD_ECHO
