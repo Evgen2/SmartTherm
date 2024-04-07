@@ -315,7 +315,6 @@ static int timeOutcounter = 0;
 #if OT_DEBUG
     Serial.printf("TestCmd processResponse %x %x\n", response,  status);
 #endif
-    Serial.printf("TestCmd processResponse %x %x\n", response,  status);
         SmOT.TestResponse = response;
         SmOT.TestStatus = status;
         SmOT.TestCmd = 0;
@@ -664,9 +663,10 @@ M0:
                   SmOT.need_set_T--;
                break;
           } else if(SmOT.need_set_dhwT) {
-// Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
+ //Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
               request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.TdhwSet); //56
               SmOT.need_set_dhwT = 0;
+               break;
           } else if(SmOT.need_set_T2) {
               request = ot.buildSetBoilerCH2TemperatureRequest(SmOT.Tset2); //8
                SmOT.need_set_T2 = 0;

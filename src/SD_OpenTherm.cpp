@@ -31,12 +31,20 @@ static int indcmd = 0;
 #if MQTT_USE
   #if defined(ARDUINO_ARCH_ESP8266)
 //-110 = 102
-    #define FS_BUF 104  
+     #if PID_USE
+        #define FS_BUF 254
+    #else
+        #define FS_BUF 104  
+    #endif
   #elif defined(ARDUINO_ARCH_ESP32)
     #define FS_BUF 254
   #endif
 #else
-    #define FS_BUF 64  
+    #if PID_USE
+        #define FS_BUF 68
+    #else
+        #define FS_BUF 64  
+    #endif
 #endif
 
 const char *path="/smot_par";
@@ -129,9 +137,10 @@ int SD_Termo::Read_ot_fs(void)
     if(n >= nw) goto END;
     memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
     n += sizeof(mypid.y1);
+END:
     
 #endif
-END:
+
     if(n != nw)
         Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
 
@@ -593,7 +602,7 @@ void SD_Termo::OnChangeT(float t, int src)
 #if PID_USE
 void SD_Termo::loop_PID(void)
 {  static int start = 2;
-   static  unsigned long int start_t=0, t0=0;
+   static  unsigned long int /* start_t=0,*/ t0=0;
    unsigned long int t;
    float tempindoor=0., tempoutdoor=0.;
    float u;
@@ -610,7 +619,7 @@ void SD_Termo::loop_PID(void)
 /**********************************************/
     if(start)
     {   if(start == 2)
-        {   start_t = t;
+        {  // start_t = t;
             start = 1;
             mypid.NextTact();
         }

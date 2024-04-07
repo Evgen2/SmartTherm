@@ -109,6 +109,7 @@ class SmartDevice
 	TCPserver_t = 0;
   TZoffset = 3600*3; //MSK-3
   status = -1;
+    Mac[0]= Mac[1] = Mac[2] =Mac[3] =Mac[4] =Mac[5] = 0; 
   }
   void callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

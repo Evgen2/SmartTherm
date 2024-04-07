@@ -114,7 +114,6 @@ AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2Ch
 AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar});
 #endif //#if PID_USE
 
-#if MQTT_USE
 
 /************* SetPID ******************/
 #if PID_USE
@@ -138,7 +137,7 @@ AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, Info1,SetXtagPID,  SetTem
                       Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Info5, Info6,  ApplyPID });
 #endif
 /************* SetPID end ***************/
-#endif
+
 /************* SetTempPage ***************/
 //ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
 //ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
@@ -328,7 +327,11 @@ void setup_web_common(void)
                SetAddParPage, debugPage,  AboutPage});     // Join pages.
 #endif               
 #else
+#if PID_USE
+  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, PID_Page, SetPIDPage, debugPage,  AboutPage});     // Join pages.
+#else
   portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, debugPage,  AboutPage});     // Join pages.
+#endif  
 #endif
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
@@ -505,8 +508,7 @@ extern int minRamFree;
    sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
    Info5.value = str;
   
-  { time_t now;
-      
+  {       
    OutUTCtime(time(nullptr));
 
     Info5.value += (PGM_P)F("<br>Время:");
@@ -834,7 +836,6 @@ extern OpenTherm ot;
 if(SmOT.useMQTT)
 {  extern int statemqtt;
    extern int state_mqtt;
-   extern int attempt_mqtt;
    Info1.value += "<br>";
 
   switch(statemqtt)
@@ -1051,12 +1052,15 @@ Baxi Fourtech/Luna 3  1
 Buderus	8
 Ferrolli 	9
 Remeha	11
-Baxi 27
+Baxi 27 (Baxi Luna Duo-Tec  P67=0)
 Viessmann  VITOPEND 	33
+Baxi Luna Duo-Tec 1.24 GA P67=2 56
 Navinien 	148
 Baxi ampera (electro) 247
 Zota Lux-x (electro)  248
 */
+
+
   if(SmOT.OTmemberCode ==1)
       Ctrl2.value += "Baxi Fourtech/Luna 3"; 
   else if(SmOT.OTmemberCode == 8)
@@ -1068,7 +1072,9 @@ Zota Lux-x (electro)  248
   else if(SmOT.OTmemberCode == 27)
       Ctrl2.value += "Baxi"; 
   else if(SmOT.OTmemberCode == 33)
-      Ctrl2.value += "Viessmann"; 
+      Ctrl2.value += "Viessmann";
+  else if(SmOT.OTmemberCode == 56)
+      Ctrl2.value += "Baxi Luna Duo-Tec P67=2";
   else if(SmOT.OTmemberCode == 148)
       Ctrl2.value += "Navinien"; 
   else if(SmOT.OTmemberCode == 247)
@@ -1318,7 +1324,7 @@ extern int LedSts;
 
 void loop_web()
 {  int rc,  dt;
-static unsigned long t0=0, raz=0; // t1=0;
+static unsigned long t0=0; // t1=0;
 
   portal.handleClient();
 
