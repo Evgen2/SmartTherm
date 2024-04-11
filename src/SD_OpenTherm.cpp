@@ -32,18 +32,18 @@ static int indcmd = 0;
   #if defined(ARDUINO_ARCH_ESP8266)
 //-110 = 102
      #if PID_USE
-        #define FS_BUF 254
+        #define FS_BUF 256
     #else
-        #define FS_BUF 104  
+        #define FS_BUF 108  
     #endif
   #elif defined(ARDUINO_ARCH_ESP32)
-    #define FS_BUF 254
+    #define FS_BUF 256
   #endif
 #else
     #if PID_USE
-        #define FS_BUF 68
+        #define FS_BUF 70
     #else
-        #define FS_BUF 64  
+        #define FS_BUF 66  
     #endif
 #endif
 
@@ -137,9 +137,14 @@ int SD_Termo::Read_ot_fs(void)
     if(n >= nw) goto END;
     memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
     n += sizeof(mypid.y1);
-END:
-    
+    if(n >= nw) goto END;
+   
 #endif
+
+    if(n >= nw) goto END;
+    memcpy((void *) &CH2_DHW_flag, &Buff[n], sizeof(CH2_DHW_flag));
+    n += sizeof(CH2_DHW_flag);
+END:
 
     if(n != nw)
         Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
@@ -336,7 +341,6 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     memcpy(&Buff[n],(void *) &ID2masterID, sizeof(ID2masterID));
     n += sizeof(ID2masterID);
 
-
 #if MQTT_USE
     memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
     n += sizeof(useMQTT);
@@ -383,6 +387,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     memcpy(&Buff[n],(void *) &mypid.y1 , sizeof(mypid.y1));
     n += sizeof(mypid.y1);
 #endif
+
+    memcpy(&Buff[n],(void *) &CH2_DHW_flag, sizeof(CH2_DHW_flag));
+    n += sizeof(CH2_DHW_flag);
 
 #if SERIAL_DEBUG      
     if( n >= sizeof(Buff) )    
@@ -762,6 +769,15 @@ void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 
 }
 #endif //OT_DEBUGLOG
+
+ /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
+float SD_Termo::CHtempLimit(float _t)
+{   if(_t < MIN_CH_TEMP) 
+        return MIN_CH_TEMP;
+    else  if(_t > MAX_CH_TEMP) 
+        return MAX_CH_TEMP;
+    return _t;
+}
 
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)

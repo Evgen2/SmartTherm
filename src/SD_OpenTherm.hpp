@@ -164,6 +164,7 @@ public:
 #endif
   unsigned short int UseID2;
   unsigned short int ID2masterID;
+  unsigned short int CH2_DHW_flag;
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -232,6 +233,7 @@ public:
 #endif
       UseID2 = 0;
       ID2masterID = 0;
+      CH2_DHW_flag = 0;
   }
   
   void init(void);
@@ -250,6 +252,7 @@ public:
   int Read_ot_fs(void);
   int Write_ot_fs(void);
 
+  float CHtempLimit(float _t); /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
   void OnChangeT(float t, int src);
 #if PID_USE
   void loop_PID(void);

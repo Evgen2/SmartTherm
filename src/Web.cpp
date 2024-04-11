@@ -104,14 +104,15 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
 
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
-AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */ AC_Behind  , AC_Tag_None);
 ACInput(ID2MaserID,"", "IDcode"); 
+AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Infront /* AC_Behind */ , AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar});
 #endif //#if PID_USE
 
 
@@ -553,7 +554,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
    int isChange=0;
 
     if(SmOT.enable_CentralHeating)
-    { v = SetBoilerTemp.value.toFloat();
+    { v = SmOT.CHtempLimit(SetBoilerTemp.value.toFloat());
       if(v != SmOT.Tset)
       { isChange = 1;
         SmOT.Tset = v;
@@ -562,7 +563,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
     }
 
     if(SmOT.enable_HotWater)
-    { v = SetDHWTemp.value.toFloat();
+    { v = SmOT.CHtempLimit(SetDHWTemp.value.toFloat());    
       if(v != SmOT.TdhwSet)
       { isChange = 1;
         SmOT.TdhwSet = v;
@@ -571,7 +572,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
     }
 
     if(SmOT.enable_CentralHeating2)
-    { v = SetBoilerTemp2.value.toFloat();
+    { v = SmOT.CHtempLimit(SetBoilerTemp2.value.toFloat());
       if(v != SmOT.Tset2) 
       {  isChange = 1;
          SmOT.Tset2 = v;
@@ -741,7 +742,14 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
   { isChange++;
     SmOT.ID2masterID = v2;
   }
-  
+
+  if( UseCH2_DHW_ChB.checked) icheck = 1;
+  else                   icheck = 0;
+  if(icheck != SmOT.CH2_DHW_flag)
+  { isChange++;
+     SmOT.CH2_DHW_flag = icheck;
+  }
+
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
 
@@ -756,9 +764,16 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
       UseID2ChB.checked = true;
   else
       UseID2ChB.checked = false;
+    
 
   sprintf(str,"%d",SmOT.ID2masterID);
   ID2MaserID.value = str;
+
+  if( SmOT.CH2_DHW_flag)
+      UseCH2_DHW_ChB.checked = true;
+  else
+      UseCH2_DHW_ChB.checked = false;
+  
 
   return String();
 }
@@ -1183,29 +1198,27 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
     v = SetXtagPID.value.toFloat();
+    if(v < 5.f) v = 5.f;
+    else if(v >35.f) v = 35.f;
     if(v != SmOT.mypid.xTag)
     { SmOT.mypid.xTag = v;
       isChange = 1;
     }
-    v = SetTmaxPID.value.toFloat();
-    if( v > 80.)  v = 80.;
-    else if(v<40) v = 40.;
+
+    v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
     if(v != SmOT.mypid.umax)
     { SmOT.mypid.umax = v;
       isChange = 1;
     }
 
-    v = SetTminPID.value.toFloat();
+    v = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
     if( v > SmOT.mypid.umax - 1.)  v = SmOT.mypid.umax -1.;
-    else if(v<35.) v = 35.;
     if(v != SmOT.mypid.umin)
     { SmOT.mypid.umin = v;
       isChange = 1;
     }
 
-    v = Set_u0_PID.value.toFloat();
-    if( v > SmOT.mypid.umax)  v = SmOT.mypid.umax;
-    else if(v<35.) v = 35.;
+    v = SmOT.CHtempLimit(Set_u0_PID.value.toFloat());    
     if(v != SmOT.mypid.u0)
     { SmOT.mypid.u0 = v;
       isChange = 1;
@@ -1219,9 +1232,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
 
-    v = Set_u1_PID.value.toFloat();
-    if( v > SmOT.mypid.umax)  v = SmOT.mypid.umax;
-    else if(v<35.) v = 35.;
+    v = SmOT.CHtempLimit(Set_u1_PID.value.toFloat());    
     if(v != SmOT.mypid.u1)
     { SmOT.mypid.u1 = v;
       isChange = 1;

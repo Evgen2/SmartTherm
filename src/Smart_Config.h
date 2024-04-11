@@ -9,12 +9,16 @@
 #define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
-#define MQTT_USE 0
+#define MQTT_USE 1
 #if MQTT_USE
   #define PID_USE 1
 #else
   #define PID_USE 0
 #endif
+
+/* Min & max CH temp */
+#define MIN_CH_TEMP  25
+#define MAX_CH_TEMP  25
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */

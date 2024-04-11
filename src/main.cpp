@@ -649,6 +649,9 @@ M0:
     {
       case 0: // запрос статуса
 // Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
+      if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      else
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
          
         st++;
