@@ -798,9 +798,9 @@ void BoilerStatisic::calcIntegral(float flame)
     int dt;
     float d;
     now = time(nullptr);
-    if(now == t_I_last)
-      return;
     dt = now - t_I_last;
+    if(dt == 0)
+      return;
     t_I_last = now;
     if(flame > 0.f)
     {   d =  flame * dt;

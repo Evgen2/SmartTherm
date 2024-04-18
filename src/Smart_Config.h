@@ -18,7 +18,7 @@
 
 /* Min & max CH temp */
 #define MIN_CH_TEMP  25
-#define MAX_CH_TEMP  25
+#define MAX_CH_TEMP  80
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */
