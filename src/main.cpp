@@ -445,7 +445,11 @@ bit: description [ clear/0, set/1]
 */   
 //        boiler_status = response & 0xFF;
         if((u88 & 0x08) != (SmOT.BoilerStatus & 0x08))
-             SmOT.Bstat.calcNflame(u88 & 0x08);
+        {   SmOT.Bstat.calcNflame(u88 & 0x08);
+#if MQTT_USE
+            SmOT.MQTT_need_report = 1;
+#endif
+        }
 
         SmOT.BoilerStatus = u88;
 //        Serial.printf("BoilerStatus: %x %x\n", u88, response);
@@ -501,7 +505,7 @@ bit: description [ clear/0, set/1]
 
     case OpenThermMessageID::Tdhw: //26
         SmOT.dhw_t = t;
-        break;
+            break;
 
     case OpenThermMessageID::Toutside: //27
     if( ot.OTid_used(OpenThermMessageID::Toutside) == 1)
@@ -649,11 +653,21 @@ M0:
     {
       case 0: // запрос статуса
 // Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
+#if PID_USE
+      if(!SmOT.usePID)
+         SmOT.enable_CentralHeating_real = SmOT.enable_CentralHeating;
+      if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
+      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      } else {
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+      }   
+#else
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
       {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
       } else {
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
       }   
+#endif
         st++;
       break;
       case 1: //setBoilerTemperature
@@ -667,7 +681,11 @@ M0:
                break;
           } else if(SmOT.need_set_dhwT) {
  //Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
+#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
+              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.tempoutdoor); //56
+#else              
               request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.TdhwSet); //56
+#endif              
               SmOT.need_set_dhwT = 0;
                break;
           } else if(SmOT.need_set_T2) {
@@ -765,7 +783,7 @@ M0:
       case 10: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
-        if(SmOT.BoilerStatus & 0x01)
+        if(SmOT.BoilerStatus & 0x01 || SmOT.Fault )
             st++;
         else 
            st = 0;

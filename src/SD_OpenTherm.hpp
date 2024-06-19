@@ -82,7 +82,11 @@ public:
   float t2;
 //sizeof(unsigned long)=4
     //Set Boiler Status
-    bool enable_CentralHeating;
+    bool enable_CentralHeating;     //user set
+    #if  PID_USE
+    bool enable_CentralHeating_real;//real used. Without PID equal to enable_CentralHeating 
+    #endif
+
     bool enable_HotWater;
     bool enable_Cooling;
     bool enable_CentralHeating2;
@@ -106,8 +110,8 @@ public:
   float dhw_t;   // DHW temperature (°C)
   float Toutside; 
   float Texhaust;// s16  Boiler exhaust temperature (°C)
-  float FlameModulation;
-  float Pressure;
+  float FlameModulation; //Relative Modulation Level (%)
+  float Pressure; // Water pressure in CH circuit  (bar)
   float MaxRelModLevelSetting;
   unsigned int MaxCapacity;
   unsigned int MinModLevel;
@@ -140,7 +144,7 @@ public:
  //20+20+4+10+10+10= 74
   char MQTT_server[20]; 
   char MQTT_topic[20];
-  int  MQTT_interval; //sec
+  unsigned int  MQTT_interval; //sec
   char MQTT_user[10];
   char MQTT_pwd[10];
   char MQTT_devname[10];
@@ -153,6 +157,7 @@ public:
   char MQTT_pwd[20];
   char MQTT_devname[40];
  #endif
+  int MQTT_need_report;
 #endif //MQTT_USE
 #if PID_USE
   byte usePID; // 1/0 использовать PID да/нет
@@ -160,7 +165,9 @@ public:
   byte srcText;  // источник температуры на улице  0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT1 
   class pid mypid;
   x_mean t_mean[8];
-  int need_report;
+  float tempindoor;
+  float tempoutdoor;
+
 #endif
   unsigned short int UseID2;
   unsigned short int ID2masterID;
@@ -168,6 +175,10 @@ public:
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
+    #if PID_USE
+    enable_CentralHeating_real   = enable_CentralHeating;
+    #endif
+
     HotWater_present  = false;
     enable_HotWater = true;
     enable_Cooling = false;
@@ -225,11 +236,12 @@ public:
       MQTT_user[0] = 0;
       MQTT_pwd[0] = 0;
       MQTT_interval = 10; //sec
+      MQTT_need_report = 0;
 #endif     
 #if PID_USE
       usePID = 0;
       srcTroom =  srcText = 0;
-      need_report = 0;
+      tempindoor =  tempoutdoor = 0.;
 #endif
       UseID2 = 0;
       ID2masterID = 0;
@@ -241,6 +253,7 @@ public:
   void OpenThermInfo(void);
 //  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

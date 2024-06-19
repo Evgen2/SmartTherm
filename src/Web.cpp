@@ -343,7 +343,7 @@ void setup_web_common(void)
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
   config.autoReconnect = true;
-  config.reconnectInterval = 1;
+  config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
 
   portal.config(config);
@@ -530,6 +530,15 @@ extern int minRamFree;
 //   Serial.printf("6 l=%d\n", l);
 
    Info6.value += str;
+#if PID_USE
+   {  extern int debcode;
+      sprintf(str,"<br>debcode %d",  debcode); 
+
+   Info6.value += str;
+
+   }
+#endif   
+
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -679,7 +688,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     }
 
     v = SetMQTT_interval.value.toInt();
-    if(v !=SmOT.MQTT_interval )
+    if((unsigned int)v !=SmOT.MQTT_interval )
     { isChange++;
        SmOT.MQTT_interval = v;
     }
@@ -1173,11 +1182,16 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
   if(SmOT.usePID)
   { 
     iv = SetTempSrcPID.value.toInt();
+    if(iv > MAX_PID_SRC && iv != 255)
+      iv = MAX_PID_SRC;
+
     if(iv != SmOT.srcTroom)
-    { SmOT.srcTroom = iv;
-      isChange = 1;
+    {  SmOT.srcTroom = iv;
+       isChange = 1;
     }
     iv = SetTempExtSrcPID.value.toInt();
+    if(iv > MAX_PID_SRC && iv != 255)
+      iv = MAX_PID_SRC;
     if(iv != SmOT.srcText)
     { SmOT.srcText = iv;
       isChange = 1;
@@ -1198,8 +1212,9 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
     v = SetXtagPID.value.toFloat();
-    if(v < 5.f) v = 5.f;
-    else if(v >35.f) v = 35.f;
+
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     if(v != SmOT.mypid.xTag)
     { SmOT.mypid.xTag = v;
       isChange = 1;
@@ -1302,6 +1317,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   Info3.value = "";
   Info4.value = "";
   Info5.value = "";
+  Info6.value = "";
 
   return String();
 

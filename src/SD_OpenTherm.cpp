@@ -14,6 +14,7 @@ typedef WebServer WEBServer;
 #include <AutoConnectFS.h>
 extern AutoConnectFS::FS& FlashFS;
 
+#include "OpenTherm.h"
 #include "SD_OpenTherm.hpp"
 #include "Smart_commands.h"
 
@@ -138,16 +139,12 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
     n += sizeof(mypid.y1);
     if(n >= nw) goto END;
-   
-#endif
+#endif //PID_USE
 
     if(n >= nw) goto END;
     memcpy((void *) &CH2_DHW_flag, &Buff[n], sizeof(CH2_DHW_flag));
     n += sizeof(CH2_DHW_flag);
 END:
-
-    if(n != nw)
-        Serial.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
 
 #if SERIAL_DEBUG      
     if(n != nw)
@@ -520,6 +517,17 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
     if(CH2_present)           B_flags |= 0x20;  
     if(Toutside_present)      B_flags |= 0x40;  
     if(Pressure_present)      B_flags |= 0x80; 
+#if  MQTT_USE
+     B_flags |= 0x100;  //MQTT_defined
+     if(useMQTT)
+         B_flags |= 0x200;  //use MQTT
+#endif
+#if  PID_USE
+     B_flags |= 0x400;  //PID_defined
+     if(usePID)
+         B_flags |= 0x800;  //use PID
+#endif
+    
          
 	 memcpy((void *)&MsgOut[12],(void *) &B_flags,2); 
 	 memcpy((void *)&MsgOut[14],(void *) &stsOT,2); 
@@ -539,6 +547,87 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
 	 memcpy((void *)&MsgOut[62],(void *) &t1,4); 
 	 memcpy((void *)&MsgOut[66],(void *) &t2,4); 
      //70
+}
+
+//MCMD_SET_OT_DATA:
+// set
+// enable_CentralHeating
+// enable_HotWater
+// Tset or mypid.xTag if PID used and enabled
+// 20 bytes in, 6 bytes out
+void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{
+    short int B_flags;
+    float v, vT, roomSetpointT;
+    bool flag;
+    int isChange = 0;
+
+    Lsend = 6;
+    MsgOut = get_buf(Lsend);
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+
+	memcpy((void *)&B_flags,(void *)&bf[6],2);
+    if(B_flags & 0x01)
+            flag = true;
+    else
+            flag  = false;
+    if(flag != enable_CentralHeating)
+    {   enable_CentralHeating = flag;
+        isChange = 1;
+    }
+
+    if(HotWater_present) 
+    {   if(B_flags & 0x02)
+            flag = true;
+        else
+            flag = false;
+
+        if(flag != enable_HotWater)
+        {   enable_HotWater = flag;
+            isChange = 1;
+        }
+    }
+
+	memcpy((void *)&v,(void *)&bf[6+2],4); //Tset
+    vT = CHtempLimit(v);
+
+	memcpy((void *)&v,(void *)&bf[6+6],4); //roomSetpointT
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+    roomSetpointT = v;
+
+#if  PID_USE
+    if(usePID)
+    {   if(mypid.xTag != roomSetpointT)
+        {   mypid.xTag = roomSetpointT;
+            isChange = 1;
+        }
+    } else {
+      if(vT != Tset)
+      { Tset = vT;
+        need_set_T = 1;
+        isChange = 1;
+      } 
+    }
+#else
+      if(vT != Tset)
+      { Tset = vT;
+        need_set_T = 1;
+        isChange = 1;
+      } 
+#endif
+	memcpy((void *)&v,(void *)&bf[6+10],4); //TdhwSet
+    vT = CHtempLimit(v);
+    if(vT != TdhwSet)
+    { TdhwSet = vT;
+        need_set_dhwT = 1;
+        isChange = 1;
+      } 
+
+
+    if(isChange)
+        need_write_f = 1;  //need write changes to FS
+
 }
 
 //MCMD_GETDATA
@@ -598,7 +687,7 @@ void  SD_Termo::callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,i
 void SD_Termo::OnChangeT(float t, int src)
 {
 #if PID_USE
-    if(src>= 0 && src <5)
+    if(src>= 0 && src <= MAX_PID_SRC)
     {
         t_mean[src].add(t);
 //    Serial.printf("OnChangeT src =%d, t =%f mean =%f nx=%d\n", src, t, t_mean[src].xmean, t_mean[src].nx); 
@@ -607,22 +696,39 @@ void SD_Termo::OnChangeT(float t, int src)
 }
 
 #if PID_USE
+int debcode = 0;
 void SD_Termo::loop_PID(void)
-{  static int start = 2;
-   static  unsigned long int /* start_t=0,*/ t0=0;
-   unsigned long int t;
-   float tempindoor=0., tempoutdoor=0.;
-   float u;
-   int rc;
+{   static int start = 2;
+    static int start_heat = -1;
+    static  unsigned long int /* start_t=0,*/ t0=0, t_start_heat=0, flame_old = 0;
+    unsigned long int t;
+    float u;
+    int rc, dt;
+    time_t now; 
+    extern OpenTherm ot;
 
-   int is = 0;
+    int is = 0;
     if(!usePID)
         return;
+
     t = millis();
-    if(t - t0 < 30000)
+    if(t - t0 < (unsigned long int)(mypid.t_interval*1000))
             return;
     t0 = t;
-       
+//получаем средние значения для используемых температур
+    for(int i=0; i < 8; i++)
+    {
+//Serial.printf( "%d isset %d nx %d\n", i,t_mean[i].isset,t_mean[i].nx );
+         if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
+            continue;
+        t_mean[i].get();
+//debug
+//    Serial.printf("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
+
+        if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
+                t_mean[i].init();
+    }
+
 /**********************************************/
     if(start)
     {   if(start == 2)
@@ -647,7 +753,7 @@ void SD_Termo::loop_PID(void)
                 is |= 1;
                 start = 0; //
             }
-            if(srcText < 0 || srcText > 4) 
+            if(srcText < 0 || srcText > MAX_PID_SRC) 
             {
                 is &= ~2;
 
@@ -664,7 +770,7 @@ void SD_Termo::loop_PID(void)
 //        Serial.printf("0 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
     } else {  // start == 0
 
-        if(srcTroom >= 0 && srcTroom <= 3) //3!!
+        if(srcTroom >= 0 && srcTroom <= 3 ) // !4
         {
 //    Serial.printf("00 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
 //         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
@@ -674,10 +780,13 @@ void SD_Termo::loop_PID(void)
                 is |= 1;
             }
         }
-        if(srcText >= 0 && srcText <= 4) //4!!
+        if((srcText >= 0 && srcText <= 2) || (srcText >= 4 && srcText <= MAX_PID_SRC)) // !3 MAX_PID_SRC!!
         {
             if(t_mean[srcText].isset >= 0)
             {   tempoutdoor = t_mean[srcText].x;
+#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
+                need_set_dhwT = 1;
+#endif
                 is |= 2;
             }
         }
@@ -687,32 +796,196 @@ void SD_Termo::loop_PID(void)
 
     if(is & 0x02)
     {   
-        u = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+        if(tempoutdoor <= mypid.y0)
+            u = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+        else
+        {  if(mypid.y0 != mypid.xTag)
+                  u = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
+           else
+                  u = mypid.xTag;
+        }
 
 //        Serial.printf("2 u = %f u0 %f u1 %f y0 %f y1 %f\n", u, mypid.u0, mypid.u1, mypid.y0, mypid.y1); 
 
 //      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  //40* 4/12
 
-    } else {
+    } else { //нет внешней температуры
         u = mypid.u0;
 //        Serial.printf("2a u = %f\n", u); 
     } 
 
     if(is & 0x01)
-    {   rc = mypid.Pid(tempindoor, u);
+    {   rc = mypid.Pid(tempindoor, u); //PID
         if(rc == 1)
-        {  Tset = mypid.u;
-           need_set_T = 1;  // for OpenTherm
-           need_report = 1; // for MQTT
-    for(int i=0; i < 8; i++)
-    {
-//Serial.printf( "%d isset %d nx %d\n", i,t_mean[i].isset,t_mean[i].nx );
-         if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
-            continue;
-        t_mean[i].get();
-        if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
-                t_mean[i].init();
-    }
+        {  float _u;
+            int need_heat = 0;
+            _u = mypid.u;
+            if(_u > mypid.umax)
+                    _u =  mypid.umax;
+            if(_u <= mypid.xTag)
+            {    need_heat = 0;
+            debcode = 1;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID(%d): _u %f < xTag %f need_heat 0\n", debcode, _u, mypid.xTag);
+#endif      
+            }
+            else if(_u <= mypid.umin)
+            {   if(mypid.umin - _u > 5.)
+                {    need_heat = 0;
+                debcode = 2;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID(%d): _u %f < mypid.umin %f - 5 need_heat 0\n", debcode, _u, mypid.umin);
+#endif      
+                }
+                else //если целевая температура не ниже минимальной минус 5 градусов, выдаем минимальную
+                {   _u = mypid.umin;
+                    need_heat = 1;
+                    debcode = 3;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID(%d): _u %f , mypid.umin %f need_heat 1\n", debcode, _u, mypid.umin);
+#endif      
+                }
+            }  else 
+                need_heat = 1;
+
+            if(need_heat) 
+            { 
+#if SERIAL_DEBUG      
+    if(BoilerStatus& 0x08)
+      Serial.printf("loopPID: need_heat 1 , flame ON  _u %.2f BoilerT  %.2f RetT %.2f\n", _u, BoilerT, RetT);
+    else  
+      Serial.printf("loopPID: need_heat 1 , flame OFF _u %f BoilerT  %.2f RetT %.2f\n", _u, BoilerT, RetT ) ;
+#endif      
+                   
+                if(!(BoilerStatus& 0x08)) //flame off если горелка выключена
+                {   now = time(nullptr);
+                    dt = now - Bstat.t_flame_off;
+                    if(dt < 60*3) //3 минуты
+                    {    need_heat = 0;
+                        debcode = 4;                    
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID(%d): need_heat 1 -> 0 , flame Off dt =%d\n",debcode, dt);
+#endif      
+                    }
+                    else if(dt < 60*30) // ограничение на полчаса. рекомендация увеличить выбег насоса в настройках котла
+                    {   if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
+                        {   if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
+                            {   if(RetT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
+                                {            need_heat = 0;  //то отопление не включаем
+                                debcode = 5;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID (%d): need_heat 1 -> 0, flame Off,  dt =%d tempindoor %.2f, RetT %.2f\n", debcode, dt, tempindoor, RetT ) ;
+#endif      
+                                }   
+                            }
+                        } else { //смотрим на BoilerT
+                            if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
+                            {   if(BoilerT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
+                                            need_heat = 0;  //то отопление не включаем
+                            }
+                        }
+                    }
+                    if(need_heat)
+                    {   if(start_heat == 0)
+                        {   start_heat = 1; //флаг возможности корректировки выходной температуры после включения
+                            _u = mypid.umin;
+                            t_start_heat = now; //время включения отопления
+                            debcode = 15;                           
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: need_heat 1, start_heat 0 -> 1, flame Off,  _u -> %.2f\n", _u ) ;
+#endif      
+                        }
+                    } else {
+                        start_heat = 0;                        
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: need_heat 0, start_heat 0\n" ) ;
+#endif      
+                    }
+                } else { //flame on
+                    if(!start_heat)
+                    {   if(flame_old == 0) //котёл включил горелку без нашей команды
+                        {   start_heat = 1;
+                            now = time(nullptr);
+                            t_start_heat = now; //время включения отопления                           
+                            _u = mypid.umin;
+                            debcode = 16;                           
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: котёл включил горелку без нашей команды\n" ) ;
+#endif      
+                        }
+                    }
+                    if(start_heat)
+                    {   now = time(nullptr);
+                        dt = now - t_start_heat;
+                        if(dt > 60*30 || BoilerT > _u) //30 min
+                        {   start_heat = 0;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: need_heat 1, start_heat 1 -> 0, flame On,  dt=%d\n", dt ) ;
+#endif      
+                        } else {
+                            if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
+                            {  //если обратка холоднее прямой на 5 град или температура отопления ниже уставки на 5 градусов или модуляция выше 30
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: need_heat 1, start_heat 1, flame On, dt=%d RetT=%.2f Tset =%.2f BoilerT=%.2f _u =%.2f\n", dt, RetT, Tset, BoilerT, _u ) ;
+#endif      
+                                if(((_u > Tset) && ((BoilerT - RetT > 5.)  || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
+                                {   float r, _uu, du;
+                                    r = dt/(60.*30.);
+                                    _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
+                                    if(BoilerT > _uu)
+                                            _uu = BoilerT; 
+                                    du = _uu - Tset;
+                                    if( du > 5.) _uu += 5.; //повышаем не более 5 градусов за квант времени
+                                    _u = _uu;                                                  
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: _u -> %.2f\n",  _u ) ;
+#endif      
+                                }
+                            } else { //смотрим на BoilerT
+                                if(((_u > Tset) && ((mypid.umin  - RetT > 5.)))  || (Tset - BoilerT) > 5. || (FlameModulation > 30) )  
+                                {   float r, _uu;
+                                    r = dt/(60.*30.);
+                                    _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
+                                    if(BoilerT > _uu)
+                                            _uu = BoilerT; 
+                                    _u = _uu;                                                  
+                                }
+                            }
+                        }
+                    }
+                }
+            }  //endof  (need_heat) 
+ /*****************************************/
+            if(!need_heat && (BoilerStatus& 0x08))
+            {   now = time(nullptr);
+                dt = now - Bstat.t_flame_on;
+                if(dt < 60*3) //3 минуты
+                {    need_heat = 1;
+                     debcode = 21;
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID(%d): need_heat 0->1 dt from flame on %d\n", debcode, dt) ;
+#endif      
+                }
+            }                    
+ /*****************************************/
+            
+            if(need_heat)
+                enable_CentralHeating_real = true;
+            else
+            {    enable_CentralHeating_real = false;
+                 _u = mypid.umin;
+            }
+            
+#if SERIAL_DEBUG      
+      Serial.printf("loopPID: result: need_heat %d Tset=%.2f\n", need_heat, _u ) ;
+#endif      
+            Tset = _u;
+            need_set_T = 1;  // for OpenTherm
+#if MQTT_USE
+            MQTT_need_report = 1; // for MQTT
+#endif
+
+            flame_old = BoilerStatus& 0x08;
 
         }
     }

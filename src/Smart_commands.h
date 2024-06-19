@@ -30,6 +30,7 @@
 #define  MCMD_OT_INFO	    0x21 //Open Therm info
 #define  MCMD_SET_TCPSERVER 0x22 // задать TCP сервер, порт и время обновления информации
 #define  MCMD_GET_OT_INFO	0x23 // get Open Therm info
+#define  MCMD_SET_OT_DATA	0x24 // set Open Therm data
 #define  MCMD_OT_DEBUG  0x30 // set/get Open Therm debug 0/1
 
 #define  MCMD_GETLOG		    0x15 //запрос лога

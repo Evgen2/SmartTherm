@@ -438,6 +438,11 @@ static unsigned int jj=0xffff, Nlost=0;
 			case MCMD_GET_OT_INFO:
 		p_sd->callback_Get_OpenThermInfo(bf, MsgOut, Lsend, get_buf);
 				break;
+
+			case MCMD_SET_OT_DATA:
+		p_sd->callback_Set_OpenThermData(bf, MsgOut, Lsend, get_buf);
+				break;
+				
 #if OT_DEBUGLOG
 			case MCMD_OT_DEBUG:
 		p_sd->callback_GetOTLog(bf, MsgOut, Lsend, get_buf);

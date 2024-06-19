@@ -6,11 +6,14 @@
 #include "pid.hpp"
 
  int pid::Pid(float _x, float _ub)
- {  unsigned long int t, dt, _t, _dt;
+ {  unsigned long int t, dt, _t;
     float _xerr, dX, dtf, _dft, _u;
     t  = millis();
     dt = t - pid_t; // dt, msec
-    if(dt < (t_interval*1000))
+
+   Serial.printf("pid: dt = %d\n", dt );
+
+    if(dt < (unsigned long int)(t_interval*1000))
     {   return 0;
     } 
 
@@ -20,9 +23,12 @@
 
 //D   
    dSt.get(_xerr, _t);
-   _dft = float(t - _t) / 1000.f; // dt, sec
-   
-   dX = (xerr - _xerr) /_dft * 3600; //grad/hour
+   if(dSt.n < NB)
+   {   dX = 0.;   
+   } else {
+      _dft = float(t - _t) / 1000.f; // dt, sec
+      dX = (xerr - _xerr) /_dft * 3600; //grad/hour
+   }
    dSt.add(xerr, t);
 //I
    dtf = float(dt) / 1000.f; // dt, sec
@@ -39,12 +45,10 @@
    _u = dP + dD + dI;
 #if SERIAL_DEBUG 
    Serial.printf("pid: ub = %f _u = %f dP=%f, dD=%f dI=%f\n",
-         ub, _u , dP, dD, dI); 
+         _ub, _u , dP, dD, dI); 
 #endif         
    ub = _ub;       
    _u += ub;
-   if(_u < umin) _u = umin;
-   if(_u > umax) _u = umax;
    u = _u;
 
    Serial.printf("pid: U = %f\n", u);
