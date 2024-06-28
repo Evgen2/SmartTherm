@@ -100,6 +100,7 @@ void loop_tcp(int sts)
 	switch(tcp_sts)
 	{
 		case 0:// listen for incoming clients)
+		//Next tcp_sts: 0/1 (sts=0) | 0/3 (sts=2)
 		// Doc: Gets a client that is connected to the server and has data available for reading.
 		//      The connection persists when the returned client object goes out of scope
 //			tcp_client = server.available(); //WiFiServer::available(uint8_t*)' is deprecated: Renamed to accept(). [-Wdeprecated-declarations]
@@ -115,6 +116,7 @@ void loop_tcp(int sts)
 		  break;
 
 		case 1:
+		//Next tcp_sts: 0/1/2 (sts=0)
 			rc = tcp_client.available();
 		 	if(rc > 0)
 				tcp_sts++;
@@ -185,6 +187,7 @@ void loop_tcp(int sts)
 		  break;
 
 			case 3:
+		//Next tcp_sts: 0/4 (sts=2)
 				if(!p_sd->tcp_remoteIP) //Empty IP !!!
 				{	tcp_sts = 0;
 				} else {
@@ -211,6 +214,7 @@ void loop_tcp(int sts)
 		  break;
 
 			case 4:
+		//Next tcp_sts: 0/5 (sts=2)
 					rc = asTCP.connect_a();
 					if(rc == 0) //wait
 					{    //Serial.printf("Wait connection\n");
@@ -231,7 +235,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 5:
-
+		//Next tcp_sts: 6 (sts=2)
 #if defined(ARDUINO_ARCH_ESP8266)
 	   rc = client2.write(buf_tcpudp_out, TcpUdp_Lsend);
 #if SERIAL_DEBUG
@@ -257,6 +261,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 6:
+		//Next tcp_sts: 0/7 (sts=2)
 				rc = asTCP.read_a();
 				if( rc == 0) //wait
 				{
@@ -269,6 +274,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 7:
+		//Next tcp_sts: 0/8 (sts=2)
 			 rc =  asTCP.Read(tcpudp_incomingPacket, sizeof(tcpudp_incomingPacket));
 			 if(rc > 0)
 			 {	tcp_sts = 8;
@@ -281,6 +287,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 8:
+		//Next tcp_sts: 0 (sts=2)
 #if SERIAL_DEBUG
     			Serial.printf("case 8,  time used %ld ms\n", millis()-t00);
 #endif				
