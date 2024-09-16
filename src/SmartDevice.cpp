@@ -1,6 +1,6 @@
 /* SmartDevice.cpp */
 #include <time.h>
-#include <sys\timeb.h>
+#include <sys/timeb.h>
 #include <stdlib.h>
 #include <string.h>
 

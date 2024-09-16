@@ -3,6 +3,9 @@
 #define PID_DEFINED
 
 #if PID_USE
+
+/* циклический стек/буфер для хранения последних NB значений */
+/* нужен для корректного расчета дифференциальной части PID  */
 #define NB 10
 class dstack
 {
@@ -34,11 +37,11 @@ class dstack
       {  _d = 0.f;
          _t = 0;
       } else {
-         _d = d[n-1];
-         _t = t[n-1];
+         _d = d[0];
+         _t = t[0];
       }
     } else {
-      i = ind + 1;
+      i = ind;
       if(i >= NB) i = 0;
       _d = d[i];
       _t = t[i];
@@ -48,6 +51,7 @@ class dstack
   
 };
 
+/* PID регулятор */
 class pid
 {
   public:
@@ -82,9 +86,9 @@ class pid
    {  Kp = 1.;
       Kd = 1.;
       Ki = 0.002;
-      Kidiss = 0.002;
+      Kidiss = 0.005;
       x = xTag = 0.;
-      t_interval = 120;
+      t_interval = 60;
       u0 = 40.;
       y0 = 10.;
       u1 = 80.;

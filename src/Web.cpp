@@ -343,8 +343,10 @@ void setup_web_common(void)
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
   config.autoReconnect = true;
-  config.reconnectInterval = 1;
+  config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
+   Serial.printf("WiFi psk=%s\n", config.psk.c_str());
+  
 
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
@@ -392,7 +394,7 @@ int setup_web_common_onconnect(void)
   Serial.printf("setup_web_common_onconnect init %d\n", init);
 
   Serial.println(F("WiFi connected"));
-  Serial.println(F("IP address: "));
+  Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
 
   if(init)
@@ -530,6 +532,15 @@ extern int minRamFree;
 //   Serial.printf("6 l=%d\n", l);
 
    Info6.value += str;
+#if PID_USE
+   {  extern int debcode;
+      sprintf(str,"<br>debcode %d",  debcode); 
+
+   Info6.value += str;
+
+   }
+#endif   
+
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -679,7 +690,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     }
 
     v = SetMQTT_interval.value.toInt();
-    if(v !=SmOT.MQTT_interval )
+    if((unsigned int)v !=SmOT.MQTT_interval )
     { isChange++;
        SmOT.MQTT_interval = v;
     }
@@ -1064,6 +1075,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   
 /*
 Baxi Fourtech/Luna 3  1
+Baxi Slim  4
 Buderus	8
 Ferrolli 	9
 Remeha	11
@@ -1078,6 +1090,8 @@ Zota Lux-x (electro)  248
 
   if(SmOT.OTmemberCode ==1)
       Ctrl2.value += "Baxi Fourtech/Luna 3"; 
+  else if(SmOT.OTmemberCode == 4)
+      Ctrl2.value += "Baxi Slim"; 
   else if(SmOT.OTmemberCode == 8)
       Ctrl2.value += "Buderus"; 
   else if(SmOT.OTmemberCode == 9)
@@ -1173,11 +1187,16 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
   if(SmOT.usePID)
   { 
     iv = SetTempSrcPID.value.toInt();
+    if(iv > MAX_PID_SRC && iv != 255)
+      iv = MAX_PID_SRC;
+
     if(iv != SmOT.srcTroom)
-    { SmOT.srcTroom = iv;
-      isChange = 1;
+    {  SmOT.srcTroom = iv;
+       isChange = 1;
     }
     iv = SetTempExtSrcPID.value.toInt();
+    if(iv > MAX_PID_SRC && iv != 255)
+      iv = MAX_PID_SRC;
     if(iv != SmOT.srcText)
     { SmOT.srcText = iv;
       isChange = 1;
@@ -1198,8 +1217,9 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
     v = SetXtagPID.value.toFloat();
-    if(v < 5.f) v = 5.f;
-    else if(v >35.f) v = 35.f;
+
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     if(v != SmOT.mypid.xTag)
     { SmOT.mypid.xTag = v;
       isChange = 1;
@@ -1302,6 +1322,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   Info3.value = "";
   Info4.value = "";
   Info5.value = "";
+  Info6.value = "";
 
   return String();
 
@@ -1364,7 +1385,7 @@ static unsigned long t0=0; // t1=0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
 #if SERIAL_DEBUG      
       Serial.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
-      Serial.println(F("IP address: "));
+      Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
 #endif      
     } else {

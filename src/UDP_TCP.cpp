@@ -76,6 +76,7 @@ void setup_tcpudp(SmartDevice *psd)
 	p_sd = psd;
  	Udp.begin(g_port);
 	server.begin(g_port);
+	asTCP.id = 1;
 }
 
 int tcp_sts = 0;
@@ -100,6 +101,7 @@ void loop_tcp(int sts)
 	switch(tcp_sts)
 	{
 		case 0:// listen for incoming clients)
+		//Next tcp_sts: 0/1 (sts=0) | 0/3 (sts=2)
 		// Doc: Gets a client that is connected to the server and has data available for reading.
 		//      The connection persists when the returned client object goes out of scope
 //			tcp_client = server.available(); //WiFiServer::available(uint8_t*)' is deprecated: Renamed to accept(). [-Wdeprecated-declarations]
@@ -115,6 +117,7 @@ void loop_tcp(int sts)
 		  break;
 
 		case 1:
+		//Next tcp_sts: 0/1/2 (sts=0)
 			rc = tcp_client.available();
 		 	if(rc > 0)
 				tcp_sts++;
@@ -138,8 +141,9 @@ void loop_tcp(int sts)
 			{   
 #if SERIAL_DEBUG
 				if(nb == 0)
-				{	Serial.printf("%ld tcp client from ", millis());
-					Serial.println(tcp_client.remoteIP().toString());
+				{	Serial.printf("%ld tcp client from %s to port %d ", 
+							millis(),tcp_client.remoteIP().toString().c_str(), tcp_client.localPort() );
+//					Serial.println(tcp_client.remoteIP().toString());
 				}
 #endif 
 				if(rc != nb)
@@ -148,6 +152,9 @@ void loop_tcp(int sts)
 							rc = UDP_TSP_BUFSIZE-1;
 					len = tcp_client.readBytes(tcpudp_incomingPacket, rc);
 #if SERIAL_DEBUG
+					if(nb == 0)
+						Serial.printf("readBytes %d\n",  len);
+					else
 					Serial.printf("%ld readBytes %d\n", millis(),  len);
 #endif
 				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, UDP_TSP_BUFSIZE, esp_get_buf);
@@ -175,7 +182,7 @@ void loop_tcp(int sts)
 					tcp_sts  = 0;
 				} else {
 #if SERIAL_DEBUG
-					Serial.printf(".");
+//					Serial.printf(".");
 #endif					
 					delay(1);
 				}		
@@ -185,12 +192,13 @@ void loop_tcp(int sts)
 		  break;
 
 			case 3:
+		//Next tcp_sts: 0/4 (sts=2)
 				if(!p_sd->tcp_remoteIP) //Empty IP !!!
 				{	tcp_sts = 0;
 				} else {
 #if SERIAL_DEBUG
-					Serial.printf("send to IP:");
-  					Serial.println(p_sd->tcp_remoteIP.toString());
+					Serial.printf("send to IP: %s", p_sd->tcp_remoteIP.toString().c_str());
+//  					Serial.println(p_sd->tcp_remoteIP.toString());
 					Serial.printf(" port %d bytes %d\n", p_sd->TCPserver_port, TcpUdp_Lsend);
 #endif					
 					t00 = millis();
@@ -211,6 +219,7 @@ void loop_tcp(int sts)
 		  break;
 
 			case 4:
+		//Next tcp_sts: 0/5 (sts=2)
 					rc = asTCP.connect_a();
 					if(rc == 0) //wait
 					{    //Serial.printf("Wait connection\n");
@@ -231,7 +240,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 5:
-
+		//Next tcp_sts: 6 (sts=2)
 #if defined(ARDUINO_ARCH_ESP8266)
 	   rc = client2.write(buf_tcpudp_out, TcpUdp_Lsend);
 #if SERIAL_DEBUG
@@ -257,6 +266,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 6:
+		//Next tcp_sts: 0/7 (sts=2)
 				rc = asTCP.read_a();
 				if( rc == 0) //wait
 				{
@@ -269,6 +279,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 7:
+		//Next tcp_sts: 0/8 (sts=2)
 			 rc =  asTCP.Read(tcpudp_incomingPacket, sizeof(tcpudp_incomingPacket));
 			 if(rc > 0)
 			 {	tcp_sts = 8;
@@ -281,6 +292,7 @@ void loop_tcp(int sts)
 		break;
 
 		  	case 8:
+		//Next tcp_sts: 0 (sts=2)
 #if SERIAL_DEBUG
     			Serial.printf("case 8,  time used %ld ms\n", millis()-t00);
 #endif				
@@ -438,6 +450,11 @@ static unsigned int jj=0xffff, Nlost=0;
 			case MCMD_GET_OT_INFO:
 		p_sd->callback_Get_OpenThermInfo(bf, MsgOut, Lsend, get_buf);
 				break;
+
+			case MCMD_SET_OT_DATA:
+		p_sd->callback_Set_OpenThermData(bf, MsgOut, Lsend, get_buf);
+				break;
+				
 #if OT_DEBUGLOG
 			case MCMD_OT_DEBUG:
 		p_sd->callback_GetOTLog(bf, MsgOut, Lsend, get_buf);
@@ -463,13 +480,13 @@ static unsigned int jj=0xffff, Nlost=0;
 /**********************************************************************/
 
 #if defined(ARDUINO_ARCH_ESP8266)
-int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
+int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t __timeout)
 {  int rc;
 //	Serial.printf("TODO %s\n", __FUNCTION__);
 
 	client2.setTimeout(_timeout);
 	rc = client2.connect(ip, port);
-    timeout = _timeout;
+    _timeout = __timeout;
 
 //	Serial.printf("TODO %s\n", __FUNCTION__);
 //	Serial.print(ip.toString());
@@ -510,7 +527,7 @@ int As_TCP::read_a(void)
 	rc = client2.available();
 	if (rc == 0)
 	{
-		if(int(millis()-t0) > timeout)
+		if(int(millis()-t0) > _timeout)
         {  
 #if SERIAL_DEBUG
 			 Serial.printf("read_a returned due to timeout %d ms\n", timeout);
@@ -544,7 +561,7 @@ void As_TCP::closeTCP(void)
 /**********************************************************************/
 /**********************************************************************/
 #elif defined(ARDUINO_ARCH_ESP32)
-int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
+int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t __timeout)
 {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -562,13 +579,14 @@ int As_TCP::connect_0(IPAddress ip, uint16_t port, int32_t _timeout)
     int res = connect(sockfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
     if (res < 0 && errno != EINPROGRESS) {
 #if SERIAL_DEBUG
-        Serial.printf("connect on fd %d, errno: %d, \"%s\"", sockfd, errno, strerror(errno));
+        Serial.printf("(%d) connect on fd %d, errno: %d, \"%s\"", id, sockfd, errno, strerror(errno));
 #endif		
         closeTCP();
         return 0;
     }
-    t0 = millis();
-    timeout = _timeout;
+    _t0 = millis();
+	nraz = 0;
+    _timeout = __timeout;
     return 1;
 }
 
@@ -588,19 +606,20 @@ int As_TCP::connect_a(void)
 	res = select(sockfd + 1, nullptr, &fdset, nullptr,  &tv);
     if (res < 0) {
 #if SERIAL_DEBUG
-        Serial.printf("select on fd %d, errno: %d, \"%s\"\n", sockfd, errno, strerror(errno));
+        Serial.printf("(%d) select on fd %d, errno: %d, \"%s\"\n", id, sockfd, errno, strerror(errno));
 #endif		
         closeTCP();
 		return -1;
     } else if (res == 0) {
-		if(millis()-t0 > timeout)
+		if(millis() - _t0 > _timeout)
         {
 #if SERIAL_DEBUG
-			   Serial.printf("connect_a returned due to timeout %d ms for fd %d\n", timeout, sockfd);
+			   Serial.printf("(%d) connect_a returned due to timeout %d ms for fd %d, nraz %d\n", id, _timeout, sockfd, nraz);
 #endif			   
 			closeTCP();
 			return 2;
 		}
+		nraz++;
         return 0;
     } else {
         int sockerr;
@@ -609,7 +628,7 @@ int As_TCP::connect_a(void)
 
         if (res < 0) {
 #if SERIAL_DEBUG
-            Serial.printf("getsockopt on fd %d, errno: %d, \"%s\"\n", sockfd, errno, strerror(errno));
+            Serial.printf("(%d) getsockopt on fd %d, errno: %d, \"%s\"\n", id, sockfd, errno, strerror(errno));
 #endif			
             closeTCP();
 			return -2;
@@ -633,7 +652,7 @@ int As_TCP::connect_a(void)
 
 int As_TCP::read_0(void)
 {
-    t0 = millis();
+    _t0 = millis();
     return 0;
 }
 
@@ -651,11 +670,11 @@ int As_TCP::read_a(void)
     tv.tv_usec = 10000;  // 10ms
 
 #if SERIAL_DEBUG
-  Serial.printf("read_a select call %d %d\n", millis()-t0, t0 );
+ // Serial.printf("read_a select call %d %d\n", millis()-t0, t0 );
 #endif  
 	res = select(sockfd + 1,  &fdset, nullptr, nullptr,  &tv);
 #if SERIAL_DEBUG
-  Serial.printf("read_a select rc=%d\n",res);
+//  Serial.printf("read_a select rc=%d\n",res);
 #endif  
     if (res < 0)
 	{ 
@@ -665,15 +684,17 @@ int As_TCP::read_a(void)
         closeTCP();
 		return -1;
     } else if (res == 0) {
-		if(millis()-t0 > timeout)
+		if(millis() - _t0 > _timeout)
         {
 #if SERIAL_DEBUG
-			   Serial.printf("read_a returned due to timeout %d ms for fd %d\n", timeout, sockfd);
+			   Serial.printf("(%d) read_a returned due to timeout %d ms for fd %d\n", id, _timeout, sockfd);
 #endif			   
 			closeTCP();
 			return 2;
 		}
         return 0;
+	} else  {
+  Serial.printf("read_a select rc=%d\n",res);
 	}
 	return res;
 }
@@ -690,19 +711,20 @@ int As_TCP::Read(char bufin[], int len)
     if (rc < 0)
 	{ 
 #if SERIAL_DEBUG
-		  Serial.printf("select on fd %d, errno: %d, \"%s\"\n", sockfd, errno, strerror(errno));
+		  Serial.printf("(%d) select on fd %d, errno: %d, \"%s\"\n", id, sockfd, errno, strerror(errno));
 #endif		  
         closeTCP();
 		return -1;
 	}		
 #if SERIAL_DEBUG
-	Serial.printf("read  %d bytes\n", rc);
+	Serial.printf("(%d) read  %d bytes\n", id, rc);
 #endif	
 	return rc;
 }
 
 void As_TCP::closeTCP(void)
 {
+Serial.printf("(%d) closeTCP\n", id);
 	if(sockfd >= 0)
     {	close(sockfd);
 		sockfd = -1;

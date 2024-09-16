@@ -35,10 +35,6 @@ PubSubClient client(espClient);
 extern  SD_Termo SmOT;
 extern OpenTherm ot;
 
-#define MQTT_VERS 1
-
-#if MQTT_VERS == 1
-
 /*******************************************************************************/
 //HADevice *pHAdevice;
 //HAMqtt *pMqtt;
@@ -146,17 +142,17 @@ void onNumberCommand(HANumeric number, HANumber* sender)
     
     if (sender == &numT_outdoor) {
 #if SERIAL_DEBUG      
-      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
+//      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
         
     } else if (sender == &numT_indoor) {
 #if SERIAL_DEBUG      
-      Serial.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
+//      Serial.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,3);
     }
-
+/*
     if (!number.isSet()) {
         // the reset command was send by Home Assistant
     } else {
@@ -169,7 +165,7 @@ void onNumberCommand(HANumeric number, HANumber* sender)
         uint32_t numberUInt32 = number.toUInt32();
         float numberFloat = number.toFloat();
     }
-
+*/
     sender->setState(number); // report the selected option back to the HA panel
 }
 #endif
@@ -234,7 +230,7 @@ void mqtt_setup(void)
     sensorPressure.setDeviceClass("pressure"); 
 
     sensorFreeRam.setAvailability(true);
-    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
+    sensorFreeRam.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
     sensorFreeRam.setDeviceClass("data_size"); 
 
     // assign callbacks (optional)
@@ -365,11 +361,12 @@ int dt;
       if(SmOT.stsMQTT == 0)
           return;
 /*******************/    
-   t1 = millis();   
+   t1 = millis(); 
+   dt = t1 - t0;  
  if(state_mqtt != 0)
-    Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, t1-t0);
+    Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
   if(state_mqtt == -2) 
-  {  dt = t1 - t0;
+  {  
  Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
     if(dt < 5000 *(attempt_mqtt+3))
         return;
@@ -401,7 +398,7 @@ int dt;
         state_mqtt = sts;
     }
 
-    if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000)
+    if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000 || SmOT.MQTT_need_report)
     {   if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
           sensorState.setValue("OpenTherm не подключен");
@@ -450,7 +447,6 @@ int dt;
             sensorText.setValue(str);
 
 #if PID_USE
-        if(SmOT.need_report)
         {
             sprintf(str,"%.4f", SmOT.mypid.dP);
             sensorPID_P.setValue(str);
@@ -462,21 +458,19 @@ int dt;
             sensorPID_U.setValue(str);
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
+//Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
+            if(SmOT.srcText >= 0 && SmOT.srcText < 3)
+            {   numT_outdoor.setState(SmOT.tempoutdoor, true);
+            }
+            if(SmOT.srcTroom >= 0 && SmOT.srcTroom < 3)
+            {  numT_indoor.setState(SmOT.tempindoor, true);
+            }
 
 //            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
 //            textPIDinfo.setValue(str);
 
-            SmOT.need_report = 0;
         }
 
-/*
-{  static float v = 0.;
-    numPID_v.setState(v, true);
-    v += 0.1;
-    textTargetTemp.setValue("22");
-    textPIDinfo.setValue("BlaBlaBla");
-}
-*/
 #endif
 
 /*************************************************/            
@@ -539,9 +533,10 @@ int dt;
             sensorT2.setValue(str);  
         }
 
-         sprintf(str,"%d",  ESP.getFreeHeap() );
-         sensorFreeRam.setValue(str);  
+        sprintf(str,"%d",  ESP.getFreeHeap() );
+        sensorFreeRam.setValue(str);  
         lastAvailabilityToggleAt = millis();
+        SmOT.MQTT_need_report = 0;
     }
 
 }
@@ -554,249 +549,6 @@ int MQTT_pub_data(void)
 }
 
 /*******************************************************************************/
-#elif MQTT_VERS == 0
-
-#define MSG_BUFFER_SIZE	(50)
-static char msg[MSG_BUFFER_SIZE];
-static char topic[MSG_BUFFER_SIZE];
-
-const char* mqtt_user = "SmartTherm";
-const char* mqtt_password = "smart_2024";
-unsigned long lastReconnectAttempt = 0;
-unsigned long lastMsg = 0;
-//  state_topic: "srv/t1"  
-// MQTT topics
-
-const char* AVAILABLE_OPENTHEM_TOPIC = "OT_available";
-const char* AVAILABLE_CH_TOPIC = "CH_available";
-const char* STATE_CH_TOPIC = "CH_state";
-const char* ENABLE_CH_GET_TOPIC = "CH_set";   //enable_CentralHeating
-const char* TSet_GET_TOPIC = "Tset";
-const char* T1_TEMP_TOPIC = "t1";
-const char* T2_TEMP_TOPIC = "t2";
-const char* Toutside_TEMP_TOPIC = "Toutside";
-const char* BoilerT_TEMP_TOPIC = "BoilerT";
-const char* RetT_TEMP_TOPIC = "RetT";
-const char* FlameModulation_TEMP_TOPIC = "FlameModulation";
-
-int MQTTreconnect(void) 
-{ int rc = 0;
-  if(client.connected())
-      return 1;
-#if SERIAL_DEBUG      
-  Serial.print("Attempting MQTT connection...");
-#endif  
-  if (client.connect(AUTOCONNECT_APID, mqtt_user, mqtt_password)) 
-  {
-#if SERIAL_DEBUG      
-    Serial.println("connected");
-#endif    
-    // Once connected, publish an announcement...
-    client.publish("outTopic", "hello world"); //todo
-
-
-  snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, AVAILABLE_OPENTHEM_TOPIC);
-  if(SmOT.stsOT >= 0)   strcpy(msg,"online");
-  else strcpy(msg,"offline");
-//    strcpy(msg,"online");
-    client.publish(topic, msg,true); 
-    Serial.printf("%s %s true\n",topic, msg );
-
-    snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, AVAILABLE_CH_TOPIC);
-//if(CentralHeating_present)   strcpy(msg,"online");
-//    else strcpy(msg,"offline");
-    strcpy(msg,"online");
-    client.publish(topic, msg); 
-
-    snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, STATE_CH_TOPIC);
-    if(SmOT.enable_CentralHeating)  strcpy(msg,"ON");
-    else strcpy(msg,"OFF");
-    client.publish(topic, msg); 
-    Serial.printf("%s %s\n",topic, msg );
-
-
-    // ... and resubscribe
-    snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, ENABLE_CH_GET_TOPIC);
-    client.subscribe(topic);
-    Serial.printf("subscribe %s\n",topic );
-    snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, TSet_GET_TOPIC);
-    client.subscribe(topic);
-    Serial.printf("subscribe %s\n",topic );
-
-    rc = 1;
-  } else {
-#if SERIAL_DEBUG      
-    Serial.print("failed, rc=");
-    Serial.print(client.state());
-#endif    
-    rc = 0;
-  }
-  return rc;
-}
-
-void MQTTcallback(char* cbtopic, byte* payload, unsigned int length) 
-{ int i, l;
-  char *ptopic;
-  Serial.print("Message arrived [");
-  Serial.print(cbtopic);
-  Serial.print("] ");
-
-for (i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-  Serial.printf("******************\n");
-
-//check SmOT.MQTT_topic
-  l = strlen(SmOT.MQTT_topic);
-  if(strncmp(cbtopic,SmOT.MQTT_topic,l))
-    return; //strange topic
-  if(topic[l] != '/')  
-    return; 
-  ptopic = cbtopic + l + 1;
-
-  if(!strcmp(ptopic, ENABLE_CH_GET_TOPIC))
-  { if(!strcmp((char *)payload, "ON"))
-      SmOT.enable_CentralHeating = 1;
-    else if(!strcmp((char *)payload, "OFF"))
-      SmOT.enable_CentralHeating = 0;
-    
-    snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, STATE_CH_TOPIC);
-    if(SmOT.enable_CentralHeating)  strcpy(msg,"ON");
-    else strcpy(msg,"OFF");
-    client.publish(topic, msg); 
-  }
-
-}
-
-HADevice device;
-HAMqtt mqtt(espClient, device);
-
-void mqtt_setup(void)
-{
-  bool rc;
-  char str[40];
-
-  if (WiFi.status() != WL_CONNECTED)  
-        return;
-  {  HADevice *device1;
-     device1 = new HADevice(SmOT.MQTT_topic);
-     device = *device1;
-     delete device1;
-  }
-
-    device.setName(AUTOCONNECT_APID);
-    sprintf(str,"%d.%d", SmOT.Vers,SmOT.SubVers);
-    device.setSoftwareVersion(str);
-
-
-  client.setServer( SmOT.MQTT_server, 1883);
-  client.setCallback(MQTTcallback);
-
-}
-
-void mqtt_loop(void)
-{ unsigned long now;
-  if (WiFi.status() != WL_CONNECTED)  
-        return;
-
-  if (!client.connected()) {
-    now = millis();
-    if ((now - lastReconnectAttempt) > ( SmOT.MQTT_interval * 1000 *2))
-    {
-      lastReconnectAttempt = now;
-      if(MQTTreconnect())
-      { 
-        lastReconnectAttempt = millis();
-      }
-
-    }
-  } else {
-    client.loop();
-    now = millis();
-    if (now - lastMsg > SmOT.MQTT_interval*1000)
-    {   lastMsg = now;
-        MQTT_pub_data();
-    }
-  }
-}
-
-int MQTT_pub_data(void)
-{  static int sts = 0;
-   int id = 0;
-  bool rc;
-M0:  
-    switch(sts)
-    {   case 0:
-          if(SmOT.stsT1 >= 0)
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.t1);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, T1_TEMP_TOPIC);
-          
-           rc =  client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-        case 1:
-          if(SmOT.stsT2 >= 0)
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.t2);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, T2_TEMP_TOPIC);
-            rc = client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-        case 2:
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.BoilerT);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, BoilerT_TEMP_TOPIC);
-            rc = client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-        case 3:
-          if(ot.OTid_used(OpenThermMessageID::Tret))
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.RetT);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, RetT_TEMP_TOPIC);
-            rc = client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-        case 4:
-          if(ot.OTid_used(OpenThermMessageID::RelModLevel))
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.FlameModulation);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, FlameModulation_TEMP_TOPIC);
-            rc = client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-        case 5:
-          if(ot.OTid_used(OpenThermMessageID::Toutside))
-          { snprintf (msg, MSG_BUFFER_SIZE, "%.3f", SmOT.Toutside);
-            snprintf (topic, MSG_BUFFER_SIZE, "%s/%s", SmOT.MQTT_topic, Toutside_TEMP_TOPIC);
-            rc = client.publish(topic, msg);
-           id = 1;
-          } 
-            break;
-
-    }
-#if SERIAL_DEBUG      
- if(id)
-    Serial.printf("%s %s, rc = %d\n",  topic, msg, rc);
-#endif //0    
-  sts++;
-  if(sts > 5)
-    sts = 0;
-  else if(id == 0)
-    goto M0;
-    
-  return 0;
-}
-
-/*******************************************************************************/
-#endif // MQTT_VERS
 
 
 #endif  //MQTT_USE 

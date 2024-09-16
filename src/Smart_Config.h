@@ -10,8 +10,10 @@
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
 #define MQTT_USE 1
+
 #if MQTT_USE
-  #define PID_USE 1
+  #define PID_USE 1 
+  #define DEBUG_WITH_EMULATOR 0
 #else
   #define PID_USE 0
 #endif
@@ -19,6 +21,12 @@
 /* Min & max CH temp */
 #define MIN_CH_TEMP  25
 #define MAX_CH_TEMP  80
+
+/* Room setpoint Min & max */
+#define MIN_ROOM_TEMP  5
+#define MAX_ROOM_TEMP  35
+
+#define MAX_PID_SRC 4
 
 #define IDENTIFY_TYPE DS_OPENTHERM
 /* TCP/UDP buffer size in bytes */
