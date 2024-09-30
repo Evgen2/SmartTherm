@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.7.4
+Version 0.7.5
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -18,6 +18,12 @@ Features:
 * no external cloud control used
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.7.5
+* add  WinterMode ((ID0:HB5) and  Use_OTC (ID0:HB3) support
+* speedup OT startup ~2 sec
+* add binary CH and HW sensors to MQTT
+* MQTT connect after detecting boiler Capabilities
 
 0.7.4 changes
 * PID + weather-compensated automation (standalone + HA)

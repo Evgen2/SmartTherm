@@ -172,6 +172,9 @@ public:
   unsigned short int UseID2;
   unsigned short int ID2masterID;
   unsigned short int CH2_DHW_flag;
+  unsigned short int UseWinterMode;
+  unsigned short int Use_OTC;
+  int CapabilitiesDetected;
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -187,7 +190,6 @@ public:
     HotWater_present  = false;;
     RetT_present  = false;;
     CH2_present  = false;
-    RetT_present  = false; 
     Toutside_present  = false; 
     Pressure_present  = false;
 
@@ -246,6 +248,7 @@ public:
       UseID2 = 0;
       ID2masterID = 0;
       CH2_DHW_flag = 0;
+      UseWinterMode = Use_OTC = 0;
   }
   
   void init(void);
@@ -270,6 +273,7 @@ public:
 #if PID_USE
   void loop_PID(void);
 #endif
+  void DetectCapabilities(void);
 };
 
 #endif // SD_OPENTHERM

@@ -50,6 +50,8 @@ const char * temperature_str = "temperature";
 
 HABinarySensor sensorOT(NULL);
 HABinarySensor sensorFlame(NULL);
+HABinarySensor sensor_CH(NULL);
+HABinarySensor sensor_HW(NULL);
 HASensor sensorModulation(NULL);
 HASensor sensorBoilerT(NULL);
 HASensor sensorBoilerRetT(NULL);
@@ -175,6 +177,10 @@ void mqtt_setup(void)
 {  bool rc;
   if (WiFi.status() != WL_CONNECTED)  
         return;
+  if(SmOT.CapabilitiesDetected == 0)
+        return;
+  else
+      SmOT.DetectCapabilities();
 
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
@@ -214,6 +220,20 @@ void mqtt_setup(void)
     sensorModulation.setIcon("mdi:fire");
     sensorModulation.setDeviceClass("power_factor"); //"temperature"
     sensorModulation.setUnitOfMeasurement("%");
+/**********/
+    sensor_CH.setNameUniqueIdStr(SmOT.MQTT_topic,"Отопление", "CH");
+    sensor_CH.setCurrentState(false); 
+    sensor_CH.setAvailability(false);
+    sensor_CH.setIcon("mdi:heating-coil");
+    
+    if(SmOT.HotWater_present)
+    { sensor_HW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "HW");
+      sensor_HW.setCurrentState(false); 
+      sensor_HW.setAvailability(false);
+      sensor_HW.setIcon("mdi:water-thermometer");     
+    }
+/**********/
+
 
     sensorBoilerT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура теплоносителя", "BoilerT");
     sensorBoilerT.setAvailability(false);
@@ -358,8 +378,11 @@ static unsigned int t0=0;
 unsigned long t1;
 int dt;
 //      pMqtt->loop();
+
       if(SmOT.stsMQTT == 0)
+{   mqtt_setup();
           return;
+}
 /*******************/    
    t1 = millis(); 
    dt = t1 - t0;  
@@ -410,6 +433,9 @@ int dt;
             hvac.setAvailability(false);
             sensorBoilerT.setAvailability(false);
             sensorFlame.setAvailability(false);
+            sensor_CH.setAvailability(false);
+            if(SmOT.HotWater_present)
+               sensor_HW.setAvailability(false);
             sensorModulation.setAvailability(false);
             sensorBoilerRetT.setAvailability(false);
             sensorPressure.setAvailability(false);
@@ -423,6 +449,9 @@ int dt;
               hvac.setAvailability(true);
 //Serial.printf("hvac.setAvailability(true)\n");
               sensorFlame.setAvailability(true);
+              sensor_CH.setAvailability(true);
+              if(SmOT.HotWater_present)
+                sensor_HW.setAvailability(true);
               sensorModulation.setAvailability(true);
               sensorBoilerRetT.setAvailability(true);
               sensorPressure.setAvailability(true);
@@ -437,6 +466,20 @@ int dt;
                   sensorFlame.setState(true); 
             else
                   sensorFlame.setState(false); 
+
+            if(SmOT.BoilerStatus & 0x02)
+                  sensor_CH.setState(true); 
+            else
+                  sensor_CH.setState(false); 
+
+            if(SmOT.HotWater_present)
+            {
+              if(SmOT.BoilerStatus & 0x04)
+                    sensor_HW.setState(true); 
+              else
+                    sensor_HW.setState(false); 
+            }
+
             sprintf(str,"%.3f", SmOT.FlameModulation);
             sensorModulation.setValue(str);
             sprintf(str,"%.3f", SmOT.RetT);

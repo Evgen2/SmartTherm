@@ -10,7 +10,7 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  7
-#define MASTER_SUBVERSION1 4
+#define MASTER_SUBVERSION1 5
 /***************/
 
 #define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
@@ -129,6 +129,8 @@ class SmartDevice
   virtual void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
   virtual void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  };
+  virtual void callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
 
 #if OT_DEBUGLOG

@@ -144,6 +144,13 @@ int SD_Termo::Read_ot_fs(void)
     if(n >= nw) goto END;
     memcpy((void *) &CH2_DHW_flag, &Buff[n], sizeof(CH2_DHW_flag));
     n += sizeof(CH2_DHW_flag);
+    if(n >= nw) goto END;
+    memcpy((void *) &UseWinterMode, &Buff[n], sizeof(UseWinterMode));
+    n += sizeof(UseWinterMode);
+    if(n >= nw) goto END;
+    memcpy((void *) &Use_OTC, &Buff[n], sizeof(Use_OTC));
+    n += sizeof(Use_OTC);
+
 END:
 
 #if SERIAL_DEBUG      
@@ -260,7 +267,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int rc=0, i, n, nw;
     unsigned short int crs, nn;
-    uint8_t Buff[FS_BUF];
+    uint8_t Buff[FS_BUF+4];
 
     if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
     {
@@ -387,6 +394,10 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
 
     memcpy(&Buff[n],(void *) &CH2_DHW_flag, sizeof(CH2_DHW_flag));
     n += sizeof(CH2_DHW_flag);
+    memcpy(&Buff[n],(void *) &UseWinterMode, sizeof(UseWinterMode));
+    n += sizeof(UseWinterMode);
+    memcpy(&Buff[n],(void *) &Use_OTC, sizeof(Use_OTC));
+    n += sizeof(Use_OTC);
 
 #if SERIAL_DEBUG      
     if( n >= sizeof(Buff) )    
@@ -987,8 +998,8 @@ void SD_Termo::loop_PID(void)
 
             flame_old = BoilerStatus& 0x08;
 
-        }
-    }
+        } //end if(rc == 1)
+    } //end if(is & 0x01)
 }
 #endif
 
@@ -1051,6 +1062,48 @@ float SD_Termo::CHtempLimit(float _t)
         return MAX_CH_TEMP;
     return _t;
 }
+
+
+
+void SD_Termo::DetectCapabilities(void)
+{
+extern OpenTherm ot;
+    if(CapabilitiesDetected  == 1)
+    {   int count, countok;
+            ot.Get_OTid_count(OpenThermMessageID::CHPressure, count, countok);
+            if(countok > 2)
+                Pressure_present = true; 
+            else
+                Pressure_present = false; 
+            ot.Get_OTid_count(OpenThermMessageID::Toutside, count, countok);
+            if(countok > 2)
+                Toutside_present = true;                 
+            else
+                Toutside_present  = false; 
+            ot.Get_OTid_count(OpenThermMessageID::Tret, count, countok);
+            if(countok > 2)
+                RetT_present = true;                 
+            else
+                RetT_present  = false; 
+
+    } else  if(CapabilitiesDetected  == 2) {
+        if(ot.OTid_used(OpenThermMessageID::CHPressure))
+                Pressure_present = true; 
+        else
+                Pressure_present = false; 
+        if(ot.OTid_used(OpenThermMessageID::Toutside))
+                Toutside_present = true;                 
+        else
+                Toutside_present  = false; 
+
+        if(ot.OTid_used(OpenThermMessageID::Tret))
+                RetT_present = true;                 
+        else
+                RetT_present  = false; 
+    }
+}
+
+//MCMD_GET_CAP    
 
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)

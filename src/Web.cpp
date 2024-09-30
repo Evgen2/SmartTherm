@@ -106,13 +106,15 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
 AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */ AC_Behind  , AC_Tag_None);
 ACInput(ID2MaserID,"", "IDcode"); 
-AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Infront /* AC_Behind */ , AC_Tag_BR);
+AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseOTC_ChB("UseOTC_ChB","", "Использовать OTC (ID0:HB3)",         false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar});
 #endif //#if PID_USE
 
 
@@ -426,15 +428,10 @@ const char*  const _ntp2 = "pool.ntp.org";
     configTzTime("UTC0", _ntp1 ,_ntp2);
 
     //TZoffset
-   delay(1000);
 #if SERIAL_DEBUG      
   now = time(nullptr);
   Serial.printf("2 %s\n", ctime(&now));
 #endif  
-{ time_t now;
-  now = time(nullptr);
-  Serial.printf("2 %s\n", ctime(&now));
-}
   // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #if defined(ARDUINO_ARCH_ESP8266)
 // default ntp update  1 hour
@@ -748,6 +745,20 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
      SmOT.UseID2 = icheck;
   }
 
+  if(UseWinterModeChB.checked)  icheck = 1;
+  else                          icheck = 0;
+  if(icheck != SmOT.UseWinterMode)
+  { isChange++;
+     SmOT.UseWinterMode = icheck;
+  }
+
+  if(UseOTC_ChB.checked)  icheck = 1;
+  else                          icheck = 0;
+  if(icheck != SmOT.Use_OTC)
+  { isChange++;
+     SmOT.Use_OTC = icheck;
+  }
+
   v2 = ID2MaserID.value.toInt();
   if(v2 != SmOT.ID2masterID )
   { isChange++;
@@ -776,6 +787,15 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       UseID2ChB.checked = false;
     
+  if(SmOT.UseWinterMode)
+      UseWinterModeChB.checked = true;
+  else
+      UseWinterModeChB.checked = false;
+
+  if(SmOT.Use_OTC)
+      UseOTC_ChB.checked = true;
+  else
+      UseOTC_ChB.checked = false;
 
   sprintf(str,"%d",SmOT.ID2masterID);
   ID2MaserID.value = str;

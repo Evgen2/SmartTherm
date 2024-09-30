@@ -93,10 +93,9 @@ int LedSts = 0; //LOW
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
-  delay(1000);
+  delay(10);
   Serial.begin(115200);
   
-  //Serial.println(Jopa);
   Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
@@ -446,10 +445,16 @@ bit: description [ clear/0, set/1]
 //        boiler_status = response & 0xFF;
         if((u88 & 0x08) != (SmOT.BoilerStatus & 0x08))
         {   SmOT.Bstat.calcNflame(u88 & 0x08);
-#if MQTT_USE
-            SmOT.MQTT_need_report = 1;
-#endif
         }
+#if MQTT_USE
+        if(SmOT.HotWater_present)
+        {   if((u88 & (0x08|0x04|0x02) ) != (SmOT.BoilerStatus & (0x08|0x04|0x02)))
+                SmOT.MQTT_need_report = 1;
+        } else {
+            if((u88 & (0x08|0x02) ) != (SmOT.BoilerStatus & (0x08|0x02)))
+            SmOT.MQTT_need_report = 1;
+        }
+#endif
 
         SmOT.BoilerStatus = u88;
 //        Serial.printf("BoilerStatus: %x %x\n", u88, response);
@@ -657,15 +662,15 @@ M0:
       if(!SmOT.usePID)
          SmOT.enable_CentralHeating_real = SmOT.enable_CentralHeating;
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
-      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
       } else {
-        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
 #else
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
-      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
       } else {
-        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling,  SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
 #endif
         st++;
@@ -694,6 +699,13 @@ M0:
                break;
           } else {
             raz++;
+            if(SmOT.CapabilitiesDetected == 0)
+            {  if(raz > 2)
+                 SmOT.CapabilitiesDetected = 1;
+            } else if(SmOT.CapabilitiesDetected == 1) {
+               if(raz > 32)
+                  SmOT.CapabilitiesDetected = 2;
+            }
             if(raz > 100)
             {   if(SmOT.enable_CentralHeating)
                     SmOT.need_set_T  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
