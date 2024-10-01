@@ -1320,7 +1320,11 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
     UsePID.checked = false;    
   }
 
-  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, 3/4=MQTT0/1";
+  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, MQTT/HA:";
+  sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
+  Info1.value += str0;
+  sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
+  Info1.value += str0;
 
   sprintf(str0,"%d",SmOT.srcTroom);
   SetTempSrcPID.value = str0;
