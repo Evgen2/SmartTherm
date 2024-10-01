@@ -23,7 +23,8 @@ Features:
 * add  WinterMode ((ID0:HB5) and  Use_OTC (ID0:HB3) support
 * speedup OT startup ~2 sec
 * add binary CH and HW sensors to MQTT
-* MQTT connect after detecting boiler Capabilities
+* MQTT connect after detecting boiler Capabilities if OT work
+* MQTT connect to server without reset at MQTT config changes
 
 0.7.4 changes
 * PID + weather-compensated automation (standalone + HA)

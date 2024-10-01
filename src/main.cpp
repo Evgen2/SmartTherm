@@ -704,7 +704,9 @@ M0:
                  SmOT.CapabilitiesDetected = 1;
             } else if(SmOT.CapabilitiesDetected == 1) {
                if(raz > 32)
-                  SmOT.CapabilitiesDetected = 2;
+               {   SmOT.CapabilitiesDetected = 2;
+                  SmOT.DetectCapabilities();
+               }
             }
             if(raz > 100)
             {   if(SmOT.enable_CentralHeating)

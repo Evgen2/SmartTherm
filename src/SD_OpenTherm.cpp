@@ -83,6 +83,7 @@ int SD_Termo::Read_ot_fs(void)
   {
     memcpy((void *) &useMQTT, &Buff[n], sizeof(useMQTT));
     n += sizeof(useMQTT);
+
     memcpy((void *) MQTT_server, &Buff[n], sizeof(MQTT_server));
     n += sizeof(MQTT_server);
     memcpy((void *) MQTT_user, &Buff[n], sizeof(MQTT_user));
@@ -102,7 +103,6 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &usePID, &Buff[n], sizeof(usePID));
     n += sizeof(usePID);
     if(n >= nw) goto END;
-        Serial.printf("usePID=%d\n", usePID);
     memcpy((void *) &srcTroom, &Buff[n], sizeof(srcTroom));
     n += sizeof(srcTroom);
     if(n >= nw) goto END;
@@ -173,7 +173,6 @@ END:
 int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 {   int  n, nw, i, l;
     unsigned short int crs, crs_r, nn;
-    uint8_t Buff[FS_BUF];
 
     rlen = 0;
 #if SERIAL_DEBUG      
@@ -213,17 +212,15 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #endif        
         return 3;
     }
-    if((nn +  sizeof(unsigned short int)) > (sizeof(Buff) ))
+    if(nn  > len)
+    {
+        Serial.printf((PGM_P)F("read file Buff size  %d, must be =%d\n"), len, nn);
         return 10;
+    }
 
-    if(len  < int(nn +  sizeof(unsigned short int)))
-        return 11;
+    crs = nn;
     nw = nn;
-    n = sizeof(nn);
-    memcpy(&Buff[0],(void *) &nn, n);
-//    nw += sizeof(short int);
-    l = n;
-    n = file.read((unsigned char *)&Buff[l], nw); //read nn bytes of data
+    n = file.read((unsigned char *) dataBuff, nw); //read nn bytes of data
     if(n != nw)
     {   file.close();
 #if SERIAL_DEBUG      
@@ -231,18 +228,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #endif        
         return 3;
     }
-    l += n;
+    l = n;
     n = file.read((unsigned char *)&crs_r, sizeof(short int));  //read 2 bytes control sum
 
-/***************************/    
-//    for(i=0; i<l; i++)
-//            Serial.printf("%02x ",Buff[i]);
-//    Serial.printf("\n");
-/***************************/    
-
-    crs = 0;
     for(i=0; i<l; i++)
-    {  crs += Buff[i];
+    {  crs += dataBuff[i];
     }
 
     if(crs !=  crs_r )
@@ -257,36 +247,19 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #if SERIAL_DEBUG      
     Serial.println(F("file.close()"));
 #endif
-    rlen = l-sizeof(short int);
-    memcpy(&dataBuff[0], &Buff[sizeof(short int)], rlen);
-  
+    rlen = l;
+
     return 0;
 }
 
 
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int rc=0, i, n, nw;
-    unsigned short int crs, nn;
-    uint8_t Buff[FS_BUF+4];
-
-    if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
-    {
-        Serial.printf((PGM_P)F("Error: Writing %d bytes to %d buff\n"),  len +2 * sizeof(unsigned short int), sizeof(Buff));
-#if SERIAL_DEBUG      
-#endif // SERIAL_DEBUG      
-
-        return 10;
-    }
+    unsigned short int crs;
 
 #if SERIAL_DEBUG      
     Serial.printf((PGM_P)F("Writing file: %s %d bytes\n"), _path, len);
 #endif // SERIAL_DEBUG      
- //??
- /*  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
-    if(b == false)
-    {   Serial.println("FlashFS.begin failed");
-    }
-*/
 
 //    File file = FlashFS.open(_path, FILE_WRITE);  //FILE_WRITE
     File file = FlashFS.open(_path, "w");  //FILE_WRITE
@@ -298,25 +271,17 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
         return 1;
     }
 
-    nn = len;
-    n = sizeof(unsigned short int);
-    memcpy(&Buff[0],(void *) &nn, n);
-    memcpy(&Buff[n],(void *) dataBuff, len);
-    len += n;
-    crs = 0;
+    crs = (unsigned short int) len;
+    nw = file.write((unsigned char *) &crs, sizeof(unsigned short int));
     for(i=0; i<len; i++)
-      crs += Buff[i];
-
-    memcpy(&Buff[len],(void *) &crs, sizeof(crs));
-    len += sizeof(crs);
-/***************************/    
-//    for(i=0; i<len; i++)
-//            Serial.printf("%02x ",Buff[i]);
-//    Serial.printf("\n");
-/***************************/    
-    nw = file.write((unsigned char *) &Buff[0], len);
-    if(nw != len)
+      crs += dataBuff[i];
+    n = file.write((unsigned char *) &dataBuff[0], len);
+    if(n != len)
         rc = 1;
+    else nw += n;    
+    nw += file.write((unsigned char *) &crs, sizeof(unsigned short int));
+    if(nw != (len + 4))
+        rc = 2;
     file.close();
     return rc;
 }
@@ -402,9 +367,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
 #if SERIAL_DEBUG      
     if( n >= sizeof(Buff) )    
          Serial.printf("Error: %s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
+   Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
 #endif         
     
-   Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
     rc = Write_data_fs((char *)path, Buff, n);
 
     return rc;
@@ -569,7 +534,7 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
 void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
     short int B_flags;
-    float v, vT, roomSetpointT;
+    float v, vT;
     bool flag;
     int isChange = 0;
 
@@ -602,12 +567,13 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
 	memcpy((void *)&v,(void *)&bf[6+2],4); //Tset
     vT = CHtempLimit(v);
 
+#if  PID_USE
+    float roomSetpointT;
 	memcpy((void *)&v,(void *)&bf[6+6],4); //roomSetpointT
     if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
     else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     roomSetpointT = v;
 
-#if  PID_USE
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
         {   mypid.xTag = roomSetpointT;
@@ -1062,8 +1028,6 @@ float SD_Termo::CHtempLimit(float _t)
         return MAX_CH_TEMP;
     return _t;
 }
-
-
 
 void SD_Termo::DetectCapabilities(void)
 {

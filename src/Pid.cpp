@@ -11,7 +11,7 @@
     t  = millis();
     dt = t - pid_t; // dt, msec
 
-   Serial.printf("pid: dt = %d\n", dt );
+   Serial.printf("pid: dt = %ld\n", dt );
 
     if(dt < (unsigned long int)(t_interval*1000))
     {   return 0;

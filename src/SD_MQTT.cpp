@@ -24,6 +24,7 @@ using WiFiWebServer = WebServer;
 #include <ArduinoHA.h>
 #include <PubSubClient.h>
 
+void mqtt_start(void);
 void mqtt_loop(void);
 void mqtt_setup(void);
 int MQTT_pub_data(void);
@@ -87,7 +88,8 @@ HAHVAC hvac(
 unsigned long lastReadAt = millis();
 unsigned long lastAvailabilityToggleAt = millis();
 bool lastInputState = false;
-
+void OnMQTTconnected(void);
+void OnMQTTdisconnected(void);
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     float temperatureFloat = temperature.toFloat();
@@ -107,8 +109,6 @@ void onPowerCommand(bool state, HAHVAC* sender) {
     Serial.println("Power off");
   }
 }
-
-
 
 void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     Serial.print("Mode: ");
@@ -177,15 +177,16 @@ void mqtt_setup(void)
 {  bool rc;
   if (WiFi.status() != WL_CONNECTED)  
         return;
-  if(SmOT.CapabilitiesDetected == 0)
-        return;
-  else
-      SmOT.DetectCapabilities();
-
+  if(SmOT.stsOT == 0)
+  { if(SmOT.CapabilitiesDetected == 0)
+            return;
+    else
+        SmOT.DetectCapabilities();
+  }
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
-  
+    return;
   }
 
    device.setUniqueIdStr(SmOT.MQTT_topic);
@@ -349,26 +350,51 @@ void mqtt_setup(void)
     sensorPID_U0.setDeviceClass(temperature_str); 
 
 #endif
-
-
+    mqtt.onConnected(OnMQTTconnected);
+    mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
     mqtt._mqtt->setSocketTimeout(1); //not work ???
 
     rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
-    {
-   Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    {  Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
       SmOT.stsMQTT = 2;
-
     } else {
-   Serial.printf("mqtt.begin false\n");
-
+       Serial.printf("mqtt.begin false\n");
     }
 }
 
 int statemqtt = -1;
 int state_mqtt = -10000;
 int attempt_mqtt = 0;
+
+void OnMQTTconnected(void)
+{ 
+  statemqtt = 1;
+//   Serial.printf("OnMQTTconnected %d\n", statemqtt );
+
+}
+void OnMQTTdisconnected(void)
+{ statemqtt = 0;
+//   Serial.printf("OnMQTT disconnected %d\n", statemqtt );
+}
+
+void mqtt_start(void)
+{
+   Serial.printf("mqtt_start SmOT.stsMQTT %d\n", SmOT.stsMQTT);
+  if(SmOT.stsMQTT == 0)
+  {   mqtt_setup();
+  } else {
+    int rc;
+    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    if(rc == true)
+    { Serial.printf("(1) mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+      SmOT.stsMQTT = 2;
+    } else {
+      Serial.printf("(1)mqtt.begin false\n");
+    }
+  }
+}
 
 void mqtt_loop(void)
 { int sts;
@@ -377,33 +403,15 @@ static int st_old = -2;
 static unsigned int t0=0;
 unsigned long t1;
 int dt;
-//      pMqtt->loop();
+//    Serial.printf("#### SmOT.stsMQTT=%d SmOT.CapabilitiesDetected %d %d\n",SmOT.stsMQTT,SmOT.CapabilitiesDetected , millis());
 
-      if(SmOT.stsMQTT == 0)
+if(SmOT.stsMQTT == 0)
 {   mqtt_setup();
-          return;
-}
-/*******************/    
-   t1 = millis(); 
-   dt = t1 - t0;  
- if(state_mqtt != 0)
-    Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
-  if(state_mqtt == -2) 
-  {  
- Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
-    if(dt < 5000 *(attempt_mqtt+3))
-        return;
- Serial.printf("*********** state_mqtt= -2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
-    if(attempt_mqtt < 100)
-      attempt_mqtt++;
-  }  else {
-    attempt_mqtt = 0;
-  }   
-  t0 = t1;
-/*******************/          
+    return;
+} 
 
     mqtt.loop();
-//      if(pMqtt->isConnected())
+
     if(mqtt.isConnected())
     {   if(statemqtt != 1)
             Serial.println(F("MQTT connected"));
@@ -412,6 +420,7 @@ int dt;
         if(statemqtt != 0)
             Serial.println(F("MQTT DiSconnected"));
         statemqtt = 0;
+        delay(1);
         return; // return from   mqtt_loop() if not connected
     }
 
@@ -438,7 +447,8 @@ int dt;
                sensor_HW.setAvailability(false);
             sensorModulation.setAvailability(false);
             sensorBoilerRetT.setAvailability(false);
-            sensorPressure.setAvailability(false);
+            if(SmOT.Pressure_present)
+              sensorPressure.setAvailability(false);
             sensorText.setAvailability(false);
             sensorState.setValue("OpenTherm: потеря связи");
           } else {
@@ -454,7 +464,8 @@ int dt;
                 sensor_HW.setAvailability(true);
               sensorModulation.setAvailability(true);
               sensorBoilerRetT.setAvailability(true);
-              sensorPressure.setAvailability(true);
+              if(SmOT.Pressure_present)
+                sensorPressure.setAvailability(true);
               sensorText.setAvailability(true);
             }
             sprintf(str,"%.3f", SmOT.BoilerT);           
@@ -483,9 +494,11 @@ int dt;
             sprintf(str,"%.3f", SmOT.FlameModulation);
             sensorModulation.setValue(str);
             sprintf(str,"%.3f", SmOT.RetT);
-            sensorBoilerRetT.setValue(str);  
-            sprintf(str,"%.3f", SmOT.Pressure);
-            sensorPressure.setValue(str);  
+            sensorBoilerRetT.setValue(str); 
+            if(SmOT.Pressure_present)
+            { sprintf(str,"%.3f", SmOT.Pressure);
+              sensorPressure.setValue(str);  
+            }
             sprintf(str,"%.3f", SmOT.Toutside);
             sensorText.setValue(str);
 

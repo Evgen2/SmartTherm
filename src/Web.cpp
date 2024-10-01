@@ -187,6 +187,7 @@ void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
   extern void mqtt_setup(void);
   extern void mqtt_loop(void);
+  extern void mqtt_start(void);
 #endif
 String onInfo(AutoConnectAux& aux, PageArgument& args);
 String on_Setup(AutoConnectAux& aux, PageArgument& args);
@@ -625,6 +626,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   }
 
 #if MQTT_USE
+  int isChangeMQTT = 0;
   if( CtrlChB4.checked) check = true;
   else                  check = false;
 
@@ -635,11 +637,13 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     } else if(SmOT.useMQTT == 1) { 
       SmOT.useMQTT = 0x3;
       isChange++;
+      isChangeMQTT++;
     }
   } else {
     if(SmOT.useMQTT != 0)
     { SmOT.useMQTT = 0;
       isChange++;
+      isChangeMQTT++;
     }
   }
 
@@ -650,23 +654,27 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SetMQTT_server.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_server,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_server,str0);      
     }
 
     SetMQTT_user.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_user,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_user,str0);      
     }
     SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_pwd,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_pwd,str0);      
     }
 
     SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_devname,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_devname,str0);      
     }
 
@@ -683,20 +691,26 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     }
     if(strcmp(SmOT.MQTT_topic,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_topic,str0);      
     }
 
     v = SetMQTT_interval.value.toInt();
     if((unsigned int)v !=SmOT.MQTT_interval )
     { isChange++;
+      isChangeMQTT++;
        SmOT.MQTT_interval = v;
     }
    }
 
 #endif //MQTT_USE
-
-  if(isChange)
+    if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
+#if MQTT_USE
+    if(isChangeMQTT && SmOT.useMQTT == 0x03)
+    {      mqtt_start();
+    }
+#endif //MQTT_USE
 
     if(SmOT.enable_CentralHeating) //Отопление Вкл
     {     SmOT.need_set_T = 1;
@@ -1145,7 +1159,7 @@ Zota Lux-x (electro)  248
   if(SmOT.useMQTT) 
   { char str[40]; 
     if(SmOT.useMQTT == 1) 
-      Info1.value = "Нужен Reset"; 
+      Info1.value = "проверь после Reset"; 
     CtrlChB4.checked = true;
     SetMQTT_server.enable  = true;
     SetMQTT_user.enable  = true;
