@@ -47,6 +47,7 @@ extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
+unsigned int OTcount = 0;
 
 
 /*********************************/
@@ -840,6 +841,12 @@ extern OpenTherm ot;
       {  char str[40];
         sprintf(str," (%8x)",SmOT.BoilerStatus );
         Info1.value =  String(SmOT.stsOT) +  str;
+        /* Если статус ответа не соответсвует статусу запроса, возможно у котла режим readonly  */
+        if((SmOT.BoilerStatus&0xff00) != (SmOT.BoilerStatusRequest&0xff00)) 
+        {    sprintf(str," (Запрос: %8x)",SmOT.BoilerStatusRequest );
+             Info1.value +=  str;
+        }
+
         if(SmOT.BoilerStatus & 0x01)
           Info1.value += "<br>Ошибка";
         if(SmOT.BoilerStatus & 0x02)
@@ -901,6 +908,8 @@ if(SmOT.useMQTT)
   switch(statemqtt)
   {   case -1:
         Info1.value += "MQTT not connected";
+        if(SmOT.stsMQTT == 0)
+            Info1.value += ", ожидание опроса OT";
         break;
       case 0:
         Info1.value += "MQTT DiSconnected";
@@ -950,7 +959,11 @@ if(SmOT.useMQTT)
 }
 
 #endif // MQTT_USE 
-
+#if PID_USE
+    if(SmOT.usePID)
+    {   Info1.value += "<br>управление по PID";
+    }
+#endif // PID_USE 
 
 /***************************************/
 
@@ -982,7 +995,8 @@ if(SmOT.useMQTT)
       }
 
       if(SmOT.HotWater_present) 
-      { Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+      { if(SmOT.enable_HotWater)
+            Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
 
       Info2.value += "<br>";

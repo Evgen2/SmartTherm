@@ -172,17 +172,28 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 }
 #endif
 
+int statemqtt = -1;
+int state_mqtt = -10000;
+int attempt_mqtt = 0;
+
 /************************************************************/
 void mqtt_setup(void)
 {  bool rc;
+extern unsigned int OTcount;
+
   if (WiFi.status() != WL_CONNECTED)  
         return;
+
   if(SmOT.stsOT == 0)
   { if(SmOT.CapabilitiesDetected == 0)
             return;
     else
         SmOT.DetectCapabilities();
+   } else {
+    if(OTcount < 30)
+        return;
   }
+
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
@@ -227,7 +238,7 @@ void mqtt_setup(void)
     sensor_CH.setAvailability(false);
     sensor_CH.setIcon("mdi:heating-coil");
     
-    if(SmOT.HotWater_present)
+    if(SmOT.HotWater_present || SmOT.stsOT == -1)
     { sensor_HW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "HW");
       sensor_HW.setCurrentState(false); 
       sensor_HW.setAvailability(false);
@@ -246,9 +257,16 @@ void mqtt_setup(void)
     sensorBoilerRetT.setDeviceClass(temperature_str); 
     sensorBoilerRetT.setUnitOfMeasurement("°C");
 
-    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
-    sensorPressure.setAvailability(false);
-    sensorPressure.setDeviceClass("pressure"); 
+   Serial.printf("(3)mqtt_setup SmOT.Pressure_present %d SmOT.stsOT  %d \n", 
+          SmOT.Pressure_present, SmOT.stsOT);
+
+
+    if(SmOT.Pressure_present || SmOT.stsOT == -1)
+    {
+      sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
+      sensorPressure.setAvailability(false);
+      sensorPressure.setDeviceClass("pressure"); 
+    }
 
     sensorFreeRam.setAvailability(true);
     sensorFreeRam.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
@@ -364,9 +382,6 @@ void mqtt_setup(void)
     }
 }
 
-int statemqtt = -1;
-int state_mqtt = -10000;
-int attempt_mqtt = 0;
 
 void OnMQTTconnected(void)
 { 
@@ -403,7 +418,7 @@ static int st_old = -2;
 static unsigned int t0=0;
 unsigned long t1;
 int dt;
-//    Serial.printf("#### SmOT.stsMQTT=%d SmOT.CapabilitiesDetected %d %d\n",SmOT.stsMQTT,SmOT.CapabilitiesDetected , millis());
+
 
 if(SmOT.stsMQTT == 0)
 {   mqtt_setup();
@@ -422,12 +437,6 @@ if(SmOT.stsMQTT == 0)
         statemqtt = 0;
         delay(1);
         return; // return from   mqtt_loop() if not connected
-    }
-
-    sts = mqtt._mqtt->state(); 
-    if(sts !=state_mqtt )
-    {   Serial.printf("MQTT state=%d\n", sts);
-        state_mqtt = sts;
     }
 
     if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000 || SmOT.MQTT_need_report)

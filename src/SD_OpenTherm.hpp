@@ -119,6 +119,7 @@ public:
   unsigned int OEMDcode;
   unsigned int rcode[5];
   int BoilerStatus;
+  int BoilerStatusRequest;
   byte need_set_T; 
   byte need_set_T2; 
   byte need_set_dhwT;
@@ -192,6 +193,7 @@ public:
     CH2_present  = false;
     Toutside_present  = false; 
     Pressure_present  = false;
+    CapabilitiesDetected = 0;
 
       stsOT = -1;
       t_lastwork = 0;
@@ -222,7 +224,7 @@ public:
       OEMDcode = 0;
       OTmemberCode = 0;
       rcode[0] = rcode[1] = rcode[2] = rcode[3] = rcode[4] = 0;
-      BoilerStatus = 0;
+      BoilerStatus = BoilerStatusRequest = 0;
       TestCmd = TestId = TestPar =  TestResponse = 0;
       TestStatus = 0;
       RespMillis = 0;

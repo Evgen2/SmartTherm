@@ -81,6 +81,7 @@ OneWire oneWire2(DS1820_2);
 DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
 extern int OTDebugInfo[12];
+extern unsigned int OTcount;
 
 
 void IRAM_ATTR handleInterrupt() {
@@ -305,6 +306,7 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     int parity, messagetype;
 static int timeOutcounter = 0;
 
+     OTcount++;
     SmOT.RespMillis = millis();
     if(SmOT.TestCmd == 2)
     {
@@ -609,6 +611,7 @@ unsigned int buildRequestOnStart(void)
       case 0: // запрос статуса
 // Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        SmOT.BoilerStatusRequest = request;
 #if OT_DEBUG
   { unsigned int u88;
     u88 = (request & 0xffff);
@@ -673,6 +676,7 @@ M0:
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling,  SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
 #endif
+      SmOT.BoilerStatusRequest = request;
         st++;
       break;
       case 1: //setBoilerTemperature
@@ -699,6 +703,7 @@ M0:
                break;
           } else {
             raz++;
+
             if(SmOT.CapabilitiesDetected == 0)
             {  if(raz > 2)
                  SmOT.CapabilitiesDetected = 1;
