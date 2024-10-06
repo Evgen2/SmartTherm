@@ -1,6 +1,18 @@
 # Настройки->Автоматизации и сцены->Автоматизации->Создать автоматизацию->текстовый редактор
 # Автоматизация для Weather forecast from met.no, delivered by the Norwegian Meteorological Institute.
-# и SmartTherm v 0.7.4 - требуется ввести NAME из настроек в вебинтерфейсе
+# и SmartTherm v 0.7.5 - требуется ввести идентификатор объекта с именем
+# NAME(*) из настроек в вебинтерфейсе
+# Например:
+# * в SmartTherm имя устройства задали "Boiler"
+# * В HA в списке объектов появляется объект с именем "Boiler T outdoor"
+#   и идентификатором "number.boiler_t_outdoor",
+#   тогда в target_entity пишем так:
+#    target_entity: number.boiler_t_outdoor
+#
+# Кроме того, проверьте идентификатор объекта для погоды. Он может быть
+# В Home Assistant Core  "weather.forecast_home"
+# В Home Assistant OS    "weather.forecast_home_assistant"
+
 alias: Report outdoor temp to SmartTerm from weather
 description: >-
   Script for reporting outdoor temperature to the SmartTerm controller from home
@@ -28,7 +40,7 @@ action:
 variables:
   source_entity: weather.forecast_home_assistant
   target_entity: number.NAME_t_outdoor
-# NAME - name from SmartTherm web interface ->Setup -> MQTT device name
-# example:  device name Navien 
-# target_entity: number.navien_t_outdoor
+# NAME - object id of device from SmartTherm web interface ->Setup -> MQTT device name
+# example: MQTT device name "Boiler", object name "Boiler T outdoor", object id "number.boiler_t_outdoor"
+# target_entity: number.boiler_t_outdoor
 mode: single
