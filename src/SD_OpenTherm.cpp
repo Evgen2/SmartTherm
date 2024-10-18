@@ -365,7 +365,7 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(Use_OTC);
 
 #if SERIAL_DEBUG      
-    if( n >= sizeof(Buff) )    
+    if( n > sizeof(Buff) )    
          Serial.printf("Error: %s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
    Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
 #endif         
@@ -645,7 +645,7 @@ void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
     TestResponse = -1;
     TestStatus = -1;
 #if SERIAL_DEBUG 
-    Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
+//    Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
 #endif    
 }
 
@@ -679,7 +679,7 @@ void SD_Termo::loop_PID(void)
     static int start_heat = -1;
     static  unsigned long int /* start_t=0,*/ t0=0, t_start_heat=0, flame_old = 0;
     unsigned long int t;
-    float u;
+    float  u0;
     int rc, dt;
     time_t now; 
     extern OpenTherm ot;
@@ -774,12 +774,12 @@ void SD_Termo::loop_PID(void)
     if(is & 0x02)
     {   
         if(tempoutdoor <= mypid.y0)
-            u = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
         else
         {  if(mypid.y0 != mypid.xTag)
-                  u = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
+                  u0 = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
            else
-                  u = mypid.xTag;
+                  u0 = mypid.xTag;
         }
 
 //        Serial.printf("2 u = %f u0 %f u1 %f y0 %f y1 %f\n", u, mypid.u0, mypid.u1, mypid.y0, mypid.y1); 
@@ -787,12 +787,12 @@ void SD_Termo::loop_PID(void)
 //      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  //40* 4/12
 
     } else { //нет внешней температуры
-        u = mypid.u0;
+        u0 = mypid.u0;
 //        Serial.printf("2a u = %f\n", u); 
     } 
 
     if(is & 0x01)
-    {   rc = mypid.Pid(tempindoor, u); //PID
+    {   rc = mypid.Pid(tempindoor, u0); //PID
         if(rc == 1)
         {  float _u;
             int need_heat = 0;
@@ -843,12 +843,11 @@ void SD_Termo::loop_PID(void)
 #if SERIAL_DEBUG      
       Serial.printf("loopPID(%d): need_heat 1 -> 0 , flame Off dt =%d\n",debcode, dt);
 #endif      
-                    }
-                    else if(dt < 60*30) // ограничение на полчаса. рекомендация увеличить выбег насоса в настройках котла
-                    {   if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
+                    } else if(dt < 60*30) {   // ограничение на полчаса. рекомендация увеличить выбег насоса в настройках котла
+                        if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
                         {   if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
                             {   if(RetT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
-                                {            need_heat = 0;  //то отопление не включаем
+                                {            need_heat = 0;  //то отопление не включаем ????
                                 debcode = 5;
 #if SERIAL_DEBUG      
       Serial.printf("loopPID (%d): need_heat 1 -> 0, flame Off,  dt =%d tempindoor %.2f, RetT %.2f\n", debcode, dt, tempindoor, RetT ) ;
@@ -857,8 +856,12 @@ void SD_Termo::loop_PID(void)
                             }
                         } else { //смотрим на BoilerT
                             if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
-                            {   if(BoilerT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
-                                            need_heat = 0;  //то отопление не включаем
+                            {   if(BoilerT - mypid.xTag > 5.)  //если подача теплее целевой на 5 град
+                                            need_heat = 0;  //то отопление не включаем ????
+#if SERIAL_DEBUG      
+                                debcode = 6;
+      Serial.printf("loopPID (%d): need_heat 1 -> 0, flame Off,  dt =%d tempindoor %.2f, RetT %.2f\n", debcode, dt, tempindoor, RetT ) ;
+#endif      
                             }
                         }
                     }
@@ -871,6 +874,17 @@ void SD_Termo::loop_PID(void)
 #if SERIAL_DEBUG      
       Serial.printf("loopPID: need_heat 1, start_heat 0 -> 1, flame Off,  _u -> %.2f\n", _u ) ;
 #endif      
+                        } else { //горелка выключена, но флаг start_heat стоит, значит котел выключился сам (тактование)
+                            now = time(nullptr);
+                            dt = now - Bstat.t_flame_off;
+                            if(dt < 60*3) //3 минуты
+                            {    need_heat = 0;
+                            } else {
+                                start_heat = 1; 
+                                _u = mypid.umin;
+                                t_start_heat = now; //время включения отопления
+                            }
+
                         }
                     } else {
                         start_heat = 0;                        
@@ -878,7 +892,7 @@ void SD_Termo::loop_PID(void)
       Serial.printf("loopPID: need_heat 0, start_heat 0\n" ) ;
 #endif      
                     }
-                } else { //flame on
+                } else { //flame on [if(!(BoilerStatus& 0x08)) ]
                     if(!start_heat)
                     {   if(flame_old == 0) //котёл включил горелку без нашей команды
                         {   start_heat = 1;
@@ -905,7 +919,7 @@ void SD_Termo::loop_PID(void)
 #if SERIAL_DEBUG      
       Serial.printf("loopPID: need_heat 1, start_heat 1, flame On, dt=%d RetT=%.2f Tset =%.2f BoilerT=%.2f _u =%.2f\n", dt, RetT, Tset, BoilerT, _u ) ;
 #endif      
-                                if(((_u > Tset) && ((BoilerT - RetT > 5.)  || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
+                                if(((_u > Tset) && (((BoilerT - RetT) > 5.) || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
                                 {   float r, _uu, du;
                                     r = dt/(60.*30.);
                                     _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
@@ -919,7 +933,14 @@ void SD_Termo::loop_PID(void)
 #endif      
                                 }
                             } else { //смотрим на BoilerT
-                                if(((_u > Tset) && ((mypid.umin  - RetT > 5.)))  || (Tset - BoilerT) > 5. || (FlameModulation > 30) )  
+#if SERIAL_DEBUG      
+//    { int xxx;
+//       xxx = (mypid.umin  - RetT > 5.);
+//      Serial.printf("loopPID:WTF*+*  %f %f  xxx %d\n",  mypid.umin,  RetT, xxx) ;
+//    }
+#endif      
+//??                            if(((_u > Tset) && (((mypid.umin  - RetT) > 5.)   || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
+                                if(((_u > Tset) && (((BoilerT - mypid.umin) > 5.) || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
                                 {   float r, _uu;
                                     r = dt/(60.*30.);
                                     _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
@@ -930,20 +951,30 @@ void SD_Termo::loop_PID(void)
                             }
                         }
                     }
-                }
+                } //endof if(!(BoilerStatus& 0x08))  
             }  //endof  (need_heat) 
  /*****************************************/
-            if(!need_heat && (BoilerStatus& 0x08))
+            if(!need_heat && (BoilerStatus& 0x08))   //отопление не нужно, но горелка ключена
             {   now = time(nullptr);
                 dt = now - Bstat.t_flame_on;
-                if(dt < 60*3) //3 минуты
+                if(dt < 60*3) //3 минуты не выключаем, но горелку на минимум
                 {    need_heat = 1;
                      debcode = 21;
+                    _u = mypid.umin;
 #if SERIAL_DEBUG      
       Serial.printf("loopPID(%d): need_heat 0->1 dt from flame on %d\n", debcode, dt) ;
 #endif      
                 }
             }                    
+ /*****************************************/
+           if(need_heat && !(BoilerStatus& 0x08))   //отопление  нужно, но горелка выключена
+           {   now = time(nullptr);
+               dt = now - Bstat.t_flame_off;
+                if(dt < 60*3) //3 минуты не выключаем, но горелку на минимум
+                {    need_heat = 0;
+                }
+           }
+ 
  /*****************************************/
             
             if(need_heat)

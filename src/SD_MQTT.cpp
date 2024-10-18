@@ -334,20 +334,20 @@ extern unsigned int OTcount;
     numT_outdoor.setAvailability(true);
     numT_outdoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T outdoor", "Toutdoor");
     numT_outdoor.setMode(HANumber::ModeBox);
-    numT_outdoor.setState(23.f, true);
-    numT_outdoor.setCurrentState(22.f);
+    numT_outdoor.setState(10.f, true);
+    numT_outdoor.setCurrentState(10.f);
     numT_outdoor.setStep(0.1);
     numT_outdoor.setMin(-50.);
-    numT_outdoor.setMax( 100.);
+    numT_outdoor.setMax( 50.);
     numT_outdoor.onCommand(onNumberCommand);
 
     numT_indoor.setAvailability(true);
     numT_indoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T indoor", "Tindoor");
     numT_indoor.setMode(HANumber::ModeBox);
-    numT_indoor.setState(33.f, true);
+    numT_indoor.setState(20.f, true);
     numT_indoor.setStep(0.1);
     numT_indoor.setMin(-50.);
-    numT_indoor.setMax( 100.);
+    numT_indoor.setMax( 50.);
     numT_indoor.onCommand(onNumberCommand);
 
 
