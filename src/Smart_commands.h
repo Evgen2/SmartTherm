@@ -32,11 +32,22 @@
 #define  MCMD_GET_OT_INFO	0x23 // get Open Therm info
 #define  MCMD_SET_OT_DATA	0x24 // set Open Therm data
 #define  MCMD_OT_DEBUG  0x30 // set/get Open Therm debug 0/1
+#define  MCMD_GET_CAP   0x31 // get capabilities
 
 #define  MCMD_GETLOG		    0x15 //запрос лога
 #define  MCMD_LOGON		    	0x16 // лог вкючить-выключить
 #define  MCMD_GET_PAR       0x17 //
 #define  MCMD_GET_ADC       0x18 //
+
+#define  SCMD_GET_STS		    0x30 // get controller sts  (server ask controller)
+#define  SCMD_GET_HAND_SHAKE	0x31 //   server ask handhake
+#define  CCMD_SEND_STS_S	0x40 // controller send sts  (controller send server)
+#define  ACMD_ASK_STS_S		0x50 // applcation ask is controller known  (applcation ask server)
+#define  ACMD_GET_STS_S		0x51 // applcation get controller sts  (applcation ask server)
+
+#define  ACMD_SET_STATE_C	0x52 // applcation set controller state  (applcation send controller)
+#define  ACMD_SET_STATE_S	0x53 // applcation set controller state via server (applcation send server)
+#define  SCMD_SET_STATE_C	0x54 // server set controller state (server send controller)
 
 
 

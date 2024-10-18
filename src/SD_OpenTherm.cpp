@@ -20,14 +20,19 @@ extern AutoConnectFS::FS& FlashFS;
 
 
 extern int TcpUdp_Lsend;
+extern int TcpServer_Lsend;
+
 extern PACKED unsigned char *Udp_MsgOut;
 
 extern IPAddress Udp_remoteIP;  
 extern int Udp_RemotePort;
 extern U8 *esp_get_buf (U16 size);
+extern U8 *server_get_buf (U16 size);
+
+extern int TCPserver_close_on_send;
 
 //struct Msg1 msg;
-static int indcmd = 0;
+int indcmd = 0;
 
 #if MQTT_USE
   #if defined(ARDUINO_ARCH_ESP8266)
@@ -83,6 +88,7 @@ int SD_Termo::Read_ot_fs(void)
   {
     memcpy((void *) &useMQTT, &Buff[n], sizeof(useMQTT));
     n += sizeof(useMQTT);
+
     memcpy((void *) MQTT_server, &Buff[n], sizeof(MQTT_server));
     n += sizeof(MQTT_server);
     memcpy((void *) MQTT_user, &Buff[n], sizeof(MQTT_user));
@@ -102,7 +108,6 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &usePID, &Buff[n], sizeof(usePID));
     n += sizeof(usePID);
     if(n >= nw) goto END;
-        Serial.printf("usePID=%d\n", usePID);
     memcpy((void *) &srcTroom, &Buff[n], sizeof(srcTroom));
     n += sizeof(srcTroom);
     if(n >= nw) goto END;
@@ -144,6 +149,13 @@ int SD_Termo::Read_ot_fs(void)
     if(n >= nw) goto END;
     memcpy((void *) &CH2_DHW_flag, &Buff[n], sizeof(CH2_DHW_flag));
     n += sizeof(CH2_DHW_flag);
+    if(n >= nw) goto END;
+    memcpy((void *) &UseWinterMode, &Buff[n], sizeof(UseWinterMode));
+    n += sizeof(UseWinterMode);
+    if(n >= nw) goto END;
+    memcpy((void *) &Use_OTC, &Buff[n], sizeof(Use_OTC));
+    n += sizeof(Use_OTC);
+
 END:
 
 #if SERIAL_DEBUG      
@@ -166,7 +178,6 @@ END:
 int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 {   int  n, nw, i, l;
     unsigned short int crs, crs_r, nn;
-    uint8_t Buff[FS_BUF];
 
     rlen = 0;
 #if SERIAL_DEBUG      
@@ -206,17 +217,15 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #endif        
         return 3;
     }
-    if((nn +  sizeof(unsigned short int)) > (sizeof(Buff) ))
+    if(nn  > len)
+    {
+        Serial.printf((PGM_P)F("read file Buff size  %d, must be =%d\n"), len, nn);
         return 10;
+    }
 
-    if(len  < int(nn +  sizeof(unsigned short int)))
-        return 11;
+    crs = nn;
     nw = nn;
-    n = sizeof(nn);
-    memcpy(&Buff[0],(void *) &nn, n);
-//    nw += sizeof(short int);
-    l = n;
-    n = file.read((unsigned char *)&Buff[l], nw); //read nn bytes of data
+    n = file.read((unsigned char *) dataBuff, nw); //read nn bytes of data
     if(n != nw)
     {   file.close();
 #if SERIAL_DEBUG      
@@ -224,18 +233,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #endif        
         return 3;
     }
-    l += n;
+    l = n;
     n = file.read((unsigned char *)&crs_r, sizeof(short int));  //read 2 bytes control sum
 
-/***************************/    
-//    for(i=0; i<l; i++)
-//            Serial.printf("%02x ",Buff[i]);
-//    Serial.printf("\n");
-/***************************/    
-
-    crs = 0;
     for(i=0; i<l; i++)
-    {  crs += Buff[i];
+    {  crs += dataBuff[i];
     }
 
     if(crs !=  crs_r )
@@ -250,8 +252,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #if SERIAL_DEBUG      
     Serial.println(F("file.close()"));
 #endif
-    rlen = l-sizeof(short int);
-    memcpy(&dataBuff[0], &Buff[sizeof(short int)], rlen);
+    rlen = l;
   
     return 0;
 }
@@ -259,27 +260,11 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
 {   int rc=0, i, n, nw;
-    unsigned short int crs, nn;
-    uint8_t Buff[FS_BUF];
-
-    if((unsigned int)len > (sizeof(Buff) -2 * sizeof(unsigned short int)))
-    {
-        Serial.printf((PGM_P)F("Error: Writing %d bytes to %d buff\n"),  len +2 * sizeof(unsigned short int), sizeof(Buff));
-#if SERIAL_DEBUG      
-#endif // SERIAL_DEBUG      
-
-        return 10;
-    }
+    unsigned short int crs;
 
 #if SERIAL_DEBUG      
     Serial.printf((PGM_P)F("Writing file: %s %d bytes\n"), _path, len);
 #endif // SERIAL_DEBUG      
- //??
- /*  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
-    if(b == false)
-    {   Serial.println("FlashFS.begin failed");
-    }
-*/
 
 //    File file = FlashFS.open(_path, FILE_WRITE);  //FILE_WRITE
     File file = FlashFS.open(_path, "w");  //FILE_WRITE
@@ -291,25 +276,17 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
         return 1;
     }
 
-    nn = len;
-    n = sizeof(unsigned short int);
-    memcpy(&Buff[0],(void *) &nn, n);
-    memcpy(&Buff[n],(void *) dataBuff, len);
-    len += n;
-    crs = 0;
+    crs = (unsigned short int) len;
+    nw = file.write((unsigned char *) &crs, sizeof(unsigned short int));
     for(i=0; i<len; i++)
-      crs += Buff[i];
-
-    memcpy(&Buff[len],(void *) &crs, sizeof(crs));
-    len += sizeof(crs);
-/***************************/    
-//    for(i=0; i<len; i++)
-//            Serial.printf("%02x ",Buff[i]);
-//    Serial.printf("\n");
-/***************************/    
-    nw = file.write((unsigned char *) &Buff[0], len);
-    if(nw != len)
+      crs += dataBuff[i];
+    n = file.write((unsigned char *) &dataBuff[0], len);
+    if(n != len)
         rc = 1;
+    else nw += n;    
+    nw += file.write((unsigned char *) &crs, sizeof(unsigned short int));
+    if(nw != (len + 4))
+        rc = 2;
     file.close();
     return rc;
 }
@@ -387,13 +364,17 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
 
     memcpy(&Buff[n],(void *) &CH2_DHW_flag, sizeof(CH2_DHW_flag));
     n += sizeof(CH2_DHW_flag);
+    memcpy(&Buff[n],(void *) &UseWinterMode, sizeof(UseWinterMode));
+    n += sizeof(UseWinterMode);
+    memcpy(&Buff[n],(void *) &Use_OTC, sizeof(Use_OTC));
+    n += sizeof(Use_OTC);
 
 #if SERIAL_DEBUG      
-    if( n >= sizeof(Buff) )    
+    if( n > sizeof(Buff) )    
          Serial.printf("Error: %s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
+   Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
 #endif         
     
-   Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
     rc = Write_data_fs((char *)path, Buff, n);
 
     return rc;
@@ -419,7 +400,8 @@ void SD_Termo::init(void)
 
  
 void SD_Termo::loop(void)
-{  int dt;
+{   int dt;
+    extern int WiFists;
 
     if(need_write_f)
     {   
@@ -435,33 +417,180 @@ void SD_Termo::loop(void)
         need_write_f = 0;
 #endif // SERIAL_DEBUG      
      
-    }
+    } else  if(WiFists  == WL_CONNECTED) {
     
-    if(UDPserver_sts)
-    {    dt = millis() - UDPserver_t;
-         if(dt < UDPserver_repot_period)
-         {   return;
-         }
-        if(TcpUdp_Lsend > 0)
-            return;
-//  Serial.printf("SD_Termo::loop %li\n",  millis());
-        OpenThermInfo();
-        UDPserver_t = millis();
-    }
-    if(TCPserver_sts)
-    {    dt = millis() - TCPserver_t;
-         if(dt < TCPserver_repot_period)
-         {   return;
-         }
-        if(TcpUdp_Lsend > 0)
-            return;
-  
-        OpenThermInfo();
-        TCPserver_t = millis();
+        if(UDPserver_sts)
+        {    dt = millis() - UDPserver_t;
+            if(dt < UDPserver_repot_period)
+            {   return;
+            }
+            if(TcpUdp_Lsend > 0)
+                return;
+    //  Serial.printf("SD_Termo::loop %li\n",  millis());
+            OpenThermInfo();
+            UDPserver_t = millis();
+        }
+
+    /*   backup 
+        if(TCPserver_sts)
+        {    dt = millis() - TCPserver_t;
+            if(dt < TCPserver_report_period)
+            {   return;
+            }
+            if(TcpUdp_Lsend > 0)
+                return;
+    
+            OpenThermInfo();
+            TCPserver_t = millis();
+        }
+    */    
+        if(TCPserver_sts)
+        {  static unsigned long ts0=0;
+
+	static int ols_sts=-1;
+	if(TCPserver_sts2 != ols_sts)
+	{
+//		Serial.printf("TCPserver_sts2=%d\n",  TCPserver_sts2);
+		ols_sts = TCPserver_sts2;
+	}
+
+
+             switch(TCPserver_sts2)
+            {   case 0:
+                    if(millis() - ts0 > TCPserver_report_period) //todo
+                    {   TCPserver_sts2 = 1; 
+                    }
+                        break;
+                case 1:
+                    TCPserver_rc = 0;
+                    Send_to_server_HandShake();
+                    TCPserver_sts2++;
+                    ts0 = millis();
+//    Serial.printf("SD_Termo::loop Send_to_server_HandShake\n");
+                        break;
+
+                case 2:
+    /* ждать ответа на Send_to_server_HandShake */  
+    /* если есть ответ - переход на след sts, иначе после таймаута переход на паузу  
+    */          
+                    if(millis() - ts0 > 5000) //todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == MCMD_HAND_SHAKE) {
+                        TCPserver_rc = 0;
+                        Send_to_server_IdentifySelf();
+                        TCPserver_sts2++;
+                        ts0 = millis();
+//    Serial.printf("SD_Termo::loop Send_to_server_IdentifySelf\n");
+                    }
+
+                        break;
+
+                case 3: //wait answer MCMD_INTRODUCESELF from server 
+                    if(millis() - ts0 > 5000) //todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == MCMD_INTRODUCESELF) {
+                        TCPserver_sts2 = 5; //4; 
+                        ts0 = millis();
+                    }
+
+                        break;
+
+                case 4: //wait SCMD_GET_STS from server ??????
+                    if(millis() - ts0 > 5000) //todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == SCMD_GET_STS) {
+                        TCPserver_sts2 = 5; 
+                        ts0 = millis();
+                    }
+                    break;
+
+                case 5:
+                    if(millis() - ts0 > TCPserver_report_period) //todo
+                    {   TCPserver_sts2 = 6; 
+                        //send  CCMD_SEND_STS
+                        Send_to_server_Sts();
+                        ts0 = millis();
+                    } else {
+                        static int old_dt = 0;
+                        int dt;
+                        dt = (millis() - ts0)/ 1000;
+                        if(dt != old_dt)
+                        { old_dt = dt;
+                         //  Serial.printf("dt %d (%d)\n", dt, TCPserver_report_period/1000 );
+                        }
+                    }
+                    break;
+
+                case 6: //wait answer to CCMD_SEND_STS from server
+                    if(millis() - ts0 > 5000) //todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == CCMD_SEND_STS_S) {
+                        TCPserver_sts2 = 5; 
+                        ts0 = millis();
+                    }
+                    break;
+            }
+        }
     }
 }
 
-//send to remote MCMD_OT_INFO  
+//send to remote MCMD_HAND_SHAKE
+void SD_Termo::Send_to_server_HandShake(void)
+{   int l;
+    unsigned char * MsgOut;
+    struct Msg1 *msg;
+    l = strlen(HAND_SHAKE_INP);
+
+    TcpServer_Lsend = 6 + l;	
+
+    MsgOut = server_get_buf(TcpServer_Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+    msg->cmd0 = 0x22;
+    msg->cmd  = MCMD_HAND_SHAKE;
+    msg->ind = indcmd++;
+	memcpy(&MsgOut[6], HAND_SHAKE_INP,l);
+    TCPserver_close_on_send = 0;
+}
+
+//MCMD_INTRODUCESELF MD_IDENTIFY
+void SD_Termo::Send_to_server_IdentifySelf(void)
+{ int l, lp; 
+    unsigned char * MsgOut;
+    struct Msg1 *msg;
+
+    l = strlen((PGM_P)IDENTIFY_TEXT); 
+
+    lp =  sizeof(int)*6 + 6 + 12 + l;
+    TcpServer_Lsend = 6 +  sizeof(short int) + lp;	
+  
+//    Serial.printf("Send_IdentifySelf l= %d %d %d\n", l, lp, TcpUdp_Lsend);
+    MsgOut = server_get_buf(TcpServer_Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+    msg->cmd0 = 0x22;
+    msg->cmd  = MCMD_INTRODUCESELF;
+    msg->ind = indcmd++;
+
+    *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
+    *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
+    *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
+    *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
+    *((PACKED int *) (&MsgOut[20]))  =  Vers;	
+    *((PACKED int *) (&MsgOut[24]))  =  SubVers;	
+    *((PACKED int *) (&MsgOut[28]))  =  SubVers1;	
+ 	memcpy((void *)&MsgOut[32],(void *)BiosDate,12);
+
+	memcpy((void *)&MsgOut[44],(void *)&Mac[0],6);
+//    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",Mac[0], Mac[1],Mac[2], Mac[3], Mac[4], Mac[5]);
+
+    memcpy_P((void *)&MsgOut[50],(void *)(PGM_P)IDENTIFY_TEXT, l);
+  
+}
+
+ //send to remote MCMD_OT_INFO  
 void SD_Termo::OpenThermInfo(void)
 {   int i,l;
     unsigned char * MsgOut;
@@ -500,15 +629,83 @@ void SD_Termo::OpenThermInfo(void)
     memcpy((void *)&msg->Buf[64],(void *)&Fault,1); 	//b1
       
 }
-    
-//MCMD_GET_OT_INFO
-void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+
+//MCMD_GET_CAP
+int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
-    short int B_flags;
-    Lsend = 6 + 64;
+    short int B_flags, tmp;
+    unsigned int B_flags4;
+  //  Serial.printf("callback_Get_Capabilities len %d ", len);
+    
+    Lsend = 6 + 16;
     MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
     memcpy((void *)&MsgOut[6],(void *) Mac,6); 
+    B_flags =  CapabilitiesDetected;
+    DetectCapabilities();
+
+	memcpy((void *)&MsgOut[12],(void *) &B_flags,2); 
+	memcpy((void *)&MsgOut[14],(void *) &stsOT,2); 
+
+    B_flags4 = 0;
+
+    if(HotWater_present)      B_flags4 |= 0x01;  //from SConfigSMemberIDcode
+    if(CH2_present)           B_flags4 |= 0x02;  //from SConfigSMemberIDcode
+    if(RetT_present)          B_flags4 |= 0x04;  //OTid_used
+    if(Toutside_present)      B_flags4 |= 0x08;  //OTid_used 
+    if(Pressure_present)      B_flags4 |= 0x10;  //OTid_used
+//todo
+
+#if  MQTT_USE
+     B_flags4 |= 0x100;  //MQTT_defined
+     if(useMQTT)
+         B_flags4 |= 0x200;  //use MQTT
+#endif
+#if  PID_USE
+     B_flags4 |= 0x400;  //PID_defined
+     if(usePID)
+         B_flags4 |= 0x800;  //use PID
+#endif
+	 memcpy((void *)&MsgOut[16],(void *) &B_flags4,4); 
+
+     return 0;
+}
+
+//MCMD_GET_OT_INFO
+int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{
+    short int B_flags, tmp;
+    int rc = 1, tmp4, statDS;
+
+//    Serial.printf("callback_Get_OpenThermInfo len %d ", len);
+
+    if(len != 12)
+    { 
+        Serial.printf("callback_Get_OpenThermInfo Error: len != 12\n");
+        return 0;
+    }
+	memcpy((void *)&tmp4,(void *)&bf[6],4);
+	memcpy((void *)&tmp,(void *)&bf[10],2);
+    if(tmp & 0x02)
+       TCPserver_report_period = tmp4*1000;
+
+//todo debug !!!
+/*
+    if(tmp & 0x02)
+     TCPserver_sts = 1;
+    else 
+     TCPserver_sts = 0;
+*/
+    TCPserver_close_on_send = tmp&0x01;
+
+//    Serial.printf("TCPserver report_period %d close_on_send %d sts %d\n",
+//         TCPserver_report_period, TCPserver_close_on_send, TCPserver_sts);
+
+    Lsend = 6 + 68;
+    MsgOut = get_buf(Lsend);
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+
+ //   Serial.printf("callback_Get_OpenThermInfo Mac %02x %02x %02x %02x %02x %02x\n", Mac[0], Mac[1], Mac[2], Mac[3], Mac[4], Mac[5]);
 
     B_flags = 0;
     if(enable_CentralHeating) B_flags |= 0x01;
@@ -527,27 +724,190 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
      if(usePID)
          B_flags |= 0x800;  //use PID
 #endif
-    
-         
-	 memcpy((void *)&MsgOut[12],(void *) &B_flags,2); 
-	 memcpy((void *)&MsgOut[14],(void *) &stsOT,2); 
-//    &MsgOut[16]  todo
-
-     memcpy((void *)&MsgOut[18],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+/*    
+    Serial.printf("B_flags %x\n", B_flags);
+    Serial.printf("stsOT %x\n", stsOT);
+    Serial.printf("t_lastwork %x\n", t_lastwork);
+    Serial.printf("BoilerStatus %x\n", BoilerStatus);
+*/         
+	 memcpy((void *)&MsgOut[6],(void *) &B_flags,2); 
+	 memcpy((void *)&MsgOut[8],(void *) &stsOT,2); 
+     memcpy((void *)&MsgOut[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
      
-	 memcpy((void *)&MsgOut[26],(void *) &BoilerStatus,4);  //20=12+8
-	 memcpy((void *)&MsgOut[30],(void *) &BoilerT,4); 
-	 memcpy((void *)&MsgOut[34],(void *) &RetT,4); 
-	 memcpy((void *)&MsgOut[38],(void *) &Tset,4); 
-	 memcpy((void *)&MsgOut[42],(void *) &Tset_r,4); 
-	 memcpy((void *)&MsgOut[46],(void *) &dhw_t,4); 
-	 memcpy((void *)&MsgOut[50],(void *) &FlameModulation,4); 
-	 memcpy((void *)&MsgOut[54],(void *) &Pressure,4); 
-	 memcpy((void *)&MsgOut[58],(void *) &status,4); 
-	 memcpy((void *)&MsgOut[62],(void *) &t1,4); 
-	 memcpy((void *)&MsgOut[66],(void *) &t2,4); 
-     //70
+{
+//     Serial.printf("t_lastwork =  %s ", ctime(&t_lastwork));
+//     Serial.printf("  %02x %02x %02x %02x \n", MsgOut[10], MsgOut[11],MsgOut[12], MsgOut[13]);
 }
+
+	 memcpy((void *)&MsgOut[14],(void *) &BoilerStatus,4);  //20=12+8
+//    Serial.printf("BoilerT %f\n", BoilerT);
+//    Serial.printf("RetT %f\n", RetT);
+
+	 memcpy((void *)&MsgOut[18],(void *) &BoilerT,4); 
+	 memcpy((void *)&MsgOut[22],(void *) &RetT,4); 
+	 memcpy((void *)&MsgOut[26],(void *) &Tset,4); 
+	 memcpy((void *)&MsgOut[30],(void *) &Tset_r,4); 
+	 memcpy((void *)&MsgOut[34],(void *) &dhw_t,4); 
+	 memcpy((void *)&MsgOut[38],(void *) &FlameModulation,4); 
+	 memcpy((void *)&MsgOut[42],(void *) &Pressure,4); 
+     statDS = 0;
+     if(stsT1 > 0)
+	        statDS |= (stsT1&03);
+     if(stsT2 > 0)
+	        statDS |= (stsT2&03)<<8;
+     memcpy((void *)&MsgOut[46],(void *) &statDS,4); 
+	 memcpy((void *)&MsgOut[50],(void *) &t1,4); 
+	 memcpy((void *)&MsgOut[54],(void *) &t2,4); 
+	 memcpy((void *)&MsgOut[58],(void *) &Toutside,4); 
+ #if PID_USE
+	 memcpy((void *)&MsgOut[62],(void *) &tempindoor,4); 
+	 memcpy((void *)&MsgOut[66],(void *) &tempoutdoor,4); 
+#else
+    {   float tmp = 0.f;
+	 memcpy((void *)&MsgOut[62],(void *) &tmp,4); 
+	 memcpy((void *)&MsgOut[66],(void *) &tmp,4); 
+    }
+#endif
+	 memcpy((void *)&MsgOut[70],(void *) &TroomTarget,4); 
+
+//    Serial.printf("callback_Get_OpenThermInfo rc %d Lsend %d ",rc, Lsend);
+
+     //74
+     return rc;
+}
+
+//CCMD_SEND_STS send to remote server
+void SD_Termo::Send_to_server_Sts(void) 
+{   unsigned char * MsgOut;
+    Send_to_server_Sts(MsgOut, TcpServer_Lsend, server_get_buf );
+
+//  Serial.printf("++++++Send_to_server_Sts()\n");
+}
+
+//CCMD_SEND_STS_S send to remote server
+void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size) )
+{   short int B_flags, tmp;
+    int rc = 1, tmp4, statDS, l;
+    struct Msg1 *msg;
+
+    l = 74;
+    Lsend = 6 +  l;	
+  
+    MsgOut = get_buf(Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+
+    msg->cmd0 = 0x22;
+    msg->cmd  = CCMD_SEND_STS_S;
+    msg->ind = indcmd++;
+
+//    memcpy((void *)&msg->Buf[0],(void *) Mac,6); 
+
+//	 ClientId & ClientId_k todo; 
+
+    memcpy((void *)&msg->Buf[0],(void *) &ClientId,4); 
+ //   Serial.printf("ClientId  %d ClientId_k %x TCPserver_report_period %d\n", ClientId, ClientId_k);
+
+    B_flags = 0;
+    if(enable_CentralHeating) B_flags |= 0x01;
+    if(enable_HotWater)       B_flags |= 0x02;  
+    if(HotWater_present)      B_flags |= 0x10;  
+    if(CH2_present)           B_flags |= 0x20;  
+    if(Toutside_present)      B_flags |= 0x40;  
+    if(Pressure_present)      B_flags |= 0x80; 
+#if  MQTT_USE
+     B_flags |= 0x100;  //MQTT_defined
+     if(useMQTT)
+         B_flags |= 0x200;  //use MQTT
+#endif
+#if  PID_USE
+     B_flags |= 0x400;  //PID_defined
+     if(usePID)
+         B_flags |= 0x800;  //use PID
+#endif
+/* todo Buf[6] -> Buf[4] */
+    
+	 memcpy((void *)&msg->Buf[6],(void *) &B_flags,2); 
+	 memcpy((void *)&msg->Buf[8],(void *) &stsOT,2); 
+     memcpy((void *)&msg->Buf[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+	 memcpy((void *)&msg->Buf[14],(void *) &BoilerStatus,4);  //20=12+8
+	 memcpy((void *)&msg->Buf[18],(void *) &BoilerT,4); 
+	 memcpy((void *)&msg->Buf[22],(void *) &RetT,4); 
+	 memcpy((void *)&msg->Buf[26],(void *) &Tset,4); 
+	 memcpy((void *)&msg->Buf[30],(void *) &Tset_r,4); 
+	 memcpy((void *)&msg->Buf[34],(void *) &dhw_t,4); 
+	 memcpy((void *)&msg->Buf[38],(void *) &FlameModulation,4); 
+	 memcpy((void *)&msg->Buf[42],(void *) &Pressure,4); 
+     statDS = 0;
+     if(stsT1 > 0)
+	        statDS |= (stsT1&03);
+     if(stsT2 > 0)
+	        statDS |= (stsT2&03)<<8;
+     memcpy((void *)&msg->Buf[46],(void *) &statDS,4); 
+	 memcpy((void *)&msg->Buf[50],(void *) &t1,4); 
+	 memcpy((void *)&msg->Buf[54],(void *) &t2,4); 
+	 memcpy((void *)&msg->Buf[58],(void *) &Toutside,4); 
+ #if PID_USE
+	 memcpy((void *)&msg->Buf[62],(void *) &tempindoor,4); 
+	 memcpy((void *)&msg->Buf[66],(void *) &tempoutdoor,4); 
+#else
+    {   float tmp = 0.f;
+	 memcpy((void *)&msg->Buf[62],(void *) &tmp,4); 
+	 memcpy((void *)&msg->Buf[66],(void *) &tmp,4); 
+    }
+#endif
+	 memcpy((void *)&msg->Buf[70],(void *) &TroomTarget,4); 
+
+     //74
+}
+
+//MCMD_INTRODUCESELF answer
+int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)
+{   int tmp4;
+    if(len < 12)
+        return -1;
+    TCPserver_rc = MCMD_INTRODUCESELF;
+	memcpy((void *)&ClientId,(void *)&bf[6],4);
+	memcpy((void *)&ClientId_k,(void *)&bf[10],4);
+	memcpy((void *)&tmp4,(void *)&bf[14],4);
+//    Serial.printf("******* server_answer_IdentifySelf ClientId %d ClientId_k %x TCPserver_report_period %d\n", 
+//                    ClientId, ClientId_k, tmp4);
+    TCPserver_report_period = tmp4*1000;
+    return 0;
+}
+
+//CCMD_SEND_STS answer from remote server
+int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
+{   int tmp4;
+//    Serial.printf("##### servercallback_send_Sts_answ len %d\n", len);
+    TCPserver_rc = CCMD_SEND_STS_S;
+	memcpy((void *)&tmp4,(void *)&bf[6],4);
+    TCPserver_report_period = tmp4*1000;
+//    Serial.printf("(2)TCPserver_report_period  %d\n", TCPserver_report_period);
+
+    return 1;
+}
+
+//SCMD_GET_STS answer  to remote server
+int SD_Termo::servercallback_Get_Sts( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{   short int B_flags, tmp;
+    int rc = 1, tmp4, statDS, l;
+    struct Msg1 *msg;
+
+    Serial.printf("!!!!!!!!servercallback_Get_Sts len %d\n", len);
+    if(len != 10)
+    { 
+        Serial.printf("Error: len != 10\n");
+        return 0;
+    }
+    TCPserver_rc = SCMD_GET_STS;
+	memcpy((void *)&tmp4,(void *)&bf[6],4);
+    TCPserver_report_period = tmp4*1000;
+    Serial.printf("!!!!!!!!TCPserver_report_period  %d\n", TCPserver_report_period);
+
+    Send_to_server_Sts( MsgOut, Lsend, get_buf); 
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); // msg->cmd  = SCMD_GET_ST;
+      return 1; 
+};
 
 //MCMD_SET_OT_DATA:
 // set
@@ -558,7 +918,7 @@ void SD_Termo::callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOu
 void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
     short int B_flags;
-    float v, vT, roomSetpointT;
+    float v, vT;
     bool flag;
     int isChange = 0;
 
@@ -591,12 +951,13 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
 	memcpy((void *)&v,(void *)&bf[6+2],4); //Tset
     vT = CHtempLimit(v);
 
+#if  PID_USE
+    float roomSetpointT;
 	memcpy((void *)&v,(void *)&bf[6+6],4); //roomSetpointT
     if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
     else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     roomSetpointT = v;
 
-#if  PID_USE
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
         {   mypid.xTag = roomSetpointT;
@@ -629,6 +990,84 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
         need_write_f = 1;  //need write changes to FS
 
 }
+
+//ACMD_SET_STATE_C
+void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{   short int B_flags;
+    float v, vT;
+    bool flag;
+    int isChange = 0;
+
+    Lsend = 6;
+    MsgOut = get_buf(Lsend);
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+
+	memcpy((void *)&B_flags,(void *)&bf[6],2);
+    if(B_flags & 0x01)
+            flag = true;
+    else
+            flag  = false;
+    if(flag != enable_CentralHeating)
+    {   enable_CentralHeating = flag;
+        isChange = 1;
+    }
+
+    if(HotWater_present) 
+    {   if(B_flags & 0x02)
+            flag = true;
+        else
+            flag = false;
+
+        if(flag != enable_HotWater)
+        {   enable_HotWater = flag;
+            isChange = 1;
+        }
+    }
+
+	memcpy((void *)&v,(void *)&bf[6+2],4); //Tset
+    vT = CHtempLimit(v);
+
+#if  PID_USE
+    float roomSetpointT;
+	memcpy((void *)&v,(void *)&bf[6+6],4); //roomSetpointT
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+    roomSetpointT = v;
+
+    if(usePID)
+    {   if(mypid.xTag != roomSetpointT)
+        {   mypid.xTag = roomSetpointT;
+            isChange = 1;
+        }
+    } else {
+      if(vT != Tset)
+      { Tset = vT;
+        need_set_T = 1;
+        isChange = 1;
+      } 
+    }
+#else
+      if(vT != Tset)
+      { Tset = vT;
+        need_set_T = 1;
+        isChange = 1;
+      } 
+#endif
+	memcpy((void *)&v,(void *)&bf[6+10],4); //TdhwSet
+    vT = CHtempLimit(v);
+    if(vT != TdhwSet)
+    { TdhwSet = vT;
+        need_set_dhwT = 1;
+        isChange = 1;
+      } 
+
+
+    if(isChange)
+        need_write_f = 1;  //need write changes to FS
+
+  Serial.printf("%s, todo len=%d\n", __FUNCTION__,  len); 
+
+};
 
 //MCMD_GETDATA
 void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
@@ -668,7 +1107,7 @@ void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
     TestResponse = -1;
     TestStatus = -1;
 #if SERIAL_DEBUG 
-    Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
+//    Serial.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
 #endif    
 }
 
@@ -696,301 +1135,9 @@ void SD_Termo::OnChangeT(float t, int src)
 }
 
 #if PID_USE
-int debcode = 0;
-void SD_Termo::loop_PID(void)
-{   static int start = 2;
-    static int start_heat = -1;
-    static  unsigned long int /* start_t=0,*/ t0=0, t_start_heat=0, flame_old = 0;
-    unsigned long int t;
-    float u;
-    int rc, dt;
-    time_t now; 
-    extern OpenTherm ot;
 
-    int is = 0;
-    if(!usePID)
-        return;
 
-    t = millis();
-    if(t - t0 < (unsigned long int)(mypid.t_interval*1000))
-            return;
-    t0 = t;
-//получаем средние значения для используемых температур
-    for(int i=0; i < 8; i++)
-    {
-//Serial.printf( "%d isset %d nx %d\n", i,t_mean[i].isset,t_mean[i].nx );
-         if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
-            continue;
-        t_mean[i].get();
-//debug
-//    Serial.printf("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
-
-        if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
-                t_mean[i].init();
-    }
-
-/**********************************************/
-    if(start)
-    {   if(start == 2)
-        {  // start_t = t;
-            start = 1;
-            mypid.NextTact();
-        }
-
-        if(srcTroom < 0 || srcTroom > 4)
-        {  is = 0;
-        } else {
-//  Serial.printf("0 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
-//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
-
-            if(t_mean[srcTroom].isset == -1)
-            {   if(t_mean[srcTroom].nx > 1)
-                {    tempindoor = t_mean[srcTroom].xmean / float(t_mean[srcTroom].nx) ; 
-                    is |= 1;
-                }
-            } else {
-                tempindoor = t_mean[srcTroom].x;
-                is |= 1;
-                start = 0; //
-            }
-            if(srcText < 0 || srcText > MAX_PID_SRC) 
-            {
-                is &= ~2;
-
-            } else if(t_mean[srcText].isset == -1) {
-                if(t_mean[srcText].nx > 1)
-                {    tempoutdoor = t_mean[srcText].xmean / float(t_mean[srcText].nx) ; 
-                    is |= 2;
-                }
-            } else {
-                tempoutdoor = t_mean[srcText].x;
-                is |= 2;
-            }
-        }
-//        Serial.printf("0 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
-    } else {  // start == 0
-
-        if(srcTroom >= 0 && srcTroom <= 3 ) // !4
-        {
-//    Serial.printf("00 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
-//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
-
-            if(t_mean[srcTroom].isset >= 0)
-            {   tempindoor = t_mean[srcTroom].x;
-                is |= 1;
-            }
-        }
-        if((srcText >= 0 && srcText <= 2) || (srcText >= 4 && srcText <= MAX_PID_SRC)) // !3 MAX_PID_SRC!!
-        {
-            if(t_mean[srcText].isset >= 0)
-            {   tempoutdoor = t_mean[srcText].x;
-#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
-                need_set_dhwT = 1;
-#endif
-                is |= 2;
-            }
-        }
-//    Serial.printf("1 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
-    }
-/************ endof  if(start) **********************************/
-
-    if(is & 0x02)
-    {   
-        if(tempoutdoor <= mypid.y0)
-            u = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
-        else
-        {  if(mypid.y0 != mypid.xTag)
-                  u = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
-           else
-                  u = mypid.xTag;
-        }
-
-//        Serial.printf("2 u = %f u0 %f u1 %f y0 %f y1 %f\n", u, mypid.u0, mypid.u1, mypid.y0, mypid.y1); 
-
-//      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  //40* 4/12
-
-    } else { //нет внешней температуры
-        u = mypid.u0;
-//        Serial.printf("2a u = %f\n", u); 
-    } 
-
-    if(is & 0x01)
-    {   rc = mypid.Pid(tempindoor, u); //PID
-        if(rc == 1)
-        {  float _u;
-            int need_heat = 0;
-            _u = mypid.u;
-            if(_u > mypid.umax)
-                    _u =  mypid.umax;
-            if(_u <= mypid.xTag)
-            {    need_heat = 0;
-            debcode = 1;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID(%d): _u %f < xTag %f need_heat 0\n", debcode, _u, mypid.xTag);
-#endif      
-            }
-            else if(_u <= mypid.umin)
-            {   if(mypid.umin - _u > 5.)
-                {    need_heat = 0;
-                debcode = 2;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID(%d): _u %f < mypid.umin %f - 5 need_heat 0\n", debcode, _u, mypid.umin);
-#endif      
-                }
-                else //если целевая температура не ниже минимальной минус 5 градусов, выдаем минимальную
-                {   _u = mypid.umin;
-                    need_heat = 1;
-                    debcode = 3;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID(%d): _u %f , mypid.umin %f need_heat 1\n", debcode, _u, mypid.umin);
-#endif      
-                }
-            }  else 
-                need_heat = 1;
-
-            if(need_heat) 
-            { 
-#if SERIAL_DEBUG      
-    if(BoilerStatus& 0x08)
-      Serial.printf("loopPID: need_heat 1 , flame ON  _u %.2f BoilerT  %.2f RetT %.2f\n", _u, BoilerT, RetT);
-    else  
-      Serial.printf("loopPID: need_heat 1 , flame OFF _u %f BoilerT  %.2f RetT %.2f\n", _u, BoilerT, RetT ) ;
-#endif      
-                   
-                if(!(BoilerStatus& 0x08)) //flame off если горелка выключена
-                {   now = time(nullptr);
-                    dt = now - Bstat.t_flame_off;
-                    if(dt < 60*3) //3 минуты
-                    {    need_heat = 0;
-                        debcode = 4;                    
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID(%d): need_heat 1 -> 0 , flame Off dt =%d\n",debcode, dt);
-#endif      
-                    }
-                    else if(dt < 60*30) // ограничение на полчаса. рекомендация увеличить выбег насоса в настройках котла
-                    {   if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
-                        {   if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
-                            {   if(RetT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
-                                {            need_heat = 0;  //то отопление не включаем
-                                debcode = 5;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID (%d): need_heat 1 -> 0, flame Off,  dt =%d tempindoor %.2f, RetT %.2f\n", debcode, dt, tempindoor, RetT ) ;
-#endif      
-                                }   
-                            }
-                        } else { //смотрим на BoilerT
-                            if(fabs(tempindoor - mypid.xTag) < 0.3 ) //если разница температур меньше 0.3 
-                            {   if(BoilerT - mypid.xTag > 5.)  //если обратка теплее целевой на 5 град
-                                            need_heat = 0;  //то отопление не включаем
-                            }
-                        }
-                    }
-                    if(need_heat)
-                    {   if(start_heat == 0)
-                        {   start_heat = 1; //флаг возможности корректировки выходной температуры после включения
-                            _u = mypid.umin;
-                            t_start_heat = now; //время включения отопления
-                            debcode = 15;                           
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: need_heat 1, start_heat 0 -> 1, flame Off,  _u -> %.2f\n", _u ) ;
-#endif      
-                        }
-                    } else {
-                        start_heat = 0;                        
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: need_heat 0, start_heat 0\n" ) ;
-#endif      
-                    }
-                } else { //flame on
-                    if(!start_heat)
-                    {   if(flame_old == 0) //котёл включил горелку без нашей команды
-                        {   start_heat = 1;
-                            now = time(nullptr);
-                            t_start_heat = now; //время включения отопления                           
-                            _u = mypid.umin;
-                            debcode = 16;                           
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: котёл включил горелку без нашей команды\n" ) ;
-#endif      
-                        }
-                    }
-                    if(start_heat)
-                    {   now = time(nullptr);
-                        dt = now - t_start_heat;
-                        if(dt > 60*30 || BoilerT > _u) //30 min
-                        {   start_heat = 0;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: need_heat 1, start_heat 1 -> 0, flame On,  dt=%d\n", dt ) ;
-#endif      
-                        } else {
-                            if(ot.OTid_used(OpenThermMessageID::Tret))  //если есть обратка
-                            {  //если обратка холоднее прямой на 5 град или температура отопления ниже уставки на 5 градусов или модуляция выше 30
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: need_heat 1, start_heat 1, flame On, dt=%d RetT=%.2f Tset =%.2f BoilerT=%.2f _u =%.2f\n", dt, RetT, Tset, BoilerT, _u ) ;
-#endif      
-                                if(((_u > Tset) && ((BoilerT - RetT > 5.)  || (Tset - BoilerT) > 5.)) || (FlameModulation > 30) )  
-                                {   float r, _uu, du;
-                                    r = dt/(60.*30.);
-                                    _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
-                                    if(BoilerT > _uu)
-                                            _uu = BoilerT; 
-                                    du = _uu - Tset;
-                                    if( du > 5.) _uu += 5.; //повышаем не более 5 градусов за квант времени
-                                    _u = _uu;                                                  
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: _u -> %.2f\n",  _u ) ;
-#endif      
-                                }
-                            } else { //смотрим на BoilerT
-                                if(((_u > Tset) && ((mypid.umin  - RetT > 5.)))  || (Tset - BoilerT) > 5. || (FlameModulation > 30) )  
-                                {   float r, _uu;
-                                    r = dt/(60.*30.);
-                                    _uu = _u * r +  mypid.umin * (1-r); //то корректируем уставку температуры
-                                    if(BoilerT > _uu)
-                                            _uu = BoilerT; 
-                                    _u = _uu;                                                  
-                                }
-                            }
-                        }
-                    }
-                }
-            }  //endof  (need_heat) 
- /*****************************************/
-            if(!need_heat && (BoilerStatus& 0x08))
-            {   now = time(nullptr);
-                dt = now - Bstat.t_flame_on;
-                if(dt < 60*3) //3 минуты
-                {    need_heat = 1;
-                     debcode = 21;
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID(%d): need_heat 0->1 dt from flame on %d\n", debcode, dt) ;
-#endif      
-                }
-            }                    
- /*****************************************/
-            
-            if(need_heat)
-                enable_CentralHeating_real = true;
-            else
-            {    enable_CentralHeating_real = false;
-                 _u = mypid.umin;
-            }
-            
-#if SERIAL_DEBUG      
-      Serial.printf("loopPID: result: need_heat %d Tset=%.2f\n", need_heat, _u ) ;
-#endif      
-            Tset = _u;
-            need_set_T = 1;  // for OpenTherm
-#if MQTT_USE
-            MQTT_need_report = 1; // for MQTT
-#endif
-
-            flame_old = BoilerStatus& 0x08;
-
-        }
-    }
-}
-#endif
+#endif // PID_USE
 
 #if OT_DEBUGLOG
 void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
@@ -1052,6 +1199,50 @@ float SD_Termo::CHtempLimit(float _t)
     return _t;
 }
 
+void SD_Termo::DetectCapabilities(void)
+{
+extern OpenTherm ot;
+    if(CapabilitiesDetected  == 1)
+    {   int count, countok;
+            ot.Get_OTid_count(OpenThermMessageID::CHPressure, count, countok);
+            if(countok > 2)
+                Pressure_present = true; 
+            else
+                Pressure_present = false; 
+            ot.Get_OTid_count(OpenThermMessageID::Toutside, count, countok);
+            if(countok > 2)
+                Toutside_present = true;                 
+            else
+                Toutside_present  = false; 
+            ot.Get_OTid_count(OpenThermMessageID::Tret, count, countok);
+            if(countok > 2)
+                RetT_present = true;                 
+            else
+                RetT_present  = false; 
+
+    } else  if(CapabilitiesDetected  == 2) {
+        if(ot.OTid_used(OpenThermMessageID::CHPressure))
+                Pressure_present = true; 
+        else
+                Pressure_present = false; 
+        if(ot.OTid_used(OpenThermMessageID::Toutside))
+                Toutside_present = true;                 
+        else
+                Toutside_present  = false; 
+
+        if(ot.OTid_used(OpenThermMessageID::Tret))
+                RetT_present = true;                 
+        else
+                RetT_present  = false; 
+    }
+    
+//  Serial.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
+//    Serial.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
+//                Pressure_present, Toutside_present, RetT_present  ) ;
+}
+
+//MCMD_GET_CAP    
+
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)
 {
@@ -1065,6 +1256,21 @@ void BoilerStatisic::calcNflame(int newSts)
         t_flame_off = time(nullptr);
     }
 }
+
+/* считаем число включений горячей воды */
+void BoilerStatisic::calcN_HW(int newSts)
+{
+    if(newSts) // включение
+    {
+//        NflameOn++;
+//        NflameOn_h++;
+//        NflameOn_day++;
+        t_HW_on = time(nullptr);
+    } else {  //Выключение
+        t_HW_off = time(nullptr);
+    }
+}
+
 /* Считаем интеграл пламени */
 void BoilerStatisic::calcIntegral(float flame)
 {   time_t now; 

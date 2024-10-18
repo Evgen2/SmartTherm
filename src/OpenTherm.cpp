@@ -34,16 +34,17 @@ void OpenTherm::begin(void(*handleInterruptCallback)(void), void(*processRespons
 		this->handleInterruptCallback = handleInterruptCallback;
 		attachInterrupt(digitalPinToInterrupt(inPin), handleInterruptCallback, CHANGE);
 	}
-	activateBoiler();
+	activateBoiler(0);
 	status = OpenThermStatus::READY;
 	this->processResponseCallback = processResponseCallback;
 }
 
+/*
 void OpenTherm::begin(void(*handleInterruptCallback)(void))
 {
 	begin(handleInterruptCallback, NULL);
 }
-
+*/
 bool  IRAM_ATTR OpenTherm::isReady()
 {
 	return status == OpenThermStatus::READY;
@@ -61,9 +62,10 @@ void OpenTherm::setIdleState() {
 	digitalWrite(outPin, HIGH);
 }
 
-void OpenTherm::activateBoiler() {
+void OpenTherm::activateBoiler(int wait) {
 	setIdleState();
-	delay(1000);
+	if(wait)
+		delay(1000);
 }
 
 void OpenTherm::sendBit(bool high) {
@@ -314,8 +316,8 @@ const char *OpenTherm::messageTypeToString(OpenThermMessageType message_type)
 
 //building requests
 
-unsigned long OpenTherm::buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2) {
-	unsigned int data = enableCentralHeating | (enableHotWater << 1) | (enableCooling << 2) | (enableOutsideTemperatureCompensation << 3) | (enableCentralHeating2 << 4);
+unsigned long OpenTherm::buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2, bool enableWinterMode) {
+	unsigned int data = enableCentralHeating | (enableHotWater << 1) | (enableCooling << 2) | (enableOutsideTemperatureCompensation << 3) | (enableCentralHeating2 << 4) | (enableWinterMode << 5); 
 	data <<= 8;
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, data);
 }
@@ -549,9 +551,10 @@ int OpenTherm::update_OTid(int id, int sts)
 		OT_ids[ind].count++;
 		if(sts )
 			OT_ids[ind].countOk++;
+//Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
 		if(OT_ids[ind].count > 32)
 		{
-			if(OT_ids[ind].countOk > 16)
+    			if(OT_ids[ind].countOk > 16)
 				OT_ids[ind].used  = 1;
 			else
 				OT_ids[ind].used = 0;
@@ -559,4 +562,12 @@ int OpenTherm::update_OTid(int id, int sts)
 	}
 
 	return 0;
+}
+
+int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
+{	int ind;
+	ind = id_to_index[id];
+	count = OT_ids[ind].count;
+	countok= OT_ids[ind].countOk;
+	return OT_ids[ind].used;
 }

@@ -9,11 +9,9 @@
 
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
-#define MASTER_SUBVERSION  7
-#define MASTER_SUBVERSION1 4
+#define MASTER_SUBVERSION  8
+#define MASTER_SUBVERSION1 0
 /***************/
-
-#define SMARTDEVICE_VERSION 0 /* esp8266/esp32  */
 
 #define U8   unsigned char
 #define U16  unsigned short
@@ -69,9 +67,14 @@ class SmartDevice
   long int UDPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
 
   int TCPserver_port;  /* порт сервера */
-  int TCPserver_repot_period;  /* периодичность отправки данных серверу, сек */
+  int TCPserver_report_period;  /* периодичность отправки данных серверу, сек */
   int TCPserver_sts;  /* статус сервера */
+  int TCPserver_sts2;  /* статус2 сервера */
+  int TCPserver_rc;    /* статус ответа сервера */
+  
   long int TCPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
+	int ClientId;     /* Client Id */
+	int ClientId_k;   /* Client Id key */
 
 	IPAddress udp_remoteIP;  
 	IPAddress tcp_remoteIP;  
@@ -104,13 +107,19 @@ class SmartDevice
         UDPserver_sts = 0;
         UDPserver_t = 0;
 	TCPserver_port = 0;
-	TCPserver_repot_period = 0;
+	TCPserver_report_period = 0;
 	TCPserver_sts = 0;
+  TCPserver_sts2 = 0;
+  TCPserver_rc = 0;
 	TCPserver_t = 0;
   TZoffset = 3600*3; //MSK-3
   status = -1;
     Mac[0]= Mac[1] = Mac[2] =Mac[3] =Mac[4] =Mac[5] = 0; 
+    IdNumber = 0;
+	 ClientId = ClientId_k = 0; 
+
   }
+  
   void callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Echo( U16 len, U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -118,6 +127,19 @@ class SmartDevice
   void callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_set_udp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+
+  int servercallback_HandShake( U8 *bf, int len);
+  int server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  virtual int server_answer_IdentifySelf( U8 *bf, int len)
+  {  return 0; };
+
+  virtual int servercallback_Get_Sts( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  return 0; };
+  virtual int servercallback_send_Sts_answ( U8 *bf, int len)
+  {  return 0; };
+
+ //  virtual void servercallback_GetOtInfo( U8 *bf, int len)
+//  {  };
 
 //  virtual void udp_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 //  {};
@@ -128,10 +150,15 @@ class SmartDevice
   {  };
   virtual void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
-  virtual void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-  {  };
+  virtual int callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  return 0; };
   virtual void callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
   {  };
+  virtual void callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  };
+  virtual int callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {  return 0; };
+
 
 #if OT_DEBUGLOG
   virtual void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))

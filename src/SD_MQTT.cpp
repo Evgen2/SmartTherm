@@ -24,6 +24,7 @@ using WiFiWebServer = WebServer;
 #include <ArduinoHA.h>
 #include <PubSubClient.h>
 
+void mqtt_start(void);
 void mqtt_loop(void);
 void mqtt_setup(void);
 int MQTT_pub_data(void);
@@ -41,7 +42,7 @@ extern OpenTherm ot;
 
 HADevice device;
 #if PID_USE
-HAMqtt mqtt(espClient, device,22);
+HAMqtt mqtt(espClient, device,25);
 #else
 HAMqtt mqtt(espClient, device,12);
 #endif
@@ -50,6 +51,10 @@ const char * temperature_str = "temperature";
 
 HABinarySensor sensorOT(NULL);
 HABinarySensor sensorFlame(NULL);
+HABinarySensor sensor_CH(NULL);
+HABinarySensor sensor_HW(NULL);
+HABinarySensor sensor_CMD_on(NULL);
+HABinarySensor sensor_CMD_CH_on(NULL);
 HASensor sensorModulation(NULL);
 HASensor sensorBoilerT(NULL);
 HASensor sensorBoilerRetT(NULL);
@@ -70,6 +75,7 @@ HASensor sensorPID_D(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_I(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_U(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_U0(NULL,HANumber::PrecisionP3);
+HASensor sensorPID_Extra(NULL,HANumber::PrecisionP3);
 
 #endif
 
@@ -82,20 +88,38 @@ HAHVAC hvac(
   HANumber::PrecisionP2
 );
 
+HAHVAC hvacDHW(
+  NULL,
+  HAHVAC::TargetTemperatureFeature |HAHVAC::ModesFeature |HAHVAC::ActionFeature,
+  HANumber::PrecisionP2
+);
+
 unsigned long lastReadAt = millis();
 unsigned long lastAvailabilityToggleAt = millis();
 bool lastInputState = false;
-
+void OnMQTTconnected(void);
+void OnMQTTdisconnected(void);
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     float temperatureFloat = temperature.toFloat();
+    if(sender == &hvacDHW)
+    {
+      SmOT.TdhwSet = temperatureFloat;
+      SmOT.need_set_dhwT = 2;
 #if SERIAL_DEBUG      
-    Serial.print("Target temperature: ");
+    Serial.print("DHW Target temperature: ");
     Serial.println(temperatureFloat);
 #endif    
-    SmOT.Tset = temperatureFloat;
-    SmOT.need_set_T = 2;
-    sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+      sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+    } else {
+      SmOT.Tset = temperatureFloat;
+      SmOT.need_set_T = 2;
+      sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+#if SERIAL_DEBUG      
+    Serial.print("CH Target temperature: ");
+    Serial.println(temperatureFloat);
+#endif    
+    }
 }
 
 void onPowerCommand(bool state, HAHVAC* sender) {
@@ -106,9 +130,8 @@ void onPowerCommand(bool state, HAHVAC* sender) {
   }
 }
 
-
-
 void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
+//PID_USE todo    
     Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
         Serial.println(F("off"));
@@ -116,6 +139,7 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     } else if (mode == HAHVAC::HeatMode) {
         Serial.println("heat");
         SmOT.enable_CentralHeating = true;
+
 #if 0        
     } else if (mode == HAHVAC::AutoMode) {
         Serial.println("auto");
@@ -130,6 +154,19 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
 
     sender->setMode(mode); // report mode back to the HA panel
 }
+void onModeCommandDHW(HAHVAC::Mode mode, HAHVAC* sender) {
+    Serial.print("Mode: ");
+    if (mode == HAHVAC::OffMode) {
+        Serial.println(F("DHW off"));
+        SmOT.enable_HotWater = false;
+    } else if (mode == HAHVAC::HeatMode) {
+        Serial.println("DHW heat");
+        SmOT.enable_HotWater = true;
+    }
+
+    sender->setMode(mode); // report mode back to the HA panel
+    Serial.printf("SmOT.enable_HotWater %d\n", SmOT.enable_HotWater);
+}
 
 #if PID_USE
 
@@ -142,7 +179,8 @@ void onNumberCommand(HANumeric number, HANumber* sender)
     
     if (sender == &numT_outdoor) {
 #if SERIAL_DEBUG      
-//      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
+      Serial.printf("*************************\n");
+      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
         
@@ -170,16 +208,32 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 }
 #endif
 
+int statemqtt = -1;
+int state_mqtt = -10000;
+int attempt_mqtt = 0;
+
 /************************************************************/
 void mqtt_setup(void)
 {  bool rc;
+extern unsigned int OTcount;
+
   if (WiFi.status() != WL_CONNECTED)  
         return;
+
+  if(SmOT.stsOT == 0)
+  { if(SmOT.CapabilitiesDetected == 0)
+        return;
+    else
+      SmOT.DetectCapabilities();
+  } else {
+    if(OTcount < 30)
+        return;
+  }
 
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
-  
+    return;
   }
 
    device.setUniqueIdStr(SmOT.MQTT_topic);
@@ -214,23 +268,56 @@ void mqtt_setup(void)
     sensorModulation.setIcon("mdi:fire");
     sensorModulation.setDeviceClass("power_factor"); //"temperature"
     sensorModulation.setUnitOfMeasurement("%");
+/**********/
+    sensor_CH.setNameUniqueIdStr(SmOT.MQTT_topic,"Отопление", "CH");
+    sensor_CH.setCurrentState(false); 
+    sensor_CH.setAvailability(false);
+    sensor_CH.setIcon("mdi:heating-coil");
+    
+    if(SmOT.HotWater_present || SmOT.stsOT == -1)
+    { sensor_HW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "HW");
+      sensor_HW.setCurrentState(false); 
+      sensor_HW.setAvailability(false);
+      sensor_HW.setIcon("mdi:water-thermometer");     
+    }
+    
+    sensor_CMD_on.setNameUniqueIdStr(SmOT.MQTT_topic,"Cmd", "cmd");
+    sensor_CMD_on.setCurrentState(false); 
+    sensor_CMD_on.setAvailability(false);
+    sensor_CMD_on.setIcon("mdi:heating-coil");
+
+    sensor_CMD_CH_on.setNameUniqueIdStr(SmOT.MQTT_topic,"CmdCH", "cmdCH");
+    sensor_CMD_CH_on.setCurrentState(false); 
+    sensor_CMD_CH_on.setAvailability(false);
+    sensor_CMD_CH_on.setIcon("mdi:heating-coil");
+
+/**********/
+
 
     sensorBoilerT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура теплоносителя", "BoilerT");
     sensorBoilerT.setAvailability(false);
     sensorBoilerT.setDeviceClass(temperature_str);
     sensorBoilerT.setUnitOfMeasurement("°C");
     
-    sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
-    sensorBoilerRetT.setAvailability(false);
-    sensorBoilerRetT.setDeviceClass(temperature_str); 
-    sensorBoilerRetT.setUnitOfMeasurement("°C");
+    if(SmOT.RetT_present)
+    { sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
+      sensorBoilerRetT.setAvailability(false);
+      sensorBoilerRetT.setDeviceClass(temperature_str); 
+      sensorBoilerRetT.setUnitOfMeasurement("°C");
+    }
 
-    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
-    sensorPressure.setAvailability(false);
-    sensorPressure.setDeviceClass("pressure"); 
+   Serial.printf("(3)mqtt_setup SmOT.Pressure_present %d SmOT.stsOT  %d \n", 
+          SmOT.Pressure_present, SmOT.stsOT);
+
+
+    if(SmOT.Pressure_present || SmOT.stsOT == -1)
+    { sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
+      sensorPressure.setAvailability(false);
+      sensorPressure.setDeviceClass("pressure"); 
+    }
 
     sensorFreeRam.setAvailability(true);
-    sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
+    sensorFreeRam.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
     sensorFreeRam.setDeviceClass("data_size"); 
 
     // assign callbacks (optional)
@@ -245,12 +332,34 @@ void mqtt_setup(void)
     hvac.setMaxTemp(80);
     hvac.setTempStep(0.1);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
+    #if  PID_USE
+    if(SmOT.enable_CentralHeating_real)
+    #else
     if(SmOT.enable_CentralHeating)
+    #endif
           hvac.setMode(HAHVAC::HeatMode);
     else
           hvac.setMode(HAHVAC::OffMode);
 
     hvac.setAvailability(false);
+
+    if(SmOT.HotWater_present)
+    {
+      hvacDHW.onTargetTemperatureCommand(onTargetTemperatureCommand);
+      hvacDHW.onModeCommand(onModeCommandDHW);
+      hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
+      hvacDHW.setMinTemp(30);
+      hvacDHW.setMaxTemp(80);
+      hvacDHW.setTempStep(0.5);
+
+      hvacDHW.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
+
+      if(SmOT.enable_HotWater)
+            hvacDHW.setMode(HAHVAC::HeatMode);
+      else
+            hvacDHW.setMode(HAHVAC::OffMode);
+      hvacDHW.setAvailability(false);
+    }
 
     if(SmOT.stsT1 >= 0 )
     { sensorT1.setAvailability(true);
@@ -295,20 +404,20 @@ void mqtt_setup(void)
     numT_outdoor.setAvailability(true);
     numT_outdoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T outdoor", "Toutdoor");
     numT_outdoor.setMode(HANumber::ModeBox);
-    numT_outdoor.setState(23.f, true);
-    numT_outdoor.setCurrentState(22.f);
+    numT_outdoor.setState(10.f, true);
+    numT_outdoor.setCurrentState(10.f);
     numT_outdoor.setStep(0.1);
     numT_outdoor.setMin(-50.);
-    numT_outdoor.setMax( 100.);
+    numT_outdoor.setMax( 50.);
     numT_outdoor.onCommand(onNumberCommand);
 
     numT_indoor.setAvailability(true);
     numT_indoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T indoor", "Tindoor");
     numT_indoor.setMode(HANumber::ModeBox);
-    numT_indoor.setState(33.f, true);
+    numT_indoor.setState(20.f, true);
     numT_indoor.setStep(0.1);
     numT_indoor.setMin(-50.);
-    numT_indoor.setMax( 100.);
+    numT_indoor.setMax( 50.);
     numT_indoor.onCommand(onNumberCommand);
 
 
@@ -327,28 +436,54 @@ void mqtt_setup(void)
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
     sensorPID_U0.setDeviceClass(temperature_str); 
+    
+    sensorPID_Extra.setAvailability(true);
+    sensorPID_Extra.setNameUniqueIdStr(SmOT.MQTT_topic,"Uextra", "pid_extra");
+    sensorPID_Extra.setDeviceClass(temperature_str); 
 
 #endif
-
-
+    mqtt.onConnected(OnMQTTconnected);
+    mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
     mqtt._mqtt->setSocketTimeout(1); //not work ???
 
     rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
-    {
-   Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    {  Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
       SmOT.stsMQTT = 2;
-
     } else {
    Serial.printf("mqtt.begin false\n");
-
     }
 }
 
-int statemqtt = -1;
-int state_mqtt = -10000;
-int attempt_mqtt = 0;
+
+void OnMQTTconnected(void)
+{ 
+  statemqtt = 1;
+//   Serial.printf("OnMQTTconnected %d\n", statemqtt );
+
+}
+void OnMQTTdisconnected(void)
+{ statemqtt = 0;
+//   Serial.printf("OnMQTT disconnected %d\n", statemqtt );
+}
+
+void mqtt_start(void)
+{
+   Serial.printf("mqtt_start SmOT.stsMQTT %d\n", SmOT.stsMQTT);
+  if(SmOT.stsMQTT == 0)
+  {   mqtt_setup();
+  } else {
+    int rc;
+    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    if(rc == true)
+    { Serial.printf("(1) mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+      SmOT.stsMQTT = 2;
+    } else {
+      Serial.printf("(1)mqtt.begin false\n");
+    }
+  }
+}
 
 void mqtt_loop(void)
 { int sts;
@@ -357,30 +492,15 @@ static int st_old = -2;
 static unsigned int t0=0;
 unsigned long t1;
 int dt;
-//      pMqtt->loop();
-      if(SmOT.stsMQTT == 0)
-          return;
-/*******************/    
-   t1 = millis(); 
-   dt = t1 - t0;  
- if(state_mqtt != 0)
-    Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
-  if(state_mqtt == -2) 
-  {  
- Serial.printf("**** state_mqtt=%d attempt_mqtt=%d dt=%d\n",state_mqtt, attempt_mqtt, dt);
-    if(dt < 5000 *(attempt_mqtt+3))
-        return;
- Serial.printf("*********** state_mqtt= -2 attempt_mqtt=%d dt=%d\n", attempt_mqtt, dt);
-    if(attempt_mqtt < 100)
-      attempt_mqtt++;
-  }  else {
-    attempt_mqtt = 0;
-  }   
-  t0 = t1;
-/*******************/          
+
+
+if(SmOT.stsMQTT == 0) 
+{   mqtt_setup();
+     return;
+}
 
     mqtt.loop();
-//      if(pMqtt->isConnected())
+
     if(mqtt.isConnected())
     {   if(statemqtt != 1)
             Serial.println(F("MQTT connected"));
@@ -389,13 +509,8 @@ int dt;
         if(statemqtt != 0)
             Serial.println(F("MQTT DiSconnected"));
         statemqtt = 0;
+        delay(1);
         return; // return from   mqtt_loop() if not connected
-    }
-
-    sts = mqtt._mqtt->state(); 
-    if(sts !=state_mqtt )
-    {   Serial.printf("MQTT state=%d\n", sts);
-        state_mqtt = sts;
     }
 
     if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000 || SmOT.MQTT_need_report)
@@ -410,9 +525,19 @@ int dt;
             hvac.setAvailability(false);
             sensorBoilerT.setAvailability(false);
             sensorFlame.setAvailability(false);
+            sensor_CH.setAvailability(false);
+            if(SmOT.HotWater_present)
+            { sensor_HW.setAvailability(false);
+              hvacDHW.setAvailability(false);
+            }
+            sensor_CMD_on.setAvailability(false);
+            sensor_CMD_CH_on.setAvailability(false);
+
             sensorModulation.setAvailability(false);
-            sensorBoilerRetT.setAvailability(false);
-            sensorPressure.setAvailability(false);
+            if(SmOT.RetT_present)
+              sensorBoilerRetT.setAvailability(false);
+            if(SmOT.Pressure_present)
+              sensorPressure.setAvailability(false);
             sensorText.setAvailability(false);
             sensorState.setValue("OpenTherm: потеря связи");
           } else {
@@ -423,26 +548,73 @@ int dt;
               hvac.setAvailability(true);
 //Serial.printf("hvac.setAvailability(true)\n");
               sensorFlame.setAvailability(true);
+              sensor_CH.setAvailability(true);
+              if(SmOT.HotWater_present)
+              {   sensor_HW.setAvailability(true);
+                  hvacDHW.setAvailability(true);
+              }
+              sensor_CMD_on.setAvailability(true);
+              sensor_CMD_CH_on.setAvailability(true);
+
               sensorModulation.setAvailability(true);
-              sensorBoilerRetT.setAvailability(true);
-              sensorPressure.setAvailability(true);
+              if(SmOT.RetT_present)
+                sensorBoilerRetT.setAvailability(true);
+              if(SmOT.Pressure_present)
+                  sensorPressure.setAvailability(true);
               sensorText.setAvailability(true);
             }
             sprintf(str,"%.3f", SmOT.BoilerT);           
             sensorBoilerT.setValue(str);
         hvac.setCurrentTemperature(SmOT.BoilerT);
         hvac.setTargetTemperature(SmOT.Tset);
+    #if  PID_USE
+        if(SmOT.enable_CentralHeating_real)
+    #else
+        if(SmOT.enable_CentralHeating)
+    #endif
+          hvac.setMode(HAHVAC::HeatMode);
+    else
+          hvac.setMode(HAHVAC::OffMode);
+
 
             if(SmOT.BoilerStatus & 0x08)
                   sensorFlame.setState(true); 
             else
                   sensorFlame.setState(false); 
+
+            if(SmOT.BoilerStatus & 0x02)
+                  sensor_CH.setState(true); 
+            else
+                  sensor_CH.setState(false); 
+
+            if(SmOT.HotWater_present)
+            {
+              if(SmOT.BoilerStatus & 0x04)
+              {      sensor_HW.setState(true); 
+              }  else {
+                    sensor_HW.setState(false); 
+              }
+              if(SmOT.enable_HotWater)
+                  hvacDHW.setMode(HAHVAC::HeatMode);
+              else
+                  hvacDHW.setMode(HAHVAC::OffMode);
+
+              hvacDHW.setCurrentTemperature(SmOT.dhw_t);
+              hvacDHW.setTargetTemperature(SmOT.TdhwSet);
+//   Serial.printf("SmOT.TdhwSet %f SmOT.dhw_t %f\n", SmOT.TdhwSet, SmOT.dhw_t );
+
+            }
+
             sprintf(str,"%.3f", SmOT.FlameModulation);
             sensorModulation.setValue(str);
-            sprintf(str,"%.3f", SmOT.RetT);
-            sensorBoilerRetT.setValue(str);  
-            sprintf(str,"%.3f", SmOT.Pressure);
-            sensorPressure.setValue(str);  
+            if(SmOT.RetT_present)
+            { sprintf(str,"%.3f", SmOT.RetT);
+              sensorBoilerRetT.setValue(str);  
+            }
+            if(SmOT.Pressure_present)
+            { sprintf(str,"%.3f", SmOT.Pressure);
+              sensorPressure.setValue(str);  
+            }
             sprintf(str,"%.3f", SmOT.Toutside);
             sensorText.setValue(str);
 
@@ -458,6 +630,9 @@ int dt;
             sensorPID_U.setValue(str);
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
+            sprintf(str,"%.4f", SmOT.mypid.dP + SmOT.mypid.dD);
+            sensorPID_Extra.setValue(str);
+            
 //Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
             if(SmOT.srcText >= 0 && SmOT.srcText < 3)
             {   numT_outdoor.setState(SmOT.tempoutdoor, true);
@@ -548,6 +723,28 @@ int MQTT_pub_data(void)
 
 }
 
+void  MQTT_pub_cmd(int on)
+{ 
+  if(SmOT.stsMQTT == 2)
+  { if(on)
+    sensor_CMD_on.setState(true); 
+  else
+    sensor_CMD_on.setState(false); 
+  }
+}
+
+int  MQTT_pub_cmdCH(int on)
+{ 
+  if(SmOT.stsMQTT == 2)
+  { if(on)
+      sensor_CMD_CH_on.setState(true); 
+    else
+      sensor_CMD_CH_on.setState(false); 
+    return 1;
+  } else {
+    return 0;
+  }
+}
 /*******************************************************************************/
 
 

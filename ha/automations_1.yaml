@@ -1,8 +1,17 @@
 # Настройки->Автоматизации и сцены->Автоматизации->Создать автоматизацию->текстовый редактор
 # Автоматизация для передачи в SmartTherm комнатной температуры с датчика
-# для SmartTherm v 0.7.4 - требуется ввести NAME из настроек в вебинтерфейсе + в настройках PID
+# для SmartTherm v 0.7.5 - требуется ввести идентификатор объекта с именем
+# NAME из настроек в вебинтерфейсе + в настройках PID
 # указать "Источник температуры в комнате:" 3
 # и подставить вместо YOUR_SENSOR ваш датчик температуры в HA
+
+# Например:
+# * в SmartTherm имя устройства задали "Boiler"
+# * В HA в списке объектов появляется объект с именем "Boiler T outdoor"
+#   и идентификатором "number.boiler_t_outdoor",
+#   тогда в target_entity пишем так:
+#    target_entity: number.boiler_t_indoor
+
 
 alias: Report indoor temp to SmarTherm controller
 description: Script for reporting indoor(outdoor) temperature to the SmartTerm controller from home
@@ -29,9 +38,8 @@ variables:
   source_entity: sensor.YOUR_SENSOR
   target_entity: number.NAME_t_indoor
 # target_entity: number.NAME_t_outdoor
-# NAME - name from SmartTherm web interface ->Setup -> MQTT device name
-# example:  device name Navien 
-# target_entity: number.navien_t_indoor
-# target_entity: number.navien_t_outdoor
+# NAME - object id of device from SmartTherm web interface ->Setup -> MQTT device name
+# example: MQTT device name "Boiler", object name "Boiler T indoor", object id "number.boiler_t_outdoor"
+# target_entity: number.boiler_t_indoor
 
 mode: single

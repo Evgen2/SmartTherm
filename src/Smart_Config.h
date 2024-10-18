@@ -4,16 +4,15 @@
 
 #include "DeviceType.h"
 
-#define SERIAL_DEBUG 0
+#define SERIAL_DEBUG 1
 #define OT_DEBUG 0
 #define OT_DEBUGLOG 0
-#define SERVER_DEBUG 0
+#define SERVER_DEBUG 1
 #define T_DEBUG 0
 #define MQTT_USE 1
 
 #if MQTT_USE
   #define PID_USE 1 
-  #define DEBUG_WITH_EMULATOR 0
 #else
   #define PID_USE 0
 #endif

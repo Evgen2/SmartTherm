@@ -30,25 +30,52 @@ class dstack
       if(n < NB) n++;
   }
   
-  void get( float &_d,  unsigned long int &_t)
-  { int i;
-    if( n < NB)
-    { if(n == 0)
-      {  _d = 0.f;
-         _t = 0;
+   void get( float &_d,  unsigned long int &_t)
+   {  int i;
+      if( n < NB)
+      { if(n == 0)
+         {  _d = 0.f;
+            _t = 0;
+         } else {
+            _d = d[0];
+            _t = t[0];
+         }
       } else {
-         _d = d[0];
-         _t = t[0];
+         i = ind;
+         if(i >= NB) i = 0;
+         _d = d[i];
+         _t = t[i];
       }
-    } else {
-      i = ind;
-      if(i >= NB) i = 0;
-      _d = d[i];
-      _t = t[i];
-    }
+   }
 
-  }
-  
+   int calcD(float _d, unsigned long int _t, float &diff);
+};
+
+class TempStack:public dstack
+{
+  public:
+   int nlast;
+   int ind_last;
+   TempStack(void)
+   {   nlast = ind_last = 0;
+
+   }
+   void add (float _d, unsigned long int _t)
+   {  if(nlast == 0)
+      {  ind_last = ind;
+         dstack::add(_d, _t);
+         nlast++;
+      } else {
+    //Serial.printf("ind_last %d   d[ind_last] =%f  t[ind_last] %d\n", ind_last,  d[ind_last] , t[ind_last] ); 
+
+         d[ind_last]  = d[ind_last] + (_d - d[ind_last]) / float(nlast +1);
+         t[ind_last]  = t[ind_last] + (_t - t[ind_last]) / (nlast +1);
+         nlast++;
+//    Serial.printf("ind_last %d   d[ind_last] =%f  t[ind_last] %d %d\n", ind_last,  d[ind_last] , t[ind_last] , nlast); 
+         if(nlast > 7) //8 раза считаем среднее
+            nlast = 0;  
+      }
+   }
 };
 
 /* PID регулятор */
@@ -80,20 +107,21 @@ class pid
    float y1;
 
    long int pid_t; /* время начала такта */
-   dstack  dSt;
+   TempStack dSt;
+   dstack  dSt0;
    
    pid(void)
    {  Kp = 1.;
       Kd = 1.;
       Ki = 0.002;
-      Kidiss = 0.005;
       x = xTag = 0.;
-      t_interval = 60;
+      t_interval = 30;
+      Kidiss = 0.005 * t_interval / 60.f;
       u0 = 40.;
       y0 = 10.;
       u1 = 80.;
       y1 = -30.;
-//      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  //40* 4/12
+//      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  
 	umin = 40;
 	umax = 80;
       x = xerr = 0.;

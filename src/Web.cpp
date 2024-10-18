@@ -47,6 +47,7 @@ extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
+unsigned int OTcount = 0;
 
 
 /*********************************/
@@ -104,15 +105,17 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
 
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
-AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */ AC_Behind  , AC_Tag_None);
+AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */  AC_Behind , AC_Tag_None);
 ACInput(ID2MaserID,"", "IDcode"); 
-AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Infront /* AC_Behind */ , AC_Tag_BR);
+AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseOTC_ChB("UseOTC_ChB","", "Использовать OTC (ID0:HB3)",         false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseCH2_DHW_ChB, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar});
 #endif //#if PID_USE
 
 
@@ -185,6 +188,7 @@ void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
   extern void mqtt_setup(void);
   extern void mqtt_loop(void);
+  extern void mqtt_start(void);
 #endif
 String onInfo(AutoConnectAux& aux, PageArgument& args);
 String on_Setup(AutoConnectAux& aux, PageArgument& args);
@@ -345,11 +349,15 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
+   Serial.printf("WiFi psk=%s\n", config.psk.c_str());
+  
+  Serial.printf("(15) %d\n", millis());
 
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
 
+  Serial.printf("(16) %d\n", millis());
 
   WiFiWebServer&  webServer = portal.host();
 
@@ -361,6 +369,7 @@ void setup_web_common(void)
   }  else {
     setup_web_common_onconnect();
   }  
+  Serial.printf("(17) %d\n", millis());
 
 /* get my MAC*/
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -383,6 +392,7 @@ void setup_web_common(void)
 //      Serial.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }  
 #endif //
+  Serial.printf("(20) %d\n", millis());
 
 }
 
@@ -392,7 +402,7 @@ int setup_web_common_onconnect(void)
   Serial.printf("setup_web_common_onconnect init %d\n", init);
 
   Serial.println(F("WiFi connected"));
-  Serial.println(F("IP address: "));
+  Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
 
   if(init)
@@ -424,15 +434,11 @@ const char*  const _ntp2 = "pool.ntp.org";
     configTzTime("UTC0", _ntp1 ,_ntp2);
 
     //TZoffset
-   delay(1000);
+//   delay(1000);
 #if SERIAL_DEBUG      
   now = time(nullptr);
   Serial.printf("2 %s\n", ctime(&now));
 #endif  
-{ time_t now;
-  now = time(nullptr);
-  Serial.printf("2 %s\n", ctime(&now));
-}
   // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #if defined(ARDUINO_ARCH_ESP8266)
 // default ntp update  1 hour
@@ -532,7 +538,9 @@ extern int minRamFree;
    Info6.value += str;
 #if PID_USE
    {  extern int debcode;
-      sprintf(str,"<br>debcode %d",  debcode); 
+      extern int wait_if_takt;
+
+      sprintf(str,"<br>debcode %d wait_if_takt %d",  debcode, wait_if_takt); 
 
    Info6.value += str;
 
@@ -626,6 +634,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   }
 
 #if MQTT_USE
+  int isChangeMQTT = 0;
   if( CtrlChB4.checked) check = true;
   else                  check = false;
 
@@ -636,11 +645,13 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     } else if(SmOT.useMQTT == 1) { 
       SmOT.useMQTT = 0x3;
       isChange++;
+      isChangeMQTT++;
     }
   } else {
     if(SmOT.useMQTT != 0)
     { SmOT.useMQTT = 0;
       isChange++;
+      isChangeMQTT++;
     }
   }
 
@@ -651,23 +662,27 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SetMQTT_server.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_server,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_server,str0);      
     }
 
     SetMQTT_user.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_user,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_user,str0);      
     }
     SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_pwd,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_pwd,str0);      
     }
 
     SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_devname,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_devname,str0);      
     }
 
@@ -684,20 +699,26 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     }
     if(strcmp(SmOT.MQTT_topic,str0))
     { isChange++;
+      isChangeMQTT++;
        strcpy(SmOT.MQTT_topic,str0);      
     }
 
     v = SetMQTT_interval.value.toInt();
     if((unsigned int)v !=SmOT.MQTT_interval )
     { isChange++;
+      isChangeMQTT++;
        SmOT.MQTT_interval = v;
     }
    }
 
 #endif //MQTT_USE
-
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
+#if MQTT_USE
+    if(isChangeMQTT && SmOT.useMQTT == 0x03)
+    {      mqtt_start();
+    }
+#endif //MQTT_USE
 
     if(SmOT.enable_CentralHeating) //Отопление Вкл
     {     SmOT.need_set_T = 1;
@@ -746,6 +767,20 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
      SmOT.UseID2 = icheck;
   }
 
+  if(UseWinterModeChB.checked)  icheck = 1;
+  else                          icheck = 0;
+  if(icheck != SmOT.UseWinterMode)
+  { isChange++;
+     SmOT.UseWinterMode = icheck;
+  }
+
+  if(UseOTC_ChB.checked)  icheck = 1;
+  else                          icheck = 0;
+  if(icheck != SmOT.Use_OTC)
+  { isChange++;
+     SmOT.Use_OTC = icheck;
+  }
+
   v2 = ID2MaserID.value.toInt();
   if(v2 != SmOT.ID2masterID )
   { isChange++;
@@ -774,6 +809,15 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       UseID2ChB.checked = false;
     
+  if(SmOT.UseWinterMode)
+      UseWinterModeChB.checked = true;
+  else
+      UseWinterModeChB.checked = false;
+
+  if(SmOT.Use_OTC)
+      UseOTC_ChB.checked = true;
+  else
+      UseOTC_ChB.checked = false;
 
   sprintf(str,"%d",SmOT.ID2masterID);
   ID2MaserID.value = str;
@@ -804,6 +848,12 @@ extern OpenTherm ot;
       {  char str[40];
         sprintf(str," (%8x)",SmOT.BoilerStatus );
         Info1.value =  String(SmOT.stsOT) +  str;
+        /* Если статус ответа не соответсвует статусу запроса, возможно у котла режим readonly  */
+        if((SmOT.BoilerStatus&0xff00) != (SmOT.BoilerStatusRequest&0xff00)) 
+        {    sprintf(str," (Запрос: %8x)",SmOT.BoilerStatusRequest );
+             Info1.value +=  str;
+        }
+
         if(SmOT.BoilerStatus & 0x01)
           Info1.value += "<br>Ошибка";
         if(SmOT.BoilerStatus & 0x02)
@@ -865,6 +915,8 @@ if(SmOT.useMQTT)
   switch(statemqtt)
   {   case -1:
         Info1.value += "MQTT not connected";
+        if(SmOT.stsMQTT == 0)
+            Info1.value += ", ожидание опроса OT";
         break;
       case 0:
         Info1.value += "MQTT DiSconnected";
@@ -914,7 +966,11 @@ if(SmOT.useMQTT)
 }
 
 #endif // MQTT_USE 
-
+#if PID_USE
+    if(SmOT.usePID)
+    {   Info1.value += "<br>управление по PID";
+    }
+#endif // PID_USE 
 
 /***************************************/
 
@@ -946,7 +1002,8 @@ if(SmOT.useMQTT)
       }
 
       if(SmOT.HotWater_present) 
-      { Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+      { if(SmOT.enable_HotWater)
+            Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
 
       Info2.value += "<br>";
@@ -1073,6 +1130,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   
 /*
 Baxi Fourtech/Luna 3  1
+Baxi Slim  4
 Buderus	8
 Ferrolli 	9
 Remeha	11
@@ -1087,6 +1145,8 @@ Zota Lux-x (electro)  248
 
   if(SmOT.OTmemberCode ==1)
       Ctrl2.value += "Baxi Fourtech/Luna 3"; 
+  else if(SmOT.OTmemberCode == 4)
+      Ctrl2.value += "Baxi Slim"; 
   else if(SmOT.OTmemberCode == 8)
       Ctrl2.value += "Buderus"; 
   else if(SmOT.OTmemberCode == 9)
@@ -1120,7 +1180,7 @@ Zota Lux-x (electro)  248
   if(SmOT.useMQTT) 
   { char str[40]; 
     if(SmOT.useMQTT == 1) 
-      Info1.value = "Нужен Reset"; 
+      Info1.value = "проверь после Reset"; 
     CtrlChB4.checked = true;
     SetMQTT_server.enable  = true;
     SetMQTT_user.enable  = true;
@@ -1217,6 +1277,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     if(v != SmOT.mypid.xTag)
     { SmOT.mypid.xTag = v;
+      SmOT.TroomTarget = v;
       isChange = 1;
     }
 
@@ -1281,7 +1342,11 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
     UsePID.checked = false;    
   }
 
-  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, 3/4=MQTT0/1";
+  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, MQTT/HA:";
+  sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
+  Info1.value += str0;
+  sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
+  Info1.value += str0;
 
   sprintf(str0,"%d",SmOT.srcTroom);
   SetTempSrcPID.value = str0;
@@ -1380,7 +1445,7 @@ static unsigned long t0=0; // t1=0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
 #if SERIAL_DEBUG      
       Serial.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
-      Serial.println(F("IP address: "));
+      Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
 #endif      
     } else {

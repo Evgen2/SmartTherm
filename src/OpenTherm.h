@@ -150,12 +150,13 @@ public:
 	volatile OpenThermStatus status;
 	unsigned long Lastresponse;
 
-	void begin(void(*handleInterruptCallback)(void));
+//	void begin(void(*handleInterruptCallback)(void)); 
 	void begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus));
 	
 	void init_OTids(void);
 	int update_OTid(int id, int sts);
 	int OTid_used(OpenThermMessageID id);
+	int Get_OTid_count(OpenThermMessageID id, int &count, int &countok);
 
 	bool isReady();
 	unsigned long sendRequest(unsigned long request);
@@ -178,7 +179,7 @@ public:
 	bool isValidResponse(unsigned long response);
 
 	//requests
-	unsigned long buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater = false, bool enableCooling = false, bool enableOutsideTemperatureCompensation = false, bool enableCentralHeating2 = false);
+	unsigned long buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater = false, bool enableCooling = false, bool enableOutsideTemperatureCompensation = false, bool enableCentralHeating2 = false, bool enableWinterMode = false);
 	unsigned long buildSetBoilerTemperatureRequest(float temperature);
 	unsigned long buildSetBoilerCH2TemperatureRequest(float temperature);
 	unsigned long buildGetBoilerTemperatureRequest();
@@ -221,7 +222,7 @@ private:
 	int readState();
 	void setActiveState();
 	void setIdleState();
-	void activateBoiler();
+	void activateBoiler(int wait);
 
 	void sendBit(bool high);
 	void(*handleInterruptCallback)();

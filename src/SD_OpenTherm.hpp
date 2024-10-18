@@ -55,18 +55,22 @@ class BoilerStatisic
   time_t t_flame_on;  //время включения горелки
   time_t t_flame_off; //время выключения горелки
   time_t t_I_last;    //предыдущее время подсчета интеграла
+  time_t t_HW_on;  //время включения горячей воды
+  time_t t_HW_off; //время выключения горячей воды
   unsigned int sec_h; //секунд с начала часа
   unsigned int sec_d; //секунд с начала суток
   BoilerStatisic()
   {
       NflameOn = NflameOn_h =  NflameOn_day = NflameOn_h_prev = NflameOn_day_prev = 0;
       t_flame_on = t_flame_off = t_I_last = 0;
+      t_HW_on = t_HW_off = 0;
        ModIntegral_h = 0.;
        ModIntegral_d = 0.;
        Eff_Mod_h = Eff_Mod_d =  Eff_Mod_h_prev =  Eff_Mod_d_prev = 0.;
        sec_h = sec_d = 0;
   }
   void calcNflame(int newSts);
+  void calcN_HW(int newSts);
   void calcIntegral(float flame);
 
 };
@@ -119,6 +123,7 @@ public:
   unsigned int OEMDcode;
   unsigned int rcode[5];
   int BoilerStatus;
+  int BoilerStatusRequest;
   byte need_set_T; 
   byte need_set_T2; 
   byte need_set_dhwT;
@@ -167,11 +172,15 @@ public:
   x_mean t_mean[8];
   float tempindoor;
   float tempoutdoor;
-
 #endif
+  float TroomTarget;
+
   unsigned short int UseID2;
   unsigned short int ID2masterID;
   unsigned short int CH2_DHW_flag;
+  unsigned short int UseWinterMode;
+  unsigned short int Use_OTC;
+  int CapabilitiesDetected;
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -187,9 +196,9 @@ public:
     HotWater_present  = false;;
     RetT_present  = false;;
     CH2_present  = false;
-    RetT_present  = false; 
     Toutside_present  = false; 
     Pressure_present  = false;
+    CapabilitiesDetected = 0;
 
       stsOT = -1;
       t_lastwork = 0;
@@ -220,7 +229,7 @@ public:
       OEMDcode = 0;
       OTmemberCode = 0;
       rcode[0] = rcode[1] = rcode[2] = rcode[3] = rcode[4] = 0;
-      BoilerStatus = 0;
+      BoilerStatus = BoilerStatusRequest = 0;
       TestCmd = TestId = TestPar =  TestResponse = 0;
       TestStatus = 0;
       RespMillis = 0;
@@ -243,20 +252,36 @@ public:
       srcTroom =  srcText = 0;
       tempindoor =  tempoutdoor = 0.;
 #endif
+      TroomTarget = 18.f;
       UseID2 = 0;
       ID2masterID = 0;
       CH2_DHW_flag = 0;
+      UseWinterMode = Use_OTC = 0;
   }
   
   void init(void);
   void loop(void);
   void OpenThermInfo(void);
+  void Send_to_server_HandShake(void);
+  void Send_to_server_IdentifySelf(void);
+  void Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
+  void Send_to_server_Sts(void); // PACKED unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
+  int servercallback_send_Sts_answ( U8 *bf, int len);
+  int server_answer_IdentifySelf( U8 *bf, int len);
+
 //  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
-  void callback_Get_OpenThermInfo( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  int callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+
   void callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_testcmdanswer( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+//  void servercallback_GetOtInfo( U8 *bf, int len);
+  int callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+
+  int servercallback_Get_Sts( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+
 #if OT_DEBUGLOG
   void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 #endif
@@ -269,7 +294,11 @@ public:
   void OnChangeT(float t, int src);
 #if PID_USE
   void loop_PID(void);
+  void loop_PIDold(void);
+  void loop_mean(void); //получаем средние значения для используемых температур
+  int loop_pid_gettemp(int &_start); //получаем значения tindoor и toutdoor
 #endif
+  void DetectCapabilities(void);
 };
 
 #endif // SD_OPENTHERM

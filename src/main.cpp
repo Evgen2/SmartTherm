@@ -30,6 +30,8 @@ extern void setup_tcpudp(SmartDevice *psd);
 
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
+extern void loop_servertcp(void);
+
 
 void loop_time(void);
 
@@ -81,6 +83,7 @@ OneWire oneWire2(DS1820_2);
 DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
 extern int OTDebugInfo[12];
+extern unsigned int OTcount;
 
 
 void IRAM_ATTR handleInterrupt() {
@@ -93,10 +96,10 @@ int LedSts = 0; //LOW
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
-  delay(1000);
+  delay(10);
   Serial.begin(115200);
+  Serial.printf("(1) %d\n", millis());
   
-  //Serial.println(Jopa);
   Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
@@ -111,11 +114,16 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   
 
 /*******************************************/
-  setupDS1820();
-
+  Serial.printf("(2) %d\n", millis());
   ot.begin(handleInterrupt, OTprocessResponse);
+  Serial.printf("(3) %d\n", millis());
+  setupDS1820();
+  Serial.printf("(4) %d\n", millis());
+
   setup_web_common();
+  Serial.printf("(5) %d\n", millis());
   setup_tcpudp( &SmOT );
+  Serial.printf("(6) %d\n", millis());
 
   if(SmOT.UseID2)
       OTstartSts_MAX = 3;
@@ -124,12 +132,14 @@ void setup() {
 
 #if SERVER_DEBUG
   SmOT.TCPserver_sts = 2;  /* статус сервера */
+//  SmOT.TCPserver_sts2 = 1; 
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
-  SmOT.TCPserver_repot_period = 10000;
-  SmOT.tcp_remoteIP.fromString("192.168.0.100");
+  SmOT.TCPserver_report_period = 10000;
+  SmOT.tcp_remoteIP.fromString("192.168.10.112");
+//   SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
-  Serial.printf("TCPserver_repot_period=%d TCPserver_port=%d\n", SmOT.TCPserver_repot_period, SmOT.TCPserver_port);
+  Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
 #endif	
 
@@ -297,7 +307,6 @@ void loopDS1820(void)
 //    bool enableCentralHeating = true;
 //    bool enableHotWater = true;
 //    bool enableCooling = false;
-
 //
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
 {   float t;
@@ -306,7 +315,8 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     int parity, messagetype;
 static int timeOutcounter = 0;
 
-    SmOT.RespMillis = millis();
+     OTcount++;
+     SmOT.RespMillis = millis();
     if(SmOT.TestCmd == 2)
     {
       id = (response >> 16 & 0xFF);
@@ -397,7 +407,7 @@ static int timeOutcounter = 0;
     { OTDebugInfo[9]++;
          if(OTstartSts > 0)  OTstartSts++;
 #if SERIAL_DEBUG 
-        Serial.printf("Messagetype  %d!!! Status %d %d\n", messagetype, status, SmOT.stsOT );
+        Serial.printf("Messagetype  %d!!! Status %d %d ot.LastRequestId %d\n", messagetype, status, SmOT.stsOT, ot.LastRequestId);
 #endif        
       return;
     }
@@ -446,10 +456,23 @@ bit: description [ clear/0, set/1]
 //        boiler_status = response & 0xFF;
         if((u88 & 0x08) != (SmOT.BoilerStatus & 0x08))
         {   SmOT.Bstat.calcNflame(u88 & 0x08);
-#if MQTT_USE
-            SmOT.MQTT_need_report = 1;
-#endif
         }
+        if(SmOT.HotWater_present)
+        { if((u88 & 0x04) != (SmOT.BoilerStatus & 0x04))
+          {   SmOT.Bstat.calcN_HW(u88 & 0x04);
+          }
+        }
+
+#if MQTT_USE
+        if(SmOT.HotWater_present)
+        {   if((u88 & (0x08|0x04|0x02) ) != (SmOT.BoilerStatus & (0x08|0x04|0x02)))
+                SmOT.MQTT_need_report = 1;
+        } else {
+            if((u88 & (0x08|0x02) ) != (SmOT.BoilerStatus & (0x08|0x02)))
+                SmOT.MQTT_need_report = 1;
+        }
+
+#endif
 
         SmOT.BoilerStatus = u88;
 //        Serial.printf("BoilerStatus: %x %x\n", u88, response);
@@ -604,6 +627,7 @@ unsigned int buildRequestOnStart(void)
       case 0: // запрос статуса
 // Serial.printf("0 Request: %d\n",OpenThermMessageID::Status);
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        SmOT.BoilerStatusRequest = request;
 #if OT_DEBUG
   { unsigned int u88;
     u88 = (request & 0xffff);
@@ -638,6 +662,8 @@ unsigned int buildRequestOnStart(void)
     return request;
 }
 
+extern int  MQTT_pub_cmdCH(int on);
+
 unsigned int buildRequest(void)
 {   static int st = 0, raz=0;
     unsigned int request = 0;
@@ -657,17 +683,28 @@ M0:
       if(!SmOT.usePID)
          SmOT.enable_CentralHeating_real = SmOT.enable_CentralHeating;
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
-      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
       } else {
-        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
+{  static int old_CH = -1;
+    if(old_CH != SmOT.enable_CentralHeating_real)
+    {
+// Serial.printf("SmOT.enable_CentralHeating_real  %d %d\n",SmOT.enable_CentralHeating_real, old_CH );
+       if(MQTT_pub_cmdCH(SmOT.enable_CentralHeating_real))
+       {    old_CH = SmOT.enable_CentralHeating_real;
+
+       }
+    }
+}      
 #else
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
-      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, 1);
+      {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
       } else {
-        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, false, SmOT.enable_CentralHeating2);
+        request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling,  SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
 #endif
+      SmOT.BoilerStatusRequest = request;
         st++;
       break;
       case 1: //setBoilerTemperature
@@ -694,6 +731,16 @@ M0:
                break;
           } else {
             raz++;
+
+            if(SmOT.CapabilitiesDetected == 0)
+            {  if(raz > 2)
+                 SmOT.CapabilitiesDetected = 1;
+            } else if(SmOT.CapabilitiesDetected == 1) {
+               if(raz > 32)
+               {   SmOT.CapabilitiesDetected = 2;
+                  SmOT.DetectCapabilities();
+               }
+            }
             if(raz > 100)
             {   if(SmOT.enable_CentralHeating)
                     SmOT.need_set_T  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
@@ -1005,7 +1052,12 @@ void loop2(void)
         break;
 
         case 3:      
-         loop_tcp(SmOT.TCPserver_sts);
+        if(SmOT.TCPserver_sts > 0)
+        {    loop_servertcp();
+        }
+        
+        loop_tcp(0);
+
           irot++;
         break;
 
