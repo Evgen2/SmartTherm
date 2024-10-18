@@ -22,7 +22,7 @@ Features:
 0.8.0 todo
 
 0.7.5
-* add  WinterMode ((ID0:HB5) and  Use_OTC (ID0:HB3) support
+* add  WinterMode (ID0:HB5) and  Use_OTC (ID0:HB3) support
 * speedup OT startup ~2 sec
 * add binary CH and HW sensors to MQTT
 * MQTT connect after detecting boiler Capabilities if OT work
