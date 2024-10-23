@@ -122,11 +122,12 @@ AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2Ch
 /************* SetPID ******************/
 #if PID_USE
 AutoConnectCheckbox UsePID("UsePID","", "Использовать PID", false, AC_Behind , AC_Tag_BR);
-ACInput(SetXtagPID,"", "Xtag:"); // 
-ACInput(SetTempSrcPID,"", "Источник температуры в комнате:"); // 
+AutoConnectCheckbox UsePID_NoLimit("UsePID_NOLIMIT","", "Не ограничивать уставку (5-35°C)", false, AC_Behind , AC_Tag_BR);
+ACInput(SetXtagPID,"", "Уставка температуры в помещении:"); // 
+ACInput(SetTempSrcPID,"", "Источник температуры в помещении:"); // 
 ACInput(SetTempExtSrcPID,"", "Источник температуры на улице:"); // 
-ACInput(SetKpPID,"", "Kp:","","",AC_Tag_None); //  
-ACInput(SetKdPID,"", "Kd:","","",AC_Tag_None); // 
+ACInput(SetKpPID,"", "Kp:","","",AC_Tag_BR); //  
+ACInput(SetKdPID,"", "Kd:","","",AC_Tag_BR); // 
 ACInput(SetKiPID,"", "Ki:","","",AC_Tag_BR); // 
 ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None); // 
 ACInput(SetTminPID,"", "Tmin:"); // 
@@ -136,7 +137,7 @@ ACInput(Set_u1_PID,"", "u1:","","",AC_Tag_None); //
 ACInput(Set_t1_PID,"", "t1:"); // 
 
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
-AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, Info1,SetXtagPID,  SetTempSrcPID, SetTempExtSrcPID, 
+AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
                       SetKpPID, SetKdPID, SetKiPID, SetTmaxPID, SetTminPID, Info2,
                       Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Info5, Info6,  ApplyPID });
 #endif
@@ -962,6 +963,8 @@ if(SmOT.useMQTT)
 #if PID_USE
     if(SmOT.usePID)
     {   Info1.value += "<br>управление по PID";
+        if(SmOT.usePID & 0x02)
+              Info1.value += "без ограничений";
     }
 #endif // PID_USE 
 
@@ -1217,18 +1220,21 @@ Zota Lux-x (electro)  248
 
 String onSetPID(AutoConnectAux& aux, PageArgument& args)
 {  int isChange=0;
-   unsigned short int icheck;
+   unsigned short int icheck, icheck2=0;
    unsigned short int iv;
    float v;
 
-   Serial.printf((PGM_P)F("onSetPID\n"));
+//   Serial.printf((PGM_P)F("onSetPID\n"));
 
-  if( UsePID.checked) icheck = 1;
-  else               icheck = 0;
-  if(icheck != SmOT.usePID)
+  if( UsePID.checked) 
+  {  icheck = 1;
+     if( UsePID_NoLimit.checked) icheck2 = 2;
+  }  else  {
+      icheck = 0;
+  }
 
-  if(icheck != SmOT.usePID)
-  { SmOT.usePID = icheck;
+  if((icheck|icheck2) != SmOT.usePID)
+  { SmOT.usePID = icheck|icheck2;
     isChange = 1;
   }
 
@@ -1265,11 +1271,13 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
     v = SetXtagPID.value.toFloat();
-
-    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    if(SmOT.usePID == 1)
+    {   if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
     else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+    }
     if(v != SmOT.mypid.xTag)
     { SmOT.mypid.xTag = v;
+      SmOT.TroomTarget = v;
       isChange = 1;
     }
 
@@ -1328,17 +1336,22 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
 // PID_Page
 String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 { char str0[80];
-  if(SmOT.usePID) 
+  if(SmOT.usePID & 0x01) 
   { UsePID.checked = true;
   } else {
     UsePID.checked = false;    
   }
+  if(SmOT.usePID == 3) 
+    UsePID_NoLimit.checked = true;
+  else 
+    UsePID_NoLimit.checked = false;
 
-  Info1.value = "Источник: -1=n/a, 0/1=T1/T2, 2=Text, MQTT/HA:";
+  Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2, 2=Text, MQTT/HA:";
   sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
   Info1.value += str0;
   sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
   Info1.value += str0;
+  Info1.value += "</small>";
 
   sprintf(str0,"%d",SmOT.srcTroom);
   SetTempSrcPID.value = str0;

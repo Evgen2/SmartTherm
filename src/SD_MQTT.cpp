@@ -412,12 +412,8 @@ void mqtt_start(void)
 }
 
 void mqtt_loop(void)
-{ int sts;
-  char str[80];
+{ char str[80];
 static int st_old = -2;  
-static unsigned int t0=0;
-unsigned long t1;
-int dt;
 
 
 if(SmOT.stsMQTT == 0)

@@ -168,7 +168,7 @@ public:
   x_mean t_mean[8];
   float tempindoor;
   float tempoutdoor;
-
+  float TroomTarget;
 #endif
   unsigned short int UseID2;
   unsigned short int ID2masterID;
@@ -246,6 +246,7 @@ public:
       usePID = 0;
       srcTroom =  srcText = 0;
       tempindoor =  tempoutdoor = 0.;
+      TroomTarget = 18.f;
 #endif
       UseID2 = 0;
       ID2masterID = 0;
