@@ -42,7 +42,7 @@ extern OpenTherm ot;
 
 HADevice device;
 #if PID_USE
-HAMqtt mqtt(espClient, device,25);
+HAMqtt mqtt(espClient, device,26);
 #else
 HAMqtt mqtt(espClient, device,12);
 #endif
@@ -63,6 +63,8 @@ HASensor sensorT1(NULL);
 HASensor sensorT2(NULL);
 HASensor sensorText(NULL);
 HASensor sensorFreeRam(NULL);
+HASensor sensor_TestNum(NULL);
+
 HASensor sensorState(NULL);
 #if PID_USE
 //HAText  textTargetTemp(NULL);
@@ -215,6 +217,7 @@ int attempt_mqtt = 0;
 /************************************************************/
 void mqtt_setup(void)
 {  bool rc;
+  char str[80];
 extern unsigned int OTcount;
 
   if (WiFi.status() != WL_CONNECTED)  
@@ -320,6 +323,13 @@ extern unsigned int OTcount;
     sensorFreeRam.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
     sensorFreeRam.setDeviceClass("data_size"); 
 
+    sensor_TestNum.setAvailability(true);
+    sensor_TestNum.setNameUniqueIdStr(SmOT.MQTT_topic,"Test N", "TestN");
+    sensor_TestNum.setDeviceClass("data_size"); 
+    sprintf(str,"0");
+     sensor_TestNum.setValue(str);  
+
+
     // assign callbacks (optional)
     hvac.onTargetTemperatureCommand(onTargetTemperatureCommand);
     hvac.onPowerCommand(onPowerCommand);
@@ -365,6 +375,10 @@ extern unsigned int OTcount;
     { sensorT1.setAvailability(true);
       sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
       sensorT1.setDeviceClass(temperature_str); 
+      sprintf(str,"%.3f", SmOT.t1);
+      sensorT1.setValue(str);  
+//   Serial.printf("***000 MQTT T1=%s\n",  str); 
+
     }  else {
       sensorT1.setAvailability(false);
     }
@@ -373,6 +387,8 @@ extern unsigned int OTcount;
     { sensorT2.setAvailability(true);
       sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
       sensorT2.setDeviceClass(temperature_str); 
+      sprintf(str,"%.3f", SmOT.t2);
+      sensorT2.setValue(str);  
     }  else {
       sensorT2.setAvailability(false);
     }
@@ -486,12 +502,9 @@ void mqtt_start(void)
 }
 
 void mqtt_loop(void)
-{ int sts;
-  char str[80];
+{ char str[80];
 static int st_old = -2;  
-static unsigned int t0=0;
 unsigned long t1;
-int dt;
 
 
 if(SmOT.stsMQTT == 0) 
@@ -666,7 +679,8 @@ if(SmOT.stsMQTT == 0)
         sensorState.setValue("нет");
     }
 
-#if 0       
+#if 0  
+todo     
       if(SmOT.Fault)
       { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
         Info6.value += str0;
@@ -700,12 +714,29 @@ if(SmOT.stsMQTT == 0)
         }
         st_old = SmOT.stsOT;
         if(SmOT.stsT1 >= 0)
-        {   sprintf(str,"%.3f", SmOT.t1);
-            sensorT1.setValue(str);  
+        {   if(SmOT.usePID) 
+             {  if(SmOT.t_mean[0].can_report)
+                { sprintf(str,"%.3f", SmOT.t_mean[0].x);
+                  sensorT1.setValue(str);
+                  SmOT.t_mean[0].can_report = 0; 
+//   Serial.printf("***MQTT T1=%s\n",  str); 
+                 }
+             }  else { 
+                sprintf(str,"%.3f", SmOT.t1);
+                sensorT1.setValue(str); 
+             } 
         }
         if(SmOT.stsT2 >= 0)
-        {   sprintf(str,"%.3f", SmOT.t2);
-            sensorT2.setValue(str);  
+        {   if(SmOT.usePID)
+            {   if(SmOT.t_mean[1].can_report)
+                { sprintf(str,"%.3f", SmOT.t_mean[1].x);
+                  sensorT2.setValue(str);
+                  SmOT.t_mean[1].can_report = 0;
+                }
+            } else { 
+                sprintf(str,"%.3f", SmOT.t2);
+                sensorT2.setValue(str);
+            }  
         }
 
         sprintf(str,"%d",  ESP.getFreeHeap() );
@@ -721,6 +752,15 @@ int MQTT_pub_data(void)
 //Serial.printf("todo %s\n",__FUNCTION__ );
     return 0;
 
+}
+
+ 
+void  MQTT_pub_cmd2(int val)
+{ char str[80];
+  if(SmOT.stsMQTT != 2)
+    return;
+  sprintf(str,"%d",  val);
+  sensor_TestNum.setValue(str);  
 }
 
 void  MQTT_pub_cmd(int on)

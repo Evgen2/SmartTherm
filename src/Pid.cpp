@@ -5,14 +5,30 @@
 #if PID_USE
 #include "pid.hpp"
 
+void pid::Init_I(float _x)
+{  float  _xerr, I0;
+//Limit for InT with constant  xerr:  xerr * dt/Kidiss  
+   if(Ki == 0.)
+         return;
+   _xerr = xTag - _x;
+   I0 = _xerr * (t_interval) /Kidiss;
+   InT = I0/2.;
+   if(InT * Ki > 30.)
+      InT =  30 / Ki;
+   else  if(InT * Ki < -30.)
+      InT =  -30 / Ki;
+//    Serial.printf("\n****pid: _xerr = %f I0 %f %f\n", _xerr, I0, I0 *Ki);
+
+}
+
  int pid::Pid(float _x, float _u0)
  {  unsigned long int t, dt, _t;
     float _xerr, dX, dtf, _dft, _u;
-    float _dft0;
+    float _dft0, _Kidiss;
     t  = millis();
     dt = t - pid_t; // dt, msec
 
-      Serial.printf("****pid: dt = %ld\n", dt );
+//      Serial.printf("****pid: dt = %ld\n", dt );
 
  //   if(dt < (unsigned long int)(t_interval*1000))
 //    {   return 0;
@@ -39,19 +55,28 @@
 //   Serial.printf("====>>  _dft0=%e  _dft=%e diff=%e\n",  _dft0,  _dft,  _dft0 - _dft);
    { 
       dX = _dft * 3600.f* 1000.f;
-   Serial.printf("====>> dX=%f\n", dX) ;
+//   Serial.printf("====>> dX=%f\n", dX) ;
    }
 
 //   dSt0.add(xerr, t);
    dSt.add(xerr, t);
-//I
+
+//Kidiss magic: dissipation of the integral automagically limit of integral & limiting the influence of old values
+//characteristic time: dtf(sec)/Kidiss (sec) 
+//Limit for InT with constant  xerr:  xerr * dtf/Kidiss  
+//Kidiss magic, part 2:
+//Limit to zero dissipation of the integral with small xerr
+   _Kidiss = Kidiss;
+   if(fabs(xerr) < 1.f)
+   {  _Kidiss = Kidiss* fabs(xerr);
+   }
    dtf = float(dt) / 1000.f; // dt, sec
-   InT = InT*(1.-Kidiss) + xerr * dtf; // grad * sec
+   InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
 #if SERIAL_DEBUG 
-   Serial.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
-          dt , xerr, InT, dX); 
-   Serial.printf("pid: _x %f xTag=%f, u0=%f\n",
-          _x , xTag, _u0); 
+//   Serial.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
+//          dt , xerr, InT, dX); 
+//   Serial.printf("pid: _x %f xTag=%f, u0=%f\n",
+//          _x , xTag, _u0); 
 #endif          
    dP = xerr * Kp;
    dD = dX * Kd;
@@ -59,8 +84,8 @@
    _u = dP + dD + dI;
    u = _u + _u0;
 #if SERIAL_DEBUG 
-   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
-        u, _u0, _u , dP, dD, dI); 
+//   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
+//        u, _u0, _u , dP, dD, dI); 
 #endif         
    ub = _u0;
 
@@ -68,18 +93,25 @@
 
     return 1;
  }
-  
+
+#define N_X 3
+
+int IncrCalculateMatrixYfX2(float x, float y, int *Np);
+int CalculateMNKYfX2(float coeff[],int *Np);
 
 int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 {  int i, ii;
    unsigned long int  t0, dt, tmid, _t;  
    float _d, dmid, _xerr, xm, ym, xm2,xym, _x, _y, b;
    float  _dft, dX; 
-//https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
+   int Np;
+   float coeff[N_X];
+
+   //https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
 //   float d[NB];
 //   unsigned long int t[NB];
 
-   Serial.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
+//   Serial.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
 
       if( n < 2)
       {  diff = 0.f;
@@ -115,6 +147,7 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
   //    Serial.printf("dmid %f tmid %d t0* %d\n", dmid, tmid, t0) ;
       xm = tmid / (n+1);
       ym = dmid / (n+1);
+#if 0      
       xm2 = xym = 0;
       for (ii = 0; ii<n; ii++)
       {
@@ -125,8 +158,11 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
          _y = d[i] - ym;
          xm2 += _x * _x;
          xym += _x * _y;
+//    Serial.printf("[%d] d %f dt %d\n", ii, d[i], t[i] - t0) ;
       }   
 
+      b = xym / xm2; 
+//    Serial.printf("[%d] d %f dt %d b=%e\n", n, xerr, tt - t0, b) ;
       _x = (tt - t0) - xm;
       _y = xerr - ym;
       xm2 += _x * _x;
@@ -136,9 +172,139 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 
  //  Serial.printf("xym =%f xm2b = %f\n", xym , xm2) ;
       b = xym / xm2; 
-//      Serial.printf("b = %e dt =%d n=%d\n", b, millis()-tt, n );
+  //    Serial.printf("b = %e dt =%d n=%d\n", b, tt- t0, n );
       diff = b;
+#endif
+      Np =0;
+      for(i = 0; i < n; i++)
+      {  IncrCalculateMatrixYfX2((t[i] - t0) - xm, d[i] - ym, &Np);
+      }
+      IncrCalculateMatrixYfX2( (tt - t0) - xm, xerr - ym, &Np);
+         
+      CalculateMNKYfX2(coeff,&Np);
+//      Serial.printf("MNK coeff = %e %e  %e\n", coeff[0], coeff[1], coeff[2] );
+/* Y = a + b * X + c * X**2                */
+/* Y' = b + 2c * X */
+      {  float ydf;
+         ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm);
+//      Serial.printf("MNK coeff Y' = %e\n", ydf );
+      diff = ydf;
+
+      }
    return 1;
 }  
+
+
+static float XX[N_X][N_X],XXM[N_X][N_X],XX_1[N_X][N_X],Yx[N_X],YxM[N_X], Yy[N_X],A[N_X];
+int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X]);
+
+
+int IncrCalculateMatrixYfX2(float x, float y, int *Np, float _XX[N_X][N_X ], float _Yx[N_X] )
+{  int i,j,n;
+   double x2;
+   n = 3;
+   x2 = x * x;
+   if(*Np == 0)
+   {  for(i=0;i<3;i++)
+      {  for(j=0;j<3;j++) _XX[i][j] = 0.f;
+         _Yx[i] = 0.f;
+      }
+      _XX[0][0] = 1.;
+   }
+   _XX[1][0] += x;
+   _XX[1][1] += x2;
+   _XX[2][2] += x2 * x2;
+   _XX[2][1] += x2 * x;
+   _Yx[0]    += y;
+   _Yx[1]    += y * x;
+   _Yx[2]    += y * x2;
+   (*Np)++;
+   return 0;
+}
+
+/* инкpиментальный подсчет матpицы для МНК */
+/* Y = a + b * X + c * X**2                */
+/* Np - число точек в статистике           */
+/* Np = 0 - обнуление матpиц               */
+
+int IncrCalculateMatrixYfX2(float x, float y, int *Np)
+{
+   return IncrCalculateMatrixYfX2(x,y, Np, XX,  Yx );
+}
+
+/* pасчитать коэффициенты Y= a + b * X + c * X**2 */
+int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] )
+{   int i,j,n;
+    float v;
+    n = 3;
+   if(*Np <= 0) return 1;
+   v = 1./ double(*Np);
+/* пеpеписываем матpицы в осpедненном виде */
+   for(i=0;i<3;i++)
+       YxM [i] = _Yx[i] * v;
+
+   XXM[0][0] = 1.;
+   XXM[1][0] = _XX[1][0] * v;
+   XXM[0][1] = XXM[1][0];
+   XXM[1][1] = _XX[1][1] * v;
+   XXM[2][2] = _XX[2][2] * v;
+
+   XXM[2][0] = XXM[1][1];
+   XXM[0][2] = XXM[2][0];
+   XXM[2][1] = _XX[2][1] * v;
+   XXM[1][2] = XXM[2][1];
+/* считаем обpатную */
+  MatrixInvert(n,XXM,XX_1);
+/* вычисляем коэффициенты */
+  for(i=0;i<n;i++)
+  {
+    coeff[i]=0.;
+    for(j=0;j<n;j++)
+    { coeff[i] += XX_1[i][j] * YxM[j];
+    }
+  }
+  return 0;
+}
+
+int CalculateMNKYfX2(float coeff[],int *Np)
+{
+   return CalculateMNKYfX2(coeff,Np,XX,Yx);
+}
+
+int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
+{  int i,j,k;
+   float d,mulby;
+   float B[N_X][N_X];
+   for(i=0;i<n;i++)
+     for(j=0;j<n;j++) { Out[i][j] = 0; B[i][j] = A[i][j]; };
+   for(i=0;i<n;i++)   Out[i][i] = 1.;
+/*   Matrix Out(1.), B = A; */
+
+
+   for(i=0;i<n;i++)
+   {
+      d = B[i][i];
+      if(d != 1.0 )
+      {    for(j=0;j<n;j++)
+           {  Out[i][j]/= d;
+              B[i][j]  /= d;
+           }
+      }
+
+      for(j=0;j<n;j++)
+      {
+          if(j != i)
+          {  if(B[j][i] != 0.0)
+             {   mulby = B[j][i];
+                 for(k=0;k<n;k++)
+                 {  B[j][k] -= mulby * B[i][k];
+                    Out[j][k] -= mulby * Out[i][k];
+                 }
+             }
+          }
+      }
+   }
+   return 0;
+}
 
 #endif //PID_USE

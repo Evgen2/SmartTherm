@@ -6,7 +6,7 @@
 
 /* циклический стек/буфер для хранения последних NB значений */
 /* нужен для корректного расчета дифференциальной части PID  */
-#define NB 10
+#define NB 20
 class dstack
 {
   public:
@@ -72,7 +72,7 @@ class TempStack:public dstack
          t[ind_last]  = t[ind_last] + (_t - t[ind_last]) / (nlast +1);
          nlast++;
 //    Serial.printf("ind_last %d   d[ind_last] =%f  t[ind_last] %d %d\n", ind_last,  d[ind_last] , t[ind_last] , nlast); 
-         if(nlast > 7) //8 раза считаем среднее
+         if(nlast > 3) //4 раза считаем среднее
             nlast = 0;  
       }
    }
@@ -135,6 +135,7 @@ class pid
    }
 
    int Pid(float _x, float u0);
+   void Init_I(float _x);
 
 };
 

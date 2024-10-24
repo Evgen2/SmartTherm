@@ -9,24 +9,29 @@
 class x_mean
 {
   public:
+//  int id;
    float x;
    float xmean; //среднее для вычисления x
    int nx;       // число отсчетов xmean
    int isset;
+   int can_report;
    x_mean(void)
-   { x = 0.;
+   { x = 0.f;
      init();
-     isset = -1; 
+     isset = -1;
+     can_report = 0; 
    }
 
    void init(void)
    {  xmean = 0;
       isset = 0;
       nx = 0;
+      can_report = 1;
    }
    void add(float _x)
    {  xmean += _x;
       nx++;
+//Serial.printf("[%d] _x =%f nx= %d\n",id,  _x, nx); 
    }
    float get(void)
    {  if(nx > 0) 
@@ -171,9 +176,9 @@ public:
   class pid mypid;
   x_mean t_mean[8];
   float tempindoor;
+  float TroomTarget;
   float tempoutdoor;
 #endif
-  float TroomTarget;
 
   unsigned short int UseID2;
   unsigned short int ID2masterID;
@@ -251,12 +256,15 @@ public:
       usePID = 0;
       srcTroom =  srcText = 0;
       tempindoor =  tempoutdoor = 0.;
-#endif
       TroomTarget = 18.f;
+#endif
       UseID2 = 0;
       ID2masterID = 0;
       CH2_DHW_flag = 0;
       UseWinterMode = Use_OTC = 0;
+//    for(int i=0; i<8; i++)
+//      {  t_mean[i].id = i;
+//      }
   }
   
   void init(void);

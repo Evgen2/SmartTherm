@@ -1,1 +1,0 @@
-esptool --before default_reset --after hard_reset --chip esp8266 --port "COM20" --baud 115200 write_flash 0x0 firmware.bin
