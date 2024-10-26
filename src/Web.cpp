@@ -31,7 +31,7 @@ using WiFiWebServer = WebServer;
   
   #include <AutoConnectFS.h>
   AutoConnectFS::FS& name = AUTOCONNECT_APPLIED_FILESYSTEM;
-  name.begin(AUTOCONECT_FS_INITIALIZATION);
+  name.begin(AUTOCONNECT_FS_INITIALIZATION);
 */
 
 #include <AutoConnect.h>
@@ -1514,25 +1514,6 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi) {
   return qu;
 }
 
-#if defined(ARDUINO_ARCH_ESP32)
-void TestPower(void)
-{  int8_t power =-1;
-      static int p = -127;
-      int rc;
-
-      rc = esp_wifi_get_max_tx_power(&power);
-     Serial.printf("rc=%d max_tx_power =%d \n", rc, power);
-/*     
-       power = p;
-      rc = esp_wifi_set_max_tx_power(power);
-      if(rc == ESP_OK)
-     Serial.printf("| rc=%d  set to %d\n", rc, power);
-      p++;
-      if(p<-5) p += 5;
-      if(p > 127) p = -1;
-*/      
-}
-#endif
 
 int OutUTCtime(time_t now)
 {   char str[312];

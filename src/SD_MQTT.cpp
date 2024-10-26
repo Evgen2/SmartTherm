@@ -714,20 +714,28 @@ todo
         }
         st_old = SmOT.stsOT;
         if(SmOT.stsT1 >= 0)
-        {   if(SmOT.usePID) 
-             {  if(SmOT.t_mean[0].can_report)
-                { sprintf(str,"%.3f", SmOT.t_mean[0].x);
+        {  
+#if PID_USE
+            if(SmOT.usePID) 
+            {  if(SmOT.t_mean[0].can_report)
+               { sprintf(str,"%.3f", SmOT.t_mean[0].x);
                   sensorT1.setValue(str);
                   SmOT.t_mean[0].can_report = 0; 
 //   Serial.printf("***MQTT T1=%s\n",  str); 
-                 }
-             }  else { 
+                }
+            }  else { 
                 sprintf(str,"%.3f", SmOT.t1);
                 sensorT1.setValue(str); 
-             } 
+            } 
+#else
+                sprintf(str,"%.3f", SmOT.t1);
+                sensorT1.setValue(str); 
+#endif             
         }
         if(SmOT.stsT2 >= 0)
-        {   if(SmOT.usePID)
+        { 
+#if PID_USE
+            if(SmOT.usePID)
             {   if(SmOT.t_mean[1].can_report)
                 { sprintf(str,"%.3f", SmOT.t_mean[1].x);
                   sensorT2.setValue(str);
@@ -737,6 +745,11 @@ todo
                 sprintf(str,"%.3f", SmOT.t2);
                 sensorT2.setValue(str);
             }  
+#else
+                sprintf(str,"%.3f", SmOT.t2);
+                sensorT2.setValue(str); 
+#endif             
+        
         }
 
         sprintf(str,"%d",  ESP.getFreeHeap() );

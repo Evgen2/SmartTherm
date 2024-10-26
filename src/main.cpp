@@ -98,9 +98,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
   delay(10);
   Serial.begin(115200);
-  Serial.printf("(1) %d\n", millis());
-  
-  Serial.println(F("Start"));
+//  Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
 
@@ -114,16 +112,12 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   
 
 /*******************************************/
-  Serial.printf("(2) %d\n", millis());
   ot.begin(handleInterrupt, OTprocessResponse);
-  Serial.printf("(3) %d\n", millis());
   setupDS1820();
-  Serial.printf("(4) %d\n", millis());
 
   setup_web_common();
-  Serial.printf("(5) %d\n", millis());
   setup_tcpudp( &SmOT );
-  Serial.printf("(6) %d\n", millis());
+//  Serial.printf("(6) %d\n", millis());
 
   if(SmOT.UseID2)
       OTstartSts_MAX = 3;
@@ -492,13 +486,13 @@ bit: description [ clear/0, set/1]
         if(SmOT.Tset_r == SmOT.Tset)
                 SmOT.need_set_T = 0;
 
-//        Serial.println("Set CH temp: " + String(t));
         break;
         
     case OpenThermMessageID::MConfigMMemberIDcode: //2
          if(OTstartSts == 2)  OTstartSts++;
+#if SERIAL_DEBUG 
        Serial.printf((PGM_P)F("OpenThermMessageID::MConfigMMemberIDcode, %d\n"), OTstartSts);
-
+#endif
         break;
 
     case OpenThermMessageID::SConfigSMemberIDcode:  //3

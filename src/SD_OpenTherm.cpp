@@ -762,13 +762,14 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
  #if PID_USE
 	 memcpy((void *)&MsgOut[62],(void *) &tempindoor,4); 
 	 memcpy((void *)&MsgOut[66],(void *) &tempoutdoor,4); 
+	 memcpy((void *)&MsgOut[70],(void *) &TroomTarget,4); 
 #else
     {   float tmp = 0.f;
 	 memcpy((void *)&MsgOut[62],(void *) &tmp,4); 
 	 memcpy((void *)&MsgOut[66],(void *) &tmp,4); 
+	 memcpy((void *)&MsgOut[70],(void *) &tmp,4); 
     }
 #endif
-	 memcpy((void *)&MsgOut[70],(void *) &TroomTarget,4); 
 
 //    Serial.printf("callback_Get_OpenThermInfo rc %d Lsend %d ",rc, Lsend);
 
@@ -849,13 +850,14 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
  #if PID_USE
 	 memcpy((void *)&msg->Buf[62],(void *) &tempindoor,4); 
 	 memcpy((void *)&msg->Buf[66],(void *) &tempoutdoor,4); 
+	 memcpy((void *)&msg->Buf[70],(void *) &TroomTarget,4); 
 #else
     {   float tmp = 0.f;
 	 memcpy((void *)&msg->Buf[62],(void *) &tmp,4); 
 	 memcpy((void *)&msg->Buf[66],(void *) &tmp,4); 
+	 memcpy((void *)&msg->Buf[70],(void *) &tmp,4); 
     }
 #endif
-	 memcpy((void *)&msg->Buf[70],(void *) &TroomTarget,4); 
 
      //74
 }
@@ -1030,8 +1032,10 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
 #if  PID_USE
     float roomSetpointT;
 	memcpy((void *)&v,(void *)&bf[6+6],4); //roomSetpointT
-    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
-    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+    if(usePID == 1)
+    {   if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+        else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+    }
     roomSetpointT = v;
 
     if(usePID)

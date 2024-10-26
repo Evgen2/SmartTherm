@@ -131,11 +131,11 @@ void loop_tcp(int sts)
 			 	tcp_client.setTimeout(5);
 				nb = 0;
 			 	tcp_sts++;
-Serial.printf("%ld tcp client from %s to port %d ", 
-			millis(),tcp_client.remoteIP().toString().c_str(), tcp_client.localPort() );
+//			Serial.printf("%ld tcp client from %s to port %d\n", 
+//						millis(),tcp_client.remoteIP().toString().c_str(), tcp_client.localPort() );
 
 			 } else if (sts == 2 && TcpUdp_Lsend > 0) {
-				Serial.printf("sts == 2 &&  TcpUdp_Lsend  %d\n",  TcpUdp_Lsend );
+//				Serial.printf("sts == 2 &&  TcpUdp_Lsend  %d\n",  TcpUdp_Lsend );
 				tcp_sts = 3;
 			}
 		  break;

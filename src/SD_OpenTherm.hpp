@@ -176,7 +176,7 @@ public:
   class pid mypid;
   x_mean t_mean[8];
   float tempindoor;
-  float TroomTarget;
+  #define TroomTarget mypid.xTag
   float tempoutdoor;
 #endif
 
