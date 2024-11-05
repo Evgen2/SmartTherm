@@ -1185,6 +1185,8 @@ Zota Lux-x (electro)  248
     SetMQTT_interval.enable  = true;
     SetMQTT_devname.enable  = true;
 
+     SetMQTT_user.value = SmOT.MQTT_user;
+     SetMQTT_pwd.value = SmOT.MQTT_pwd;
       SetMQTT_server.value = SmOT.MQTT_server;
       SetMQTT_topic.value = SmOT.MQTT_topic;
       sprintf(str, "%d",SmOT.MQTT_interval);
