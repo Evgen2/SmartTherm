@@ -46,4 +46,4 @@ v 0.6 changes
 
 
 ## License
-Copyright (c) 2022-2023 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
+Copyright (c) 2022-2024 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
