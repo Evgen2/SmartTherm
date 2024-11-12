@@ -71,7 +71,8 @@ class SmartDevice
   int TCPserver_sts;  /* статус сервера */
   int TCPserver_sts2;  /* статус2 сервера */
   int TCPserver_rc;    /* статус ответа сервера */
-  
+  unsigned short int Use_remoteTCPserver;
+
   long int TCPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
 	int ClientId;     /* Client Id */
 	int ClientId_k;   /* Client Id key */
@@ -111,6 +112,7 @@ class SmartDevice
 	TCPserver_sts = 0;
   TCPserver_sts2 = 0;
   TCPserver_rc = 0;
+  Use_remoteTCPserver = 0;
 	TCPserver_t = 0;
   TZoffset = 3600*3; //MSK-3
   status = -1;

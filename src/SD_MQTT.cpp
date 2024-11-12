@@ -181,7 +181,6 @@ void onNumberCommand(HANumeric number, HANumber* sender)
     
     if (sender == &numT_outdoor) {
 #if SERIAL_DEBUG      
-      Serial.printf("*************************\n");
       Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
@@ -296,7 +295,6 @@ extern unsigned int OTcount;
 
 /**********/
 
-
     sensorBoilerT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура теплоносителя", "BoilerT");
     sensorBoilerT.setAvailability(false);
     sensorBoilerT.setDeviceClass(temperature_str);
@@ -308,10 +306,6 @@ extern unsigned int OTcount;
       sensorBoilerRetT.setDeviceClass(temperature_str); 
       sensorBoilerRetT.setUnitOfMeasurement("°C");
     }
-
-   Serial.printf("(3)mqtt_setup SmOT.Pressure_present %d SmOT.stsOT  %d \n", 
-          SmOT.Pressure_present, SmOT.stsOT);
-
 
     if(SmOT.Pressure_present || SmOT.stsOT == -1)
     { sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
@@ -328,7 +322,6 @@ extern unsigned int OTcount;
     sensor_TestNum.setDeviceClass("data_size"); 
     sprintf(str,"0");
      sensor_TestNum.setValue(str);  
-
 
     // assign callbacks (optional)
     hvac.onTargetTemperatureCommand(onTargetTemperatureCommand);
@@ -352,6 +345,7 @@ extern unsigned int OTcount;
           hvac.setMode(HAHVAC::OffMode);
 
     hvac.setAvailability(false);
+
 
     if(SmOT.HotWater_present)
     {
@@ -382,7 +376,7 @@ extern unsigned int OTcount;
     }  else {
       sensorT1.setAvailability(false);
     }
-
+  
     if(SmOT.stsT2 >= 0 )
     { sensorT2.setAvailability(true);
       sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
@@ -463,9 +457,11 @@ extern unsigned int OTcount;
     SmOT.stsMQTT = 1;
     mqtt._mqtt->setSocketTimeout(1); //not work ???
 
-    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+
+//    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
+    rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
-    {  Serial.printf("mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    {  Serial.printf("mqtt.begin ok %s:%d %s %s\n", SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
       SmOT.stsMQTT = 2;
     } else {
    Serial.printf("mqtt.begin false\n");

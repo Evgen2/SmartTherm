@@ -4,10 +4,11 @@
 
 #include "DeviceType.h"
 
+#define CONFIG_VERSION 0x1001
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define OT_DEBUGLOG 0
-#define SERVER_DEBUG 0
+#define SERVER_DEBUG 1
 #define T_DEBUG 0
 #define MQTT_USE 1
 

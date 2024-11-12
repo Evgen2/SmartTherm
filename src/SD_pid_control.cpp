@@ -146,7 +146,7 @@ void SD_Termo::loop_PID(void)
         }  
     }
 
-    Tset = _u;
+    Tset = CHtempLimit(_u);
     need_set_T = 1;  // for OpenTherm
 #if MQTT_USE
     MQTT_need_report = 1; // for MQTT

@@ -65,6 +65,7 @@ const char* PID_URI = "/pid";
 const char* SET_PID_URI = "/set_pid";
 #endif
 
+const char* STYLE_WIDTH = "width:15%";
 /************* InfoPage ******************/
 ACText(Caption, "<b>Статус OT: </b>", "", "", AC_Tag_DIV);
 ACText(Info1, "", "", "", AC_Tag_DIV);
@@ -74,8 +75,11 @@ ACText(Info4, "", "", "", AC_Tag_DIV);
 ACText(Info5, "", "", "", AC_Tag_DIV);
 ACText(Info6, "", "", "", AC_Tag_DIV);
 ACText(Info7, "", "", "", AC_Tag_DIV);
-ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br>"); // Boiler Control setpoint
-ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>");  // DHW Control setpoint
+//ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br>"); // Boiler Control setpoint
+ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br>", "", "Введи температуру",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); // Boiler Control setpoint
+//ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br>", "", "Plaseholder",AC_Tag_BR, AC_Input_Number, "size=\"10\"" ); // Boiler Control setpoint
+//AutoConnectInput(const char* name, const char* value, const char* label, const char* pattern, const char* placeholder, const ACPosterior_t post, const ACInput_t apply
+ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>", "",  "Введи температуру",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH);  // DHW Control setpoint
 ACInput(SetBoilerTemp2,"", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
@@ -91,12 +95,14 @@ AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление 2", false, AC_B
 #if MQTT_USE
 AutoConnectCheckbox CtrlChB4("CtrlChB4","4", "MQTT", false, AC_Behind , AC_Tag_DIV);
 ACInput(SetMQTT_server,"", "сервер"); 
+ACInput(SetMQTT_port,"", "порт", "",  "", AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
 ACInput(SetMQTT_user,"", "user"); 
 ACInput(SetMQTT_pwd,"", "pwd"); 
 ACInput(SetMQTT_topic,"", "топик"); 
 ACInput(SetMQTT_devname,"", "имя устройства"); 
-ACInput(SetMQTT_interval,"", "интервал, сек"); 
+ACInput(SetMQTT_interval,"", "интервал, сек", "",  "Введи интервал",AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
 #endif // MQTT_USE
+AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить удаленное управление", false, AC_Behind , AC_Tag_DIV);
   
 //AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
 //ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
@@ -106,16 +112,18 @@ ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
 AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */  AC_Behind , AC_Tag_None);
-ACInput(ID2MaserID,"", "IDcode"); 
-AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
+ACInput(ID2MaserID,"", "IDcode","", "", AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); 
+
 AutoConnectCheckbox UseOTC_ChB("UseOTC_ChB","", "Использовать OTC (ID0:HB3)",         false,   AC_Behind, AC_Tag_BR);
-AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды (ID0:HB4)", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, ApplyAddpar, SetupPID});
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID, UseWinterModeChB, UseOTC_ChB, UseCH2_DHW_ChB, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar});
 #endif //#if PID_USE
 
 
@@ -123,18 +131,18 @@ AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2Ch
 #if PID_USE
 AutoConnectCheckbox UsePID("UsePID","", "Использовать PID", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox UsePID_NoLimit("UsePID_NOLIMIT","", "Не ограничивать уставку (5-35°C)", false, AC_Behind , AC_Tag_BR);
-ACInput(SetXtagPID,"", "Уставка температуры в помещении:"); // 
-ACInput(SetTempSrcPID,"", "Источник температуры в помещении:"); // 
-ACInput(SetTempExtSrcPID,"", "Источник температуры на улице:"); // 
-ACInput(SetKpPID,"", "Kp:","","",AC_Tag_BR); //  
-ACInput(SetKdPID,"", "Kd:","","",AC_Tag_BR); // 
-ACInput(SetKiPID,"", "Ki:","","",AC_Tag_BR); // 
-ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None); // 
-ACInput(SetTminPID,"", "Tmin:"); // 
-ACInput(Set_u0_PID,"", "u0:","","",AC_Tag_None); // 
-ACInput(Set_t0_PID,"", "t0:"); // 
-ACInput(Set_u1_PID,"", "u1:","","",AC_Tag_None); // 
-ACInput(Set_t1_PID,"", "t1:"); // 
+ACInput(SetXtagPID,"", "Уставка температуры в помещении:", "",  "Введи температуру",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); 
+ACInput(SetTempSrcPID,"", "Источник температуры в помещении:", "",  "",AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
+ACInput(SetTempExtSrcPID,"", "Источник температуры на улице:", "",  "у",AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
+ACInput(SetKpPID,  "", "Kp:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH);  
+ACInput(SetKdPID,  "", "Kd:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
+ACInput(SetKiPID,  "", "Ki:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
+ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_u0_PID,"", "u0:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_t0_PID,"", "t0:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_u1_PID,"", "u1:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_t1_PID,"", "t1:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
@@ -158,9 +166,10 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 
 #if MQTT_USE
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, ApplyAdd,ApplyChB, Info1});
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, 
+            SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, ApplyAdd, ApplyChB});
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChB_UseRemoteControl, Ctrl2, ApplyAdd, ApplyChB});
 #endif // MQTT_USE
 
 
@@ -301,6 +310,8 @@ void setup_web_common(void)
      SetMQTT_server.value = SmOT.MQTT_server;
      SetMQTT_user.value = SmOT.MQTT_user;
      SetMQTT_pwd.value = SmOT.MQTT_pwd;
+     sprintf(str,"%d",SmOT.MQTT_port);
+     SetMQTT_port.value = str;
 
      SetMQTT_topic.value = SmOT.MQTT_topic;
      sprintf(str,"%d",SmOT.MQTT_interval);
@@ -363,10 +374,8 @@ void setup_web_common(void)
   if (WiFi.status() != WL_CONNECTED)  {
     Serial.println(F("WiFi Not connected"));
     WiFi.setAutoReconnect(true);
-  }  else {
-    setup_web_common_onconnect();
   }  
-
+  
 /* get my MAC*/
 #if defined(ARDUINO_ARCH_ESP8266)
 //    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
@@ -395,10 +404,9 @@ void setup_web_common(void)
 int setup_web_common_onconnect(void)
 { static int init = 0;
 
-  Serial.printf("setup_web_common_onconnect init %d\n", init);
+  //Serial.printf("setup_web_common_onconnect init %d\n", init);
 
-  Serial.println(F("WiFi connected"));
-  Serial.print(F("IP address: "));
+  Serial.print(F("WiFi connected, IP address: "));
   Serial.println(WiFi.localIP());
 
   if(init)
@@ -705,6 +713,14 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       isChangeMQTT++;
        SmOT.MQTT_interval = v;
     }
+
+    v = SetMQTT_port.value.toInt();
+    if((unsigned int)v !=SmOT.MQTT_port )
+    { isChange++;
+      isChangeMQTT++;
+       SmOT.MQTT_port = v;
+    }
+
    }
 
 #endif //MQTT_USE
@@ -790,6 +806,13 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
      SmOT.CH2_DHW_flag = icheck;
   }
 
+  if(UseID29_DHW_ChB.checked) icheck = 1;
+  else                        icheck = 0;
+  if(icheck != SmOT.Use_ID29_DHW_flag)
+  { isChange++;
+     SmOT.Use_ID29_DHW_flag = icheck;
+  }
+
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
 
@@ -822,7 +845,11 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
       UseCH2_DHW_ChB.checked = true;
   else
       UseCH2_DHW_ChB.checked = false;
-  
+
+  if( SmOT.Use_ID29_DHW_flag)
+      UseID29_DHW_ChB.checked = true;
+  else
+      UseID29_DHW_ChB.checked = false;
 
   return String();
 }
@@ -1004,6 +1031,10 @@ if(SmOT.useMQTT)
             Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
 
+      if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
+      {      Info2.value +=  " Бойлер " + String(SmOT.Tstorage);
+      }
+
       Info2.value += "<br>";
 
       Info4.value = "";
@@ -1165,6 +1196,9 @@ Zota Lux-x (electro)  248
       Ctrl2.value += "Zota Lux-x (electro)"; 
   else 
       Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
+   if(SmOT.DHW_tank_present) 
+      Ctrl2.value +=  "\nбойлер косвенного нагрева";
+
 /*********************************/      
  } else {
     CtrlChB2.enable  = false;
@@ -1186,11 +1220,18 @@ Zota Lux-x (electro)  248
     SetMQTT_topic.enable  = true;
     SetMQTT_interval.enable  = true;
     SetMQTT_devname.enable  = true;
+    SetMQTT_port.enable  = true;
+
+     SetMQTT_user.value = SmOT.MQTT_user;
+     SetMQTT_pwd.value = SmOT.MQTT_pwd;
 
       SetMQTT_server.value = SmOT.MQTT_server;
       SetMQTT_topic.value = SmOT.MQTT_topic;
       sprintf(str, "%d",SmOT.MQTT_interval);
       SetMQTT_interval.value = str; 
+      sprintf(str, "%d",SmOT.MQTT_port);
+      SetMQTT_port.value = str; 
+
       SetMQTT_devname.value = SmOT.MQTT_devname;
     
   } else {
@@ -1201,6 +1242,7 @@ Zota Lux-x (electro)  248
     SetMQTT_topic.enable  = false;
     SetMQTT_interval.enable  = false;
     SetMQTT_devname.enable  = false;
+    SetMQTT_port.enable  = false;
   }
 #else //MQTT_USE
 
@@ -1213,7 +1255,6 @@ Zota Lux-x (electro)  248
     SetMQTT_interval.enable  = false;
 */    
 #endif //MQTT_USE
-
 
   return String();
 }
@@ -1246,6 +1287,9 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     if(iv > MAX_PID_SRC && iv != 255)
       iv = MAX_PID_SRC;
 
+//    Serial.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
+//    Serial.printf("SetTempSrcPID.value =%d\n", iv);
+
     if(iv != SmOT.srcTroom)
     {  SmOT.srcTroom = iv;
        isChange = 1;
@@ -1262,7 +1306,10 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     { SmOT.mypid.Kp = v;
       isChange = 1;
     }
+    
     v = SetKdPID.value.toFloat();
+//  Serial.printf("*kdPID = %s %f\n", SetKdPID.value.c_str(), v);
+
     if(v != SmOT.mypid.Kd)
     { SmOT.mypid.Kd = v;
       isChange = 1;
@@ -1273,6 +1320,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
     v = SetXtagPID.value.toFloat();
+
     if(SmOT.usePID == 1)
     {   if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
         else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
@@ -1361,21 +1409,24 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   SetTempExtSrcPID.value = str0;
   sprintf(str0,"%.4f",SmOT.mypid.Kp);
   SetKpPID.value = str0;
+
   sprintf(str0,"%.4f",SmOT.mypid.Kd);
   SetKdPID.value = str0;
+  
   sprintf(str0,"%.4f",SmOT.mypid.Ki);
   SetKiPID.value = str0;
+
   sprintf(str0,"%.2f",SmOT.mypid.xTag);
   SetXtagPID.value = str0;
 
-  Info2.value = "Tmax <= 80, Tmin >= 30 (конденсатный котел, иначе 40)";
+  Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
 
   sprintf(str0,"%.2f",SmOT.mypid.umax);
   SetTmaxPID.value = str0;
   sprintf(str0,"%.2f",SmOT.mypid.umin);
   SetTminPID.value = str0;
  
-  Info2.value = "ПЗА: темп.отопления | наружная";
+  Info3.value = "ПЗА: темп.отопления | наружная";
 
   sprintf(str0,"%.2f",SmOT.mypid.u0);
   Set_u0_PID.value = str0;
@@ -1386,7 +1437,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   sprintf(str0,"%.2f",SmOT.mypid.y1);
   Set_t1_PID.value = str0;
 
-  Info3.value = "";
+  //Info3.value = "";
   Info4.value = "";
   Info5.value = "";
   Info6.value = "";

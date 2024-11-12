@@ -130,8 +130,8 @@ void setup() {
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
   SmOT.TCPserver_report_period = 10000;
-  SmOT.tcp_remoteIP.fromString("192.168.10.112");
-//   SmOT.tcp_remoteIP.fromString("80.237.33.121");
+//  SmOT.tcp_remoteIP.fromString("192.168.10.112");
+  SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
   Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
@@ -511,6 +511,12 @@ bit: description [ clear/0, set/1]
                 SmOT.CH2_present  = false;
                 SmOT.enable_CentralHeating2  = false;               
             }
+            if(_SConfigSMemberIDcode & 0x800) //DHW configuration: storage tank
+            {   SmOT.DHW_tank_present  = true;
+            } else {
+                SmOT.DHW_tank_present  = false;
+            }
+
             SmOT.OTmemberCode = _SConfigSMemberIDcode & 0xff;
          }
 //        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
@@ -535,6 +541,10 @@ bit: description [ clear/0, set/1]
 
     case OpenThermMessageID::Tret: //28
         SmOT.RetT = t;
+        break;
+
+    case OpenThermMessageID::Tstorage: //29
+        SmOT.Tstorage = t;
         break;
 
     case OpenThermMessageID::TflowCH2: //31
@@ -821,7 +831,19 @@ M0:
         }
       break;
 
-      case 10: //getFault flags
+      case 10:
+        st++; 
+        if(SmOT.Use_ID29_DHW_flag)
+        {
+          if(ot.OTid_used(OpenThermMessageID::Tstorage))
+          {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tstorage, 0); //27
+          }  else {
+              goto M0;
+          }
+          break;
+        }
+
+      case 11: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
         if(SmOT.BoilerStatus & 0x01 || SmOT.Fault )
@@ -830,7 +852,7 @@ M0:
            st = 0;
       break;
 
-      case 11: //getFault code
+      case 12: //getFault code
  //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;

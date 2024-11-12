@@ -101,8 +101,9 @@ public:
     bool enable_CentralHeating2;
 
     bool HotWater_present;
-    bool RetT_present;
+    bool RetT_present; 
     bool CH2_present;
+    bool DHW_tank_present; //DHW configuration: storage tank
     bool Toutside_present; 
     bool Pressure_present;
   unsigned int OTmemberCode;
@@ -118,6 +119,7 @@ public:
 	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
   float dhw_t;   // DHW temperature (°C)
   float Toutside; 
+  float Tstorage; // [Solar] storage temperature (°C)
   float Texhaust;// s16  Boiler exhaust temperature (°C)
   float FlameModulation; //Relative Modulation Level (%)
   float Pressure; // Water pressure in CH circuit  (bar)
@@ -167,6 +169,7 @@ public:
   char MQTT_pwd[20];
   char MQTT_devname[40];
  #endif
+  unsigned short MQTT_port;  /* MQTT port, default 1883 */
   int MQTT_need_report;
 #endif //MQTT_USE
 #if PID_USE
@@ -185,6 +188,7 @@ public:
   unsigned short int CH2_DHW_flag;
   unsigned short int UseWinterMode;
   unsigned short int Use_OTC;
+  unsigned short int Use_ID29_DHW_flag;
   int CapabilitiesDetected;
   SD_Termo(void)
   {	  
@@ -194,15 +198,17 @@ public:
     #endif
 
     HotWater_present  = false;
-    enable_HotWater = true;
-    enable_Cooling = false;
-    enable_CentralHeating2 = false;
+    DHW_tank_present  = false;
 
-    HotWater_present  = false;;
+    HotWater_present  = false;
     RetT_present  = false;;
     CH2_present  = false;
     Toutside_present  = false; 
     Pressure_present  = false;
+    enable_HotWater = true;
+    enable_Cooling = false;
+    enable_CentralHeating2 = false;
+
     CapabilitiesDetected = 0;
 
       stsOT = -1;
@@ -226,6 +232,7 @@ public:
       dhw_t = 0.;
       Toutside = 0.;
       Texhaust = 0.;
+      Tstorage = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
       MaxRelModLevelSetting = 0.;
@@ -251,6 +258,7 @@ public:
       MQTT_pwd[0] = 0;
       MQTT_interval = 10; //sec
       MQTT_need_report = 0;
+      MQTT_port = 1883;
 #endif     
 #if PID_USE
       usePID = 0;
@@ -262,6 +270,7 @@ public:
       ID2masterID = 0;
       CH2_DHW_flag = 0;
       UseWinterMode = Use_OTC = 0;
+      Use_ID29_DHW_flag = 0;
 //    for(int i=0; i<8; i++)
 //      {  t_mean[i].id = i;
 //      }
@@ -299,6 +308,8 @@ public:
   int Write_ot_fs(void);
 
   float CHtempLimit(float _t); /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
+  float RoomtempLimit(float _t); /* return t within limit MIN_ROOM_TEMP MAX_ROOM_TEMP*/
+
   void OnChangeT(float t, int src);
 #if PID_USE
   void loop_PID(void);

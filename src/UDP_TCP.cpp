@@ -58,8 +58,7 @@ static int tcpudp_incomingPacket_Len = 0;
 int TcpUdp_Lsend=0;
 int TcpServer_Lsend=0;
 int TCPserver_close_on_send = 0;
-IPAddress Udp_remoteIP;  
-IPAddress Tcp_remoteIP;  
+
 int Udp_RemotePort = 0;
 int Tcp_RemotePort = 0;
 class As_TCP asTCP;
@@ -361,7 +360,7 @@ void loop_udp(int sts)
 #if SERIAL_DEBUG
 		Serial.printf("udp send l=%i bytes to %s port %d\n",  TcpUdp_Lsend, Udp_remoteIP.toString().c_str(), Udp_RemotePort);	
 #endif		
-		Udp.beginPacket( Udp_remoteIP, Udp_RemotePort);
+		Udp.beginPacket( p_sd->udp_remoteIP, Udp_RemotePort);
 		Udp.write(Udp_MsgOut, TcpUdp_Lsend);
 		TcpUdp_Lsend  = 0;
 		Udp.endPacket();
@@ -471,7 +470,6 @@ static unsigned int jj=0xffff, Nlost=0;
 			case MCMD_SET_UDPSERVER:
 		p_sd->callback_set_udp_server(bf, MsgOut, Lsend, get_buf);
 		p_sd->udp_remoteIP = Udp.remoteIP();
-		Udp_remoteIP = p_sd->udp_remoteIP;  
 				break;
 
 			case MCMD_SET_TCPSERVER:
