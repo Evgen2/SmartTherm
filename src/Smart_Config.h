@@ -8,7 +8,7 @@
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define OT_DEBUGLOG 0
-#define SERVER_DEBUG 1
+#define SERVER_DEBUG 0
 #define T_DEBUG 0
 #define MQTT_USE 1
 

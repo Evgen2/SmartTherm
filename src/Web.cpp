@@ -541,14 +541,18 @@ extern int minRamFree;
 
    Info6.value += str;
 #if PID_USE
-   {  extern int debcode;
-      extern int wait_if_takt;
+    if(SmOT.usePID)
+    {  extern int debcode;
+       extern int wait_if_takt;
 
-      sprintf(str,"<br>debcode %d wait_if_takt %d",  debcode, wait_if_takt); 
+       sprintf(str,"<br>pid: U= %f u0 = %f  dP=%f, dD=%f dI=%f\n",
+        SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
-   Info6.value += str;
+//      sprintf(str,"<br>debcode %d wait_if_takt %d",  debcode, wait_if_takt); 
 
-   }
+      Info6.value += str;
+
+    }
 #endif   
 
 #if 0   
@@ -575,12 +579,14 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
    int isChange=0;
 
     if(SmOT.enable_CentralHeating)
-    { v = SmOT.CHtempLimit(SetBoilerTemp.value.toFloat());
-      if(v != SmOT.Tset)
-      { isChange = 1;
-        SmOT.Tset = v;
-        SmOT.need_set_T = 1;
-      } 
+    { if(SetBoilerTemp.enable)
+      { v = SmOT.CHtempLimit(SetBoilerTemp.value.toFloat());
+        if(v != SmOT.Tset)
+        { isChange = 1;
+          SmOT.Tset = v;
+          SmOT.need_set_T = 1;
+        } 
+      }
     }
 
     if(SmOT.enable_HotWater)
@@ -621,6 +627,13 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   if(check != SmOT.enable_CentralHeating)
   { isChange++;
     SmOT.enable_CentralHeating = check;
+#if PID_USE
+    if(SmOT.usePID && !SmOT.enable_CentralHeating)
+    {   
+        SmOT.usePID = 0;
+    }
+#endif // PID_USE 
+
   }
 
   if( CtrlChB2.checked) check = true;
@@ -630,11 +643,20 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SmOT.enable_HotWater = check;
   }
   
-  if( CtrlChB3.checked) check = true;
-  else                  check = false;
-  if(check != SmOT.enable_CentralHeating2)
+  if(SmOT.CH2_present) 
+  { if( CtrlChB3.checked) check = true;
+    else                  check = false;
+    if(check != SmOT.enable_CentralHeating2)
+    { isChange++;
+      SmOT.enable_CentralHeating2 = check;
+    }
+  }
+
+  if( CtrlChB_UseRemoteControl.checked) check = true;
+  else                                  check = false;
+  if(check != SmOT.Use_remoteTCPserver)
   { isChange++;
-    SmOT.enable_CentralHeating2 = check;
+    SmOT.Use_remoteTCPserver = check;
   }
 
 #if MQTT_USE
@@ -990,7 +1012,7 @@ if(SmOT.useMQTT)
 
 #endif // MQTT_USE 
 #if PID_USE
-    if(SmOT.usePID)
+    if(SmOT.usePID && SmOT.enable_CentralHeating)
     {   Info1.value += "<br>управление по PID";
         if(SmOT.usePID & 0x02)
               Info1.value += "без ограничений";
@@ -1027,7 +1049,7 @@ if(SmOT.useMQTT)
       }
 
       if(SmOT.HotWater_present) 
-      { if(SmOT.enable_HotWater)
+      { if(SmOT.enable_HotWater && ot.OTid_used(OpenThermMessageID::Tdhw))
             Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
 
@@ -1095,8 +1117,13 @@ if(SmOT.useMQTT)
     Info7.value = "";
 
 /******************************/  
+#if PID_USE
+    if(SmOT.enable_CentralHeating && !SmOT.usePID)
+      SetBoilerTemp.enable = true;
+#else
     if(SmOT.enable_CentralHeating)
       SetBoilerTemp.enable = true;
+#endif      
     else 
       SetBoilerTemp.enable = false;
 
@@ -1152,6 +1179,11 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
      CtrlChB3.enable  = true;
   else
      CtrlChB3.enable  = false;
+
+  if(SmOT.Use_remoteTCPserver)
+    CtrlChB_UseRemoteControl.checked = true;
+  else
+    CtrlChB_UseRemoteControl.checked = false;
 
   Info1.value ="";
 
@@ -1326,8 +1358,11 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
         else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
     }
     if(v != SmOT.mypid.xTag)
-    { SmOT.mypid.xTag = v;
+    {
+      SmOT.set_new_PID_setpoint(v); //change mypid.xTag 
+//      SmOT.mypid.xTag = v;
       SmOT.TroomTarget = v;
+
       isChange = 1;
     }
 

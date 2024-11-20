@@ -449,6 +449,12 @@ void SD_Termo::init(void)
 #endif  
   Bstat.t_I_last =time(nullptr);
   Bstat.sec_h = Bstat.sec_d = 0;
+#if PID_USE
+  if(usePID && !enable_CentralHeating)
+  {   usePID = 0;
+  }
+#endif   
+
 }
 
  
@@ -670,7 +676,11 @@ void SD_Termo::OpenThermInfo(void)
     memcpy((void *)&msg->Buf[8],(void *)&BoilerStatus,4); 
     memcpy((void *)&msg->Buf[12],(void *)&BoilerT,4);
     memcpy((void *)&msg->Buf[16],(void *)&RetT,4);
-    memcpy((void *)&msg->Buf[20],(void *)&dhw_t,4);
+
+    if(Use_ID29_DHW_flag)   
+        memcpy((void *)&msg->Buf[20],(void *)&Tstorage,4);
+    else        
+        memcpy((void *)&msg->Buf[20],(void *)&dhw_t,4);
     memcpy((void *)&msg->Buf[24],(void *)&FlameModulation,4);
     memcpy((void *)&msg->Buf[28],(void *)&Pressure,4);
     memcpy((void *)&msg->Buf[32],(void *)&status,4);
@@ -806,7 +816,11 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
 	 memcpy((void *)&MsgOut[22],(void *) &RetT,4); 
 	 memcpy((void *)&MsgOut[26],(void *) &Tset,4); 
 	 memcpy((void *)&MsgOut[30],(void *) &Tset_r,4); 
-	 memcpy((void *)&MsgOut[34],(void *) &dhw_t,4); 
+    if(Use_ID29_DHW_flag)   
+        memcpy((void *)&MsgOut[34],(void *)&Tstorage,4);
+    else        
+        memcpy((void *)&MsgOut[34],(void *)&dhw_t,4);
+
 	 memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
      memcpy((void *)&MsgOut[42],(void *) &FlameModulation,4); 
 	 memcpy((void *)&MsgOut[46],(void *) &Pressure,4); 
@@ -895,7 +909,10 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 	 memcpy((void *)&msg->Buf[22],(void *) &RetT,4); 
 	 memcpy((void *)&msg->Buf[26],(void *) &Tset,4); 
 	 memcpy((void *)&msg->Buf[30],(void *) &Tset_r,4); 
-	 memcpy((void *)&msg->Buf[34],(void *) &dhw_t,4); 
+    if(Use_ID29_DHW_flag)   
+        memcpy((void *)&msg->Buf[34],(void *) &Tstorage,4);
+    else        
+        memcpy((void *)&msg->Buf[34],(void *) &dhw_t,4);
 	 memcpy((void *)&msg->Buf[38],(void *) &TdhwSet,4); 
      memcpy((void *)&msg->Buf[42],(void *) &FlameModulation,4); 
 	 memcpy((void *)&msg->Buf[46],(void *) &Pressure,4); 
@@ -1204,7 +1221,12 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[12],(void *)&BoilerStatus,4); 
 	 memcpy((void *)&MsgOut[16],(void *)&BoilerT, 4); 
 	 memcpy((void *)&MsgOut[20],(void *)&RetT, 4); 
-	 memcpy((void *)&MsgOut[24],(void *)&dhw_t, 4); 
+
+    if(Use_ID29_DHW_flag)   
+        memcpy((void *)&MsgOut[24],(void *)&Tstorage, 4); 
+    else        
+        memcpy((void *)&MsgOut[24],(void *)&dhw_t, 4); 
+        
 	 memcpy((void *)&MsgOut[28],(void *)&FlameModulation, 4); 
 	 memcpy((void *)&MsgOut[32],(void *)&Pressure, 4); 
 	 memcpy((void *)&MsgOut[36],(void *)&Tset, 4); 
@@ -1359,20 +1381,43 @@ extern OpenTherm ot;
             else
                 RetT_present  = false; 
 
+            ot.Get_OTid_count(OpenThermMessageID::Tstorage, count, countok); //ID 29
+            if(countok > 2)
+                Tstorage_present = true;                 
+            else
+                Tstorage_present = false;
+
+            ot.Get_OTid_count(OpenThermMessageID::Tdhw, count, countok); //ID 26
+            if(countok > 2)
+                Dhw_t_present = true;                 
+            else
+                Dhw_t_present = false;
+
     } else  if(CapabilitiesDetected  == 2) {
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
-                Pressure_present = true; 
+                Pressure_present = true;
         else
-                Pressure_present = false; 
+                Pressure_present = false;
         if(ot.OTid_used(OpenThermMessageID::Toutside))
-                Toutside_present = true;                 
+                Toutside_present = true;
         else
-                Toutside_present  = false; 
+                Toutside_present  = false;
 
         if(ot.OTid_used(OpenThermMessageID::Tret))
-                RetT_present = true;                 
+                RetT_present = true;
         else
                 RetT_present  = false; 
+
+        if(ot.OTid_used(OpenThermMessageID::Tstorage))
+                Tstorage_present = true;
+        else
+                Tstorage_present  = false;
+
+        if(ot.OTid_used(OpenThermMessageID::Tdhw))
+                Dhw_t_present = true;
+        else
+                Dhw_t_present  = false;
+
     }
     
 //  Serial.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;

@@ -20,8 +20,8 @@
 # NAME в объектах HA будет маленькими (строчными) буквами
 # Например:
 # * в SmartTherm имя устройства задали "Boiler"
-# * В HA в списке объектов появляется объект с именем "Boiler T outdoor"
-#   и идентификатором "number.boiler_t_outdoor",
+# * В HA в списке объектов появляется объект с именем "Boiler T indoor"
+#   и идентификатором "number.boiler_t_indoor",
 #   тогда в target_entity пишем так:
 #    target_entity: number.boiler_t_indoor
 #

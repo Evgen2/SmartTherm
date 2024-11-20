@@ -106,6 +106,8 @@ public:
     bool DHW_tank_present; //DHW configuration: storage tank
     bool Toutside_present; 
     bool Pressure_present;
+    bool Dhw_t_present;  //у Buderus'а с косвенным нагревом есть dhw и нет dhw_t
+    bool Tstorage_present; // ID29
   unsigned int OTmemberCode;
   unsigned long response;
   float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
@@ -201,10 +203,12 @@ public:
     DHW_tank_present  = false;
 
     HotWater_present  = false;
-    RetT_present  = false;;
+    Dhw_t_present = false;
+    RetT_present  = false;
     CH2_present  = false;
     Toutside_present  = false; 
     Pressure_present  = false;
+    Tstorage_present = false;
     enable_HotWater = true;
     enable_Cooling = false;
     enable_CentralHeating2 = false;
@@ -313,9 +317,9 @@ public:
   void OnChangeT(float t, int src);
 #if PID_USE
   void loop_PID(void);
-  void loop_PIDold(void);
   void loop_mean(void); //получаем средние значения для используемых температур
   int loop_pid_gettemp(int &_start); //получаем значения tindoor и toutdoor
+  void set_new_PID_setpoint(float Tsetpoint);
 #endif
   void DetectCapabilities(void);
 };

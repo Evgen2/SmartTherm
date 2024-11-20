@@ -130,8 +130,8 @@ void setup() {
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
   SmOT.TCPserver_report_period = 10000;
-//  SmOT.tcp_remoteIP.fromString("192.168.10.112");
-  SmOT.tcp_remoteIP.fromString("80.237.33.121");
+  SmOT.tcp_remoteIP.fromString("192.168.10.112");
+//  SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
   Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
@@ -776,7 +776,7 @@ M0:
       case 4: //getDHWTemperature
 // Serial.printf("4 Request: %d\n",OpenThermMessageID::Tdhw);
         st++;
-        if(SmOT.HotWater_present) 
+        if(SmOT.HotWater_present && ot.OTid_used(OpenThermMessageID::Tdhw) )
         {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tdhw, 0); //26
         }  else {
               goto M0;
@@ -804,7 +804,7 @@ M0:
       break;
       case 7: //TSetCH2
          st++;
-        if(SmOT.enable_CentralHeating2)
+        if(SmOT.enable_CentralHeating2 && ot.OTid_used(OpenThermMessageID::TflowCH2))       
         {
 // Serial.printf("7 Request: %d\n",OpenThermMessageID::TflowCH2);
           request = ot.buildGetBoilerCH2TemperatureRequest(); //TflowCH2
@@ -1068,7 +1068,7 @@ void loop2(void)
         break;
 
         case 3:      
-        if(SmOT.TCPserver_sts > 0)
+        if(SmOT.Use_remoteTCPserver && SmOT.TCPserver_sts > 0)
         {    loop_servertcp();
         }
         
@@ -1104,7 +1104,8 @@ static int mday_prev = 0;
       return;
 
 #if PID_USE
-    SmOT.loop_PID();
+    if(SmOT.enable_CentralHeating)
+        SmOT.loop_PID();
 #endif
 
 //    SmOT.Bstat.calcIntegral(0.25); //debug

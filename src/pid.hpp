@@ -108,11 +108,11 @@ class pid
 
    long int pid_t; /* время начала такта */
    TempStack dSt;
-   dstack  dSt0;
+//   dstack  dSt0;
    
    pid(void)
    {  Kp = 1.;
-      Kd = 1.;
+      Kd = 0.5;
       Ki = 0.002;
       x = xTag = 0.;
       t_interval = 30;
@@ -136,7 +136,7 @@ class pid
 
    int Pid(float _x, float u0);
    void Init_I(float _x);
-
+   void Set_NewTag( float _Tag, float _x);
 };
 
 #endif //PID_USE

@@ -307,7 +307,7 @@ extern unsigned int OTcount;
       sensorBoilerRetT.setUnitOfMeasurement("°C");
     }
 
-    if(SmOT.Pressure_present || SmOT.stsOT == -1)
+    if(SmOT.Pressure_present)
     { sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
       sensorPressure.setAvailability(false);
       sensorPressure.setDeviceClass("pressure"); 
@@ -387,9 +387,11 @@ extern unsigned int OTcount;
       sensorT2.setAvailability(false);
     }
 
-    sensorText.setAvailability(false);
-    sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
-    sensorText.setDeviceClass(temperature_str); 
+    if(SmOT.Toutside_present)
+    { sensorText.setAvailability(false);
+      sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
+      sensorText.setDeviceClass(temperature_str); 
+    }
 
 #if PID_USE
 /*
@@ -547,7 +549,8 @@ if(SmOT.stsMQTT == 0)
               sensorBoilerRetT.setAvailability(false);
             if(SmOT.Pressure_present)
               sensorPressure.setAvailability(false);
-            sensorText.setAvailability(false);
+            if(SmOT.Toutside_present)
+              sensorText.setAvailability(false);
             sensorState.setValue("OpenTherm: потеря связи");
           } else {
             if(st_old != SmOT.stsOT)
@@ -569,8 +572,9 @@ if(SmOT.stsMQTT == 0)
               if(SmOT.RetT_present)
                 sensorBoilerRetT.setAvailability(true);
               if(SmOT.Pressure_present)
-                  sensorPressure.setAvailability(true);
-              sensorText.setAvailability(true);
+                sensorPressure.setAvailability(true);
+              if(SmOT.Toutside_present)
+                sensorText.setAvailability(true);
             }
             sprintf(str,"%.3f", SmOT.BoilerT);           
             sensorBoilerT.setValue(str);
@@ -608,7 +612,11 @@ if(SmOT.stsMQTT == 0)
               else
                   hvacDHW.setMode(HAHVAC::OffMode);
 
-              hvacDHW.setCurrentTemperature(SmOT.dhw_t);
+              if(SmOT.Dhw_t_present)
+                  hvacDHW.setCurrentTemperature(SmOT.dhw_t);
+              else if(SmOT.Use_ID29_DHW_flag)   
+                  hvacDHW.setCurrentTemperature(SmOT.Tstorage);
+               
               hvacDHW.setTargetTemperature(SmOT.TdhwSet);
 //   Serial.printf("SmOT.TdhwSet %f SmOT.dhw_t %f\n", SmOT.TdhwSet, SmOT.dhw_t );
 
@@ -624,8 +632,10 @@ if(SmOT.stsMQTT == 0)
             { sprintf(str,"%.3f", SmOT.Pressure);
               sensorPressure.setValue(str);  
             }
-            sprintf(str,"%.3f", SmOT.Toutside);
-            sensorText.setValue(str);
+            if(SmOT.Toutside_present)
+            { sprintf(str,"%.3f", SmOT.Toutside);
+              sensorText.setValue(str);
+            }
 
 #if PID_USE
         {
@@ -748,8 +758,17 @@ todo
         
         }
 
-        sprintf(str,"%d",  ESP.getFreeHeap() );
-        sensorFreeRam.setValue(str);  
+        { static int raz = 0;
+          if(raz == 0)
+          { sprintf(str,"%d",  ESP.getFreeHeap() );
+            sensorFreeRam.setValue(str);  
+          } else {
+            raz++;
+            if(raz == 50)
+              raz = 0;
+          }
+        }
+
         lastAvailabilityToggleAt = millis();
         SmOT.MQTT_need_report = 0;
     }

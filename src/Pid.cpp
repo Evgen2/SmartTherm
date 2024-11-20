@@ -5,19 +5,38 @@
 #if PID_USE
 #include "pid.hpp"
 
+void  pid::Set_NewTag( float _Tag, float _x)
+{  float dt;
+   dt = _Tag - xTag;
+   xTag = _Tag;
+   if(fabs(dt) > 0.1)
+   {  Init_I(_x);
+      dSt.n = dSt.ind = 0;
+      dSt.nlast = dSt.ind_last = 0;
+   }
+}
+
 void pid::Init_I(float _x)
-{  float  _xerr, I0;
+{  float  _xerr, I0, I1;
 //Limit for InT with constant  xerr:  xerr * dt/Kidiss  
    if(Ki == 0.)
          return;
    _xerr = xTag - _x;
    I0 = _xerr * (t_interval) /Kidiss;
-   InT = I0/2.;
-   if(InT * Ki > 30.)
-      InT =  30 / Ki;
-   else  if(InT * Ki < -30.)
-      InT =  -30 / Ki;
-//    Serial.printf("\n****pid: _xerr = %f I0 %f %f\n", _xerr, I0, I0 *Ki);
+   I1 = I0 * Ki;
+   if(I1 > 30.f)
+   {  I0 = 30.f / Ki;
+   } else if(I1 > 10.f) {
+     // I1 = 10 + (I1-10)/2 
+     I0 = (I1 + 10.f) / (Ki * 2.f);
+   } else if(I1 > -10.f) {
+      ;
+   } else if(I1 > -30.f) {
+     I0 = (I1 - 10.f) / (Ki * 2.f);
+   } else {
+     I0 = -30.f / Ki;
+   }
+   InT = I0;
 
 }
 
@@ -83,6 +102,7 @@ void pid::Init_I(float _x)
    dI = InT * Ki;
    _u = dP + dD + dI;
    u = _u + _u0;
+
 #if SERIAL_DEBUG 
 //   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
 //        u, _u0, _u , dP, dD, dI); 

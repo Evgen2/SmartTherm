@@ -33,7 +33,7 @@ void SD_Termo::loop_PID(void)
 
     t = millis();
 
-    if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) )
+    if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) ) //Flame status changed
         issF = 4;
 
 
@@ -43,6 +43,7 @@ void SD_Termo::loop_PID(void)
 //     Serial.printf("==>PID dt %d iss %d\n", t-t0, issF); 
 
     OldBoilerStatus = BoilerStatus;
+//if Flame status changed  then 4 times continue with 4 sec interval  
     if(issF > 0)
     {   if(issF < 4 && (t - t0 < 4000)) 
             return;
@@ -78,6 +79,8 @@ void SD_Termo::loop_PID(void)
                 
     rc = mypid.Pid(tempindoor, u0); //PID
 
+//    Serial.printf("mypid.Pid rc =%d\n", rc);
+    
     if(rc != 1)  // если PID не OK
                 return;
     now = time(nullptr);
@@ -101,7 +104,9 @@ void SD_Termo::loop_PID(void)
     }  else {
         need_heat = 1;
     }
-    
+
+//    Serial.printf("==>PID _u %f need_heat %d\n", _u, need_heat); 
+
     if(need_heat == 1 && (start_heat == 0 || start_heat == 2)) //включение отопления
     {   enable_CentralHeating_real = true;
 //       MQTT_pub_cmd(enable_CentralHeating_real);
@@ -114,6 +119,9 @@ void SD_Termo::loop_PID(void)
 //        MQTT_pub_cmd(enable_CentralHeating_real);
         start_heat = 0;
     }
+
+//    Serial.printf("==>PID _u %f need_heat %d enable_CentralHeating_real %d\n",
+//             _u, need_heat, enable_CentralHeating_real); 
 
     if(start_heat == 1 && need_heat == 1) //отопление включено
     {   if(BoilerStatus& 0x08) //если горелка включена
@@ -147,6 +155,9 @@ void SD_Termo::loop_PID(void)
     }
 
     Tset = CHtempLimit(_u);
+
+//    Serial.printf("==>PID Tset %f_u %f need_heat %d enable_CentralHeating_real %d\n",
+//             Tset, _u, need_heat, enable_CentralHeating_real); 
     need_set_T = 1;  // for OpenTherm
 #if MQTT_USE
     MQTT_need_report = 1; // for MQTT
@@ -154,6 +165,13 @@ void SD_Termo::loop_PID(void)
 
 #endif            
 
+}
+
+void SD_Termo::set_new_PID_setpoint(float Tsetpoint)
+{
+#if PID_USE
+    mypid.Set_NewTag(Tsetpoint, tempindoor);
+#endif    
 }
 
 
