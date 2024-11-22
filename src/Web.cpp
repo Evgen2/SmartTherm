@@ -118,10 +118,11 @@ AutoConnectCheckbox UseOTC_ChB("UseOTC_ChB","", "Использовать OTC (I
 AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды (ID0:HB4)", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID});
 #else
 AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar});
 #endif //#if PID_USE
@@ -657,6 +658,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   if(check != SmOT.Use_remoteTCPserver)
   { isChange++;
     SmOT.Use_remoteTCPserver = check;
+    SmOT.init();
   }
 
 #if MQTT_USE
@@ -834,6 +836,13 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
   { isChange++;
      SmOT.Use_ID29_DHW_flag = icheck;
   }
+  if(Immergas_fix_ChB.checked) icheck = 1;
+  else                        icheck = 0;
+  if(icheck != SmOT.Immergas_fix_flag)
+  { isChange++;
+     SmOT.Immergas_fix_flag = icheck;
+  }
+
 
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
@@ -872,6 +881,11 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
       UseID29_DHW_ChB.checked = true;
   else
       UseID29_DHW_ChB.checked = false;
+
+  if( SmOT.Immergas_fix_flag)
+      Immergas_fix_ChB.checked = true;
+  else
+      Immergas_fix_ChB.checked = false;
 
   return String();
 }
@@ -1192,7 +1206,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 /*
 Baxi Fourtech/Luna 3  1
 Baxi Slim  4
-Buderus	8
+Buderus/Bosh	8
 Ferrolli 	9
 Remeha	11
 Baxi 27 (Baxi Luna Duo-Tec  P67=0)
@@ -1209,7 +1223,7 @@ Zota Lux-x (electro)  248
   else if(SmOT.OTmemberCode == 4)
       Ctrl2.value += "Baxi Slim"; 
   else if(SmOT.OTmemberCode == 8)
-      Ctrl2.value += "Buderus"; 
+      Ctrl2.value += "Buderus/Bosh"; 
   else if(SmOT.OTmemberCode == 9)
       Ctrl2.value += "Ferrolli"; 
   else if(SmOT.OTmemberCode == 11)

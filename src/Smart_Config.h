@@ -4,7 +4,7 @@
 
 #include "DeviceType.h"
 
-#define CONFIG_VERSION 0x1001
+#define CONFIG_VERSION 0x1002
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define OT_DEBUGLOG 0

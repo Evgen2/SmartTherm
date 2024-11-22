@@ -23,7 +23,7 @@ OpenTherm::OpenTherm(int inPin, int outPin, bool isSlave):
 	status = NOT_INITIALIZED;
 	Lastresponse = 0;
 	LastRequestId = 0;
-
+	Immergas_fix = false;
 }
 
 void OpenTherm::begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus))
@@ -319,6 +319,7 @@ const char *OpenTherm::messageTypeToString(OpenThermMessageType message_type)
 unsigned long OpenTherm::buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2, bool enableWinterMode) {
 	unsigned int data = enableCentralHeating | (enableHotWater << 1) | (enableCooling << 2) | (enableOutsideTemperatureCompensation << 3) | (enableCentralHeating2 << 4) | (enableWinterMode << 5); 
 	data <<= 8;
+	if(Immergas_fix) data |= 0xca;
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, data);
 }
 

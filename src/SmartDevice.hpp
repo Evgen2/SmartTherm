@@ -61,12 +61,12 @@ class SmartDevice
   unsigned char Mac[6];   /* mac - адрес */
 #endif
   int TZoffset; /* *time zone offset */
-  int UDPserver_port;  /* порт сервера */
+  unsigned short int UDPserver_port;  /* порт сервера */
   int UDPserver_repot_period;  /* периодичность отправки данных серверу, сек */
   int UDPserver_sts;  /* статус сервера */
   long int UDPserver_t; /* время последнего сообщения серверу, следующее через server_repot_period */
 
-  int TCPserver_port;  /* порт сервера */
+  unsigned short int TCPserver_port;  /* порт сервера */
   int TCPserver_report_period;  /* периодичность отправки данных серверу, сек */
   int TCPserver_sts;  /* статус сервера */
   int TCPserver_sts2;  /* статус2 сервера */
@@ -128,7 +128,8 @@ class SmartDevice
   void callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   void callback_set_udp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
-  void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  virtual void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+  {};
 
   int servercallback_HandShake( U8 *bf, int len);
   int server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

@@ -19,7 +19,11 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
-0.8.0 todo
+0.8.0
+* TCP API changes for Andriod application & remote server support
+* PID changes
+* add use ID29 (Tstorage) as Indirect Water Heaters temperature for Buderus
+* Immergas fix
 
 0.7.5
 * add  WinterMode (ID0:HB5) and  Use_OTC (ID0:HB3) support

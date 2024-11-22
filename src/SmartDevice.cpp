@@ -62,6 +62,7 @@ int SmartDevice::servercallback_HandShake( U8 *bf, int len)
         TCPserver_close_on_send = 0;
     } else {
         TCPserver_close_on_send = 1;
+//        Serial.printf("HAND_SHAKE_OUT NOT detected\n");
     }
   }
 
@@ -206,38 +207,6 @@ timeval tv = { 0, 0 };
 //  Serial.printf("2 %s\n", ctime(&now));
 //}  
 #endif  
-}
-
-//MCMD_SET_TCPSERVER
-void SmartDevice::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{ int s, dt, p; // i, rc;
-//  char tzbuf[20];
-  char buf[20];
-
-  Lsend = 6; 
-  MsgOut = get_buf(Lsend);
-	
-	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
-
-	memcpy((void *)&s,(void *)&bf[6],4); 
-  memcpy((void *)buf,(void *)&bf[10],20); 
-
-#if SERIAL_DEBUG 
-//  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
-//  tcp_remoteIP.fromString(buf);
-//  Serial.printf("==");
-//  Serial.println(tcp_remoteIP); // print the parsed IPAddress 
-
-#endif
-  memcpy((void *)&dt, (void *)&bf[30],4); 
-  memcpy((void *)&p,(void *)&bf[34],4); 
-
-  TCPserver_sts = s;  /* статус сервера */
-  if(s)
-    TCPserver_t = millis();
-  TCPserver_port = p;  
-  TCPserver_report_period = dt;
-
 }
 
 //MCMD_SET_UDPSERVER

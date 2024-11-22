@@ -119,6 +119,9 @@ void setup() {
   setup_tcpudp( &SmOT );
 //  Serial.printf("(6) %d\n", millis());
 
+  if(SmOT.Immergas_fix_flag)
+        ot.Immergas_fix = true;
+
   if(SmOT.UseID2)
       OTstartSts_MAX = 3;
   else 
@@ -130,8 +133,8 @@ void setup() {
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
   SmOT.TCPserver_report_period = 10000;
-  SmOT.tcp_remoteIP.fromString("192.168.10.112");
-//  SmOT.tcp_remoteIP.fromString("80.237.33.121");
+//  SmOT.tcp_remoteIP.fromString("192.168.10.112");
+  SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
   Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
@@ -612,11 +615,13 @@ An OEM-specific fault/error cod
 unsigned int buildTestRequest(void)
 {   unsigned int request = 0;
     if(SmOT.TestId & 0x1000)
-          request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, ( OpenThermMessageID) (SmOT.TestId & 0x0ff), SmOT.TestPar);
-    else
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, ( OpenThermMessageID) SmOT.TestId, SmOT.TestPar);
+    {   request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, ( OpenThermMessageID) (SmOT.TestId & 0x0ff), SmOT.TestPar);
+    }  else {
+        unsigned int data = SmOT.TestPar;
+    	  if(ot.Immergas_fix &&SmOT.TestId == 0) data |= 0xca;
+        request = ot.buildRequest(OpenThermMessageType::READ_DATA, ( OpenThermMessageID) SmOT.TestId, data);
+    }
     
-    Serial.printf("TestRequest: %x SmOT.TestId %x\n", request, SmOT.TestId);
 #if OT_DEBUG
     Serial.printf("TestRequest: %x\n", request);
 #endif    
@@ -846,7 +851,11 @@ M0:
       case 11: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
-        if(SmOT.BoilerStatus & 0x01 || SmOT.Fault )
+/*
+0: fault indication [ no fault, fault ] 0x01
+6: diagnostic/service indication [no diagnostics, diagnostic event] 0x40
+*/
+        if(SmOT.BoilerStatus & 0x41 || SmOT.Fault )
             st++;
         else 
            st = 0;

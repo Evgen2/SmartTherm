@@ -149,6 +149,10 @@ public:
 	int LastRequestId;
 	volatile OpenThermStatus status;
 	unsigned long Lastresponse;
+	bool Immergas_fix; 
+// (1) https://arduino.ru/forum/programmirovanie/termostat-opentherm-na-esp8266?page=15#comment-649392
+// (2) https://github.com/Laxilef/OTGateway/releases v1.4.5
+// (3) https://github.com/esp32m/core/blob/master/esp32m/include/esp32m/dev/opentherm.hpp 609 class ImmergasMaster 
 
 //	void begin(void(*handleInterruptCallback)(void)); 
 	void begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus));

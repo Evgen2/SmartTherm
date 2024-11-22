@@ -191,6 +191,8 @@ public:
   unsigned short int UseWinterMode;
   unsigned short int Use_OTC;
   unsigned short int Use_ID29_DHW_flag;
+  unsigned short int Immergas_fix_flag;
+
   int CapabilitiesDetected;
   SD_Termo(void)
   {	  
@@ -275,9 +277,7 @@ public:
       CH2_DHW_flag = 0;
       UseWinterMode = Use_OTC = 0;
       Use_ID29_DHW_flag = 0;
-//    for(int i=0; i<8; i++)
-//      {  t_mean[i].id = i;
-//      }
+      Immergas_fix_flag = 0;
   }
   
   void init(void);
@@ -289,6 +289,7 @@ public:
   void Send_to_server_Sts(void); // PACKED unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
   int servercallback_send_Sts_answ( U8 *bf, int len);
   int server_answer_IdentifySelf( U8 *bf, int len);
+  void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 
 //  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   int callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

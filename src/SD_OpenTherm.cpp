@@ -36,8 +36,9 @@ int indcmd = 0;
 
 /*******************************/
 const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::enable_HotWater) + sizeof(SD_Termo::Tset) + sizeof(SD_Termo::TdhwSet) + sizeof(SD_Termo::UDPserver_repot_period) +
-                 sizeof(SD_Termo::UDPserver_port) + sizeof(SD_Termo::TCPserver_report_period) + sizeof(SD_Termo::tcp_remoteIP) + sizeof(SD_Termo::Use_remoteTCPserver) + sizeof(SD_Termo::UseID2) +
+                 sizeof(SD_Termo::UDPserver_port) + sizeof(SD_Termo::TCPserver_report_period) + sizeof(SD_Termo::TCPserver_port) + sizeof(SD_Termo::tcp_remoteIP) + sizeof(SD_Termo::Use_remoteTCPserver) + sizeof(SD_Termo::UseID2) +
                  sizeof(SD_Termo::ID2masterID) + sizeof(SD_Termo::CH2_DHW_flag) + sizeof(SD_Termo::UseWinterMode) + sizeof(SD_Termo::Use_OTC) +sizeof(SD_Termo::Use_ID29_DHW_flag) +
+                 sizeof(SD_Termo::Immergas_fix_flag) +
 #if MQTT_USE
             sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
             sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
@@ -80,6 +81,10 @@ int SD_Termo::Read_ot_fs(void)
 
     memcpy((void *) &TCPserver_report_period, &Buff[n], sizeof(TCPserver_report_period));
     n += sizeof(TCPserver_report_period);
+    memcpy((void *) &TCPserver_port, &Buff[n], sizeof(TCPserver_port));
+    n += sizeof(TCPserver_port);
+    
+
     memcpy((void *) &tcp_remoteIP, &Buff[n], sizeof(tcp_remoteIP));
     n += sizeof(tcp_remoteIP);
     memcpy((void *) &Use_remoteTCPserver, &Buff[n], sizeof(Use_remoteTCPserver));
@@ -100,6 +105,8 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(Use_OTC);
     memcpy((void *) &Use_ID29_DHW_flag, &Buff[n], sizeof(Use_ID29_DHW_flag));
     n += sizeof(Use_ID29_DHW_flag);
+    memcpy((void *) &Immergas_fix_flag, &Buff[n], sizeof(Immergas_fix_flag));
+    n += sizeof(Immergas_fix_flag);
 
 #if MQTT_USE
   if(n < nw)
@@ -353,6 +360,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(UDPserver_port);
     memcpy(&Buff[n],(void *) &TCPserver_report_period, sizeof(TCPserver_report_period));
     n += sizeof(TCPserver_report_period);
+    memcpy(&Buff[n],(void *) &TCPserver_port, sizeof(TCPserver_port));
+    n += sizeof(TCPserver_port);
+    
     memcpy(&Buff[n],(void *) &tcp_remoteIP, sizeof(tcp_remoteIP));
     n += sizeof(tcp_remoteIP);
     memcpy(&Buff[n],(void *) &Use_remoteTCPserver, sizeof(Use_remoteTCPserver));
@@ -371,6 +381,8 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(Use_OTC);
     memcpy(&Buff[n],(void *) &Use_ID29_DHW_flag, sizeof(Use_ID29_DHW_flag));
     n += sizeof(Use_ID29_DHW_flag);    
+    memcpy(&Buff[n],(void *) &Immergas_fix_flag, sizeof(Immergas_fix_flag));
+    n += sizeof(Immergas_fix_flag);    
 
 #if MQTT_USE
     memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
@@ -454,7 +466,10 @@ void SD_Termo::init(void)
   {   usePID = 0;
   }
 #endif   
-
+    if(Use_remoteTCPserver)
+        TCPserver_sts = 2;  /* статус сервера */
+    if(TCPserver_port == 0) 
+        TCPserver_port = 8876;
 }
 
  
@@ -502,14 +517,14 @@ void SD_Termo::loop(void)
             OpenThermInfo();
             TCPserver_t = millis();
         }
-    */    
+    */   
+  
         if(TCPserver_sts)
         {  static unsigned long ts0=0;
 
 	static int ols_sts=-1;
 	if(TCPserver_sts2 != ols_sts)
 	{
-//		Serial.printf("TCPserver_sts2=%d\n",  TCPserver_sts2);
 		ols_sts = TCPserver_sts2;
 	}
 
@@ -543,6 +558,7 @@ void SD_Termo::loop(void)
 //    Serial.printf("SD_Termo::loop Send_to_server_IdentifySelf\n");
                     }
 
+//  Serial.printf("TCPserver_sts2 %d dt %d\n", TCPserver_sts2,  millis() - ts0);
                         break;
 
                 case 3: //wait answer MCMD_INTRODUCESELF from server 
@@ -736,6 +752,8 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
          B_flags4 |= 0x800;  //use PID
 #endif
 	 memcpy((void *)&MsgOut[16],(void *) &B_flags4,4); 
+     tmp = Use_remoteTCPserver;
+	 memcpy((void *)&MsgOut[20],(void *) &tmp, 2); 
 
      return 0;
 }
@@ -1239,6 +1257,72 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
   Serial.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
 #endif
 }
+
+//MCMD_SET_TCPSERVER
+void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{ int s, dt, p, ischange = 0; // i, rc;
+//  char tzbuf[20];
+  char buf[20];
+  IPAddress  ip;
+
+  Lsend = 6; 
+  MsgOut = get_buf(Lsend);
+	
+    memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+    if(!Use_remoteTCPserver)
+        return;
+
+	memcpy((void *)&s,(void *)&bf[6],4); 
+    memcpy((void *)buf,(void *)&bf[10],20); 
+
+  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
+
+
+  Serial.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
+
+    ip.fromString(buf);
+    if(tcp_remoteIP != ip)
+    {   ischange++;
+        tcp_remoteIP = ip;
+    }
+
+#if SERIAL_DEBUG 
+//  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
+//  tcp_remoteIP.fromString(buf);
+//  Serial.printf("==");
+//  Serial.println(tcp_remoteIP); // print the parsed IPAddress 
+
+#endif
+    memcpy((void *)&dt, (void *)&bf[30],4); 
+    memcpy((void *)&p,(void *)&bf[34],4); 
+
+    if(tcp_remoteIP != ip)
+        ischange++;
+
+  
+    TCPserver_sts = s;  /* статус сервера */
+    if(s)
+        TCPserver_t = millis();
+
+    if(TCPserver_port != p)
+    {   ischange++;
+        TCPserver_port = p;  
+    }
+  
+
+    if(TCPserver_report_period != dt)
+    {   ischange++;
+        TCPserver_report_period = dt;
+    }
+  
+    if(ischange)
+        need_write_f = 1;
+
+  Serial.printf("need_write_f %d TCPserver_port %d sts=%d TCPserver_report_period =%d\n", 
+        need_write_f, TCPserver_port, TCPserver_sts, TCPserver_report_period);
+
+}
+
 
 void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
