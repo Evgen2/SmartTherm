@@ -15,7 +15,8 @@ Features:
 * [Captive portal](https://en.wikipedia.org/wiki/Captive_portal) before WiFi connection
 * Web interface after WiFi connectiom
 * [OpenTherm](https://en.wikipedia.org/wiki/OpenTherm) interface for Gas/Electric boiler contol (HVAC)
-* no external cloud control used
+* personal cloud control used (todo)
+* [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
