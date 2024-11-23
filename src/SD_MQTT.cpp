@@ -516,10 +516,12 @@ if(SmOT.stsMQTT == 0)
     {   if(statemqtt != 1)
             Serial.println(F("MQTT connected"));
         statemqtt = 1;
+        state_mqtt = mqtt._mqtt->state();
     } else {
         if(statemqtt != 0)
             Serial.println(F("MQTT DiSconnected"));
         statemqtt = 0;
+        state_mqtt = mqtt._mqtt->state();
         delay(1);
         return; // return from   mqtt_loop() if not connected
     }

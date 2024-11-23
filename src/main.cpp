@@ -1190,7 +1190,7 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
 #if OT_DEBUG
 
 void LogOT(int code, byte id, int messagetype, unsigned int u88)
-{ static int ms_old = 0;
+{ static int ms_old = 0, raz = 0;
   int ms, dms;
   float t;
   ms = millis();
@@ -1224,8 +1224,19 @@ SmOT.enable_OTlog = 0; //test
 #endif //OT_DEBUGLOG
 //if(dms < 500)
 //    return;
-    
+  if(raz > 500)
+    return;
+  if(raz == 500)
+  {   Serial.printf("End of OT log\n");
+      raz++; 
+      return;     
+  }
+  
+  raz++; 
+
   Serial.printf("%6d %3d ", ms, dms);
+  if(id == 0 && messagetype == OpenThermMessageType::READ_DATA)
+      code = 2;
 
   switch(code)
   {
@@ -1236,7 +1247,7 @@ SmOT.enable_OTlog = 0; //test
       Serial.println(F("Resp: INVALID"));
         break;
        case -1:
-      Serial.println(F("Resp: TimeOutn"));
+      Serial.println(F("Resp: TimeOut"));
         break;
        case 0:
       Serial.printf((PGM_P)F("Resp: ParityErr %d %d %04x\n"), id, messagetype, u88);

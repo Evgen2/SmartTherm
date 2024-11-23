@@ -890,7 +890,7 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-// Load the attribute of th
+// Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[80];
 extern OpenTherm ot;
@@ -984,7 +984,7 @@ if(SmOT.useMQTT)
         Info1.value += "MQTT connected";
         break;
   }
-
+  
   switch(state_mqtt)
   {  
       case -1:
@@ -1021,7 +1021,7 @@ if(SmOT.useMQTT)
         Info1.value += " Unauthorized";
         break;
   }
-
+  
 }
 
 #endif // MQTT_USE 
@@ -1030,6 +1030,8 @@ if(SmOT.useMQTT)
     {   Info1.value += "<br>управление по PID";
         if(SmOT.usePID & 0x02)
               Info1.value += "без ограничений";
+      Info1.value += " Tindoor " + String(SmOT.tempindoor) + " ";
+      Info1.value += " Toutdoor " + String(SmOT.tempoutdoor);
     }
 #endif // PID_USE 
 
@@ -1337,15 +1339,19 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
 //    Serial.printf("SetTempSrcPID.value =%d\n", iv);
 
     if(iv != SmOT.srcTroom)
-    {  SmOT.srcTroom = iv;
-       isChange = 1;
+    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
+      { SmOT.srcTroom = iv;
+        isChange = 1;
+      }
     }
     iv = SetTempExtSrcPID.value.toInt();
     if(iv > MAX_PID_SRC && iv != 255)
       iv = MAX_PID_SRC;
     if(iv != SmOT.srcText)
-    { SmOT.srcText = iv;
-      isChange = 1;
+    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
+      { SmOT.srcText = iv;
+        isChange = 1;
+      }
     }
     v = SetKpPID.value.toFloat();
     if(v != SmOT.mypid.Kp)
@@ -1445,11 +1451,20 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   else 
     UsePID_NoLimit.checked = false;
 
-  Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2, 2=Text, MQTT/HA:";
-  sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
-  Info1.value += str0;
-  sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
-  Info1.value += str0;
+  Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2";
+  if(SmOT.Toutside_present)
+      Info1.value += " 2=Text";
+
+#if  MQTT_USE 
+  if(SmOT.useMQTT)
+  { Info1.value += ", MQTT/HA:";
+    sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
+    Info1.value += str0;
+    sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
+    Info1.value += str0;
+  }
+#endif
+
   Info1.value += "</small>";
 
   sprintf(str0,"%d",SmOT.srcTroom);
