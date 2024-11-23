@@ -7,29 +7,37 @@
 
 # Например:
 # * в SmartTherm имя устройства задали "Boiler"
-# * В HA в списке объектов появляется объект с именем "Boiler T outdoor"
-#   и идентификатором "number.boiler_t_outdoor",
+# * В HA в списке объектов появляется объект с именем "Boiler T indoor"
+#   и идентификатором "number.boiler_t_indoor",
 #   тогда в target_entity пишем так:
 #    target_entity: number.boiler_t_indoor
+#
+# Работает на
+# Core 2024.11.2
+# Supervisor 2024.11.2
+# Operating System 13.2
+# Пользовательский интерфейс 20241106.2
+
 
 
 alias: Report indoor temp to SmarTherm controller
-description: Script for reporting indoor(outdoor) temperature to the SmartTerm controller from home
+description: Script for reporting indoor temperature to the SmartTerm controller from home
   assistant temperature sensor
-trigger:
-  - platform: time_pattern
-    seconds: /30
-condition:
+triggers:
+  - trigger: time_pattern
+    seconds: /10
+conditions:
   - condition: template
-    value_template: "{{ states(source_entity) != 'unavailable'}}"
-action:
+    value_template: "{{ states('source_entity') != 'unavailable' }}"
+actions:
   - if:
       - condition: template
         value_template: >-
           {{ (states(source_entity)|float(0) - states(target_entity)|float(0)) |
-          abs | round(2) >= 0.01 }}
+          abs | round(2) >= 0.05 }}
     then:
-      - service: number.set_value
+      - action: number.set_value
+        metadata: {}
         data:
           value: "{{ states(source_entity)|float(0)|round(2) }}"
         target:
@@ -37,9 +45,12 @@ action:
 variables:
   source_entity: sensor.YOUR_SENSOR
   target_entity: number.NAME_t_indoor
+
 # target_entity: number.NAME_t_outdoor
+
 # NAME - object id of device from SmartTherm web interface ->Setup -> MQTT device name
-# example: MQTT device name "Boiler", object name "Boiler T indoor", object id "number.boiler_t_outdoor"
+# example: MQTT device name "Boiler", object name "Boiler T indoor", object id "number.boiler_t_indoor"
 # target_entity: number.boiler_t_indoor
+
 
 mode: single
