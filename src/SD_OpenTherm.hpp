@@ -192,6 +192,9 @@ public:
   unsigned short int Use_OTC;
   unsigned short int Use_ID29_DHW_flag;
   unsigned short int Immergas_fix_flag;
+  //гистерезис включения отопления, минимальная разница между заданной и текущей температурой теплоносителя
+  // при которой включится горелка. У Mizudo может быть 15 и больше градусов 
+  float CH_StartGist; 
 
   int CapabilitiesDetected;
   SD_Termo(void)
@@ -278,6 +281,7 @@ public:
       UseWinterMode = Use_OTC = 0;
       Use_ID29_DHW_flag = 0;
       Immergas_fix_flag = 0;
+      CH_StartGist = 10.f;
   }
   
   void init(void);

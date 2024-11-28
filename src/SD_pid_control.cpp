@@ -148,7 +148,12 @@ void SD_Termo::loop_PID(void)
 
         } else {   //если горелка еще выключена
             if(_u - BoilerT > 10.f)
-            {   _u = BoilerT + 10.f; //ограничиваем  температуру теплоносителя при включении
+            {   _uu = BoilerT + 10.f; //ограничиваем  температуру теплоносителя при включении
+                if(_uu < mypid.umin)
+                {   _uu =  mypid.umin;
+                    _ustart  = _u;
+                }
+                _u = _uu;
                 _ustart  = _u;
             }
         }  

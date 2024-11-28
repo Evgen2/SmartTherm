@@ -58,38 +58,30 @@ void pid::Init_I(float _x)
    xerr = xTag - x; //grad
 
 //D   
-/*
-   dSt.get(_xerr, _t);
-   if(dSt.n < NB)
-   {   dX = 0.;   
-   } else {
-      _dft = float(t - _t) / 1000.f; // dt, sec
-      dX = (xerr - _xerr) /_dft * 3600; //grad/hour
-   }
-*/
-//   Serial.printf("dSt.n=%d dX=%f t=%ld\n",dSt.n, dX, t ) ;
 
-//   dSt0.calcD(xerr, t, _dft0);
+// calcD() - derivative calculation, return _dft
+// _dft dimension is grad/msec
    dSt.calcD(xerr, t, _dft);
 //   Serial.printf("====>>  _dft0=%e  _dft=%e diff=%e\n",  _dft0,  _dft,  _dft0 - _dft);
    { 
-      dX = _dft * 3600.f* 1000.f;
+      dX = _dft * 3600.f* 1000.f; //grad/hour
 //   Serial.printf("====>> dX=%f\n", dX) ;
    }
 
-//   dSt0.add(xerr, t);
    dSt.add(xerr, t);
 
 //Kidiss magic: dissipation of the integral automagically limit of integral & limiting the influence of old values
-//characteristic time: dtf(sec)/Kidiss (sec) 
-//Limit for InT with constant  xerr:  xerr * dtf/Kidiss  
-//Kidiss magic, part 2:
-//Limit to zero dissipation of the integral with small xerr
+//characteristic time: t_interval/Kidiss (sec) 
+//Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss  
+
    _Kidiss = Kidiss;
-   if(fabs(xerr) < 1.f)
-   {  _Kidiss = Kidiss* fabs(xerr);
+   if(fabs(xerr) < 1.f)              //Kidiss magic, part 2:
+   {  _Kidiss = Kidiss* fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
    }
    dtf = float(dt) / 1000.f; // dt, sec
+   _Kidiss =  _Kidiss * dtf / float(t_interval);
+   if(_Kidiss > 0.5) _Kidiss = 0.5;
+
    InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
 #if SERIAL_DEBUG 
 //   Serial.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
@@ -97,9 +89,9 @@ void pid::Init_I(float _x)
 //   Serial.printf("pid: _x %f xTag=%f, u0=%f\n",
 //          _x , xTag, _u0); 
 #endif          
-   dP = xerr * Kp;
-   dD = dX * Kd;
-   dI = InT * Ki;
+   dP = xerr * Kp; //dP - grad, Kp - dimensionless 
+   dD = dX * Kd;   //dD - grad, Kd - hour
+   dI = InT * Ki;  //dI - grad, Ki - (1/sec)
    _u = dP + dD + dI;
    u = _u + _u0;
 

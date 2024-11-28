@@ -553,9 +553,9 @@ int OpenTherm::update_OTid(int id, int sts)
 		if(sts )
 			OT_ids[ind].countOk++;
 //Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
-		if(OT_ids[ind].count > 32)
+		if(OT_ids[ind].count > 16)
 		{
-    		if(OT_ids[ind].countOk > 16)
+    		if(OT_ids[ind].countOk > 8)
 				OT_ids[ind].used  = 1;
 			else
 				OT_ids[ind].used = 0;

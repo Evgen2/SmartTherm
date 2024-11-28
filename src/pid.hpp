@@ -99,7 +99,7 @@ class pid
    float Ki;
    float umin;
    float umax;
-   float Kidiss;
+   float Kidiss; // коэффициент диссипации интеграла
 
    float u0; //базовый управляющий сигнал при y = y0;
    float y0;

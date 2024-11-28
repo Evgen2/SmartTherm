@@ -138,17 +138,22 @@ ACInput(SetTempExtSrcPID,"", "Источник температуры на ул�
 ACInput(SetKpPID,  "", "Kp:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH);  
 ACInput(SetKdPID,  "", "Kd:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
 ACInput(SetKiPID,  "", "Ki:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
+ACInput(SetIdissPID,"","Idiss:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
+
 ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u0_PID,"", "u0:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_t0_PID,"", "t0:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u1_PID,"", "u1:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_t1_PID,"", "t1:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_CH_GIST,"", "Гистерезис включения горелки, град:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+
+
 
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
-                      SetKpPID, SetKdPID, SetKiPID, SetTmaxPID, SetTminPID, Info2,
-                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Info5, Info6,  ApplyPID });
+                      SetKpPID, SetKdPID, SetKiPID,SetIdissPID, SetTmaxPID, SetTminPID, Info2,
+                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });
 #endif
 /************* SetPID end ***************/
 
