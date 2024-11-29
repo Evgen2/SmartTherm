@@ -156,6 +156,7 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(mypid.Ki);
     if(n >= nw) goto END;
     memcpy((void *) &mypid.xTag, &Buff[n], sizeof(mypid.xTag));
+    TroomTarget = mypid.xTag;
     n += sizeof(mypid.xTag);
     if(n >= nw) goto END;
     memcpy((void *) &mypid.umax, &Buff[n], sizeof(mypid.umax));
@@ -1010,7 +1011,8 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 
             if(usePID)
             {   if(mypid.xTag !=  TroomTarget_toSet)
-                {   mypid.xTag =  TroomTarget_toSet;
+                {   mypid.xTag =  TroomTarget = TroomTarget_toSet;
+                    
                     isChange = 1;
                 }
             } else {
@@ -1115,7 +1117,7 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
 
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
-        {   mypid.xTag = roomSetpointT;
+        {   mypid.xTag = TroomTarget = roomSetpointT;
             isChange = 1;
         }
     } else {
@@ -1194,7 +1196,7 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
 
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
-        {   mypid.xTag = roomSetpointT;
+        {   mypid.xTag = TroomTarget =roomSetpointT;
             isChange = 1;
         }
     } else {

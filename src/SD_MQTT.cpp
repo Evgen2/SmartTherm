@@ -42,7 +42,7 @@ extern OpenTherm ot;
 
 HADevice device;
 #if PID_USE
-HAMqtt mqtt(espClient, device,26);
+HAMqtt mqtt(espClient, device,27);
 #else
 HAMqtt mqtt(espClient, device,12);
 #endif
@@ -96,6 +96,13 @@ HAHVAC hvacDHW(
   HANumber::PrecisionP2
 );
 
+#if PID_USE
+HAHVAC hvacPID(
+  NULL,
+  HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature |HAHVAC::ActionFeature,
+  HANumber::PrecisionP2
+);
+#endif
 unsigned long lastReadAt = millis();
 unsigned long lastAvailabilityToggleAt = millis();
 bool lastInputState = false;
@@ -113,6 +120,17 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     Serial.println(temperatureFloat);
 #endif    
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+
+#if PID_USE
+    } else if (sender == &hvacPID) {
+//    Serial.print("PID Target temperature: ");
+//    Serial.println(temperatureFloat);
+
+    SmOT.set_new_PID_setpoint(temperatureFloat); //change mypid.xTag 
+    SmOT.TroomTarget = temperatureFloat;
+
+//todo    
+#endif
     } else {
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T = 2;
@@ -235,6 +253,7 @@ extern unsigned int OTcount;
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
+//look at 45 HAMqtt mqtt(espClient, device,27);      
     return;
   }
 
@@ -364,7 +383,21 @@ extern unsigned int OTcount;
             hvacDHW.setMode(HAHVAC::OffMode);
       hvacDHW.setAvailability(false);
     }
-
+/*********************************/
+#if PID_USE
+     hvacPID.onTargetTemperatureCommand(onTargetTemperatureCommand);
+     hvacPID.setNameUniqueIdStr(SmOT.MQTT_topic,"ПИД", "PID");
+    if(SmOT.usePID == 1)
+    {   hvacPID.setMinTemp(MIN_ROOM_TEMP);
+        hvacPID.setMaxTemp(MAX_ROOM_TEMP);
+    } else {
+      hvacPID.setMinTemp(30);
+      hvacPID.setMaxTemp(80);
+    }
+    hvacPID.setTempStep(0.1);
+//todo    
+#endif
+/*********************************/
     if(SmOT.stsT1 >= 0 )
     { sensorT1.setAvailability(true);
       sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
@@ -554,6 +587,10 @@ if(SmOT.stsMQTT == 0)
             if(SmOT.Toutside_present)
               sensorText.setAvailability(false);
             sensorState.setValue("OpenTherm: потеря связи");
+#if PID_USE            
+            hvacPID.setAvailability(false);
+#endif            
+
           } else {
             if(st_old != SmOT.stsOT)
             {
@@ -567,6 +604,10 @@ if(SmOT.stsMQTT == 0)
               {   sensor_HW.setAvailability(true);
                   hvacDHW.setAvailability(true);
               }
+#if PID_USE            
+              hvacPID.setAvailability(true);
+#endif            
+
               sensor_CMD_on.setAvailability(true);
               sensor_CMD_CH_on.setAvailability(true);
 
@@ -591,6 +632,11 @@ if(SmOT.stsMQTT == 0)
     else
           hvac.setMode(HAHVAC::OffMode);
 
+    #if  PID_USE
+        hvacPID.setCurrentTemperature(SmOT.tempindoor);
+        hvacPID.setTargetTemperature(SmOT.TroomTarget);
+
+    #endif
 
             if(SmOT.BoilerStatus & 0x08)
                   sensorFlame.setState(true); 
