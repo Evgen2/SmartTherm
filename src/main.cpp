@@ -522,6 +522,12 @@ bit: description [ clear/0, set/1]
 //        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
         break;
 
+    case OpenThermMessageID::TrSet: // 16  Room Setpoint (°C)TSet:  
+        break;
+
+    case OpenThermMessageID::Tr: // 24 f8.8  Room temperature (°C)
+        break;
+
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
         break;
@@ -848,7 +854,29 @@ M0:
           break;
         }
 
-      case 11: //getFault flags
+    case 11:
+        st++; 
+        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
+        {
+          if(ot.OTid_used(OpenThermMessageID::TrSet)) // 16  Room Setpoint (°C)
+          { unsigned int data = ot.temperatureToData(SmOT.TroomTarget);
+	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TrSet, data);
+
+          }
+        }
+
+    case 12:
+        st++;
+        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
+        {
+          if(ot.OTid_used(OpenThermMessageID::Tr)) //  24 Room temperature (°C)
+          { unsigned int data = ot.temperatureToData(SmOT.tempindoor);
+	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::Tr, data);
+
+          }
+        }
+
+      case 13: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
         request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
 /*
@@ -861,7 +889,7 @@ M0:
            st = 0;
       break;
 
-      case 12: //getFault code
+      case 14: //getFault code
  //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
           request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
          st = 0;

@@ -1376,8 +1376,21 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     { SmOT.mypid.Ki = v;
       isChange = 1;
     }
-    v = SetXtagPID.value.toFloat();
 
+    v = SetIdissPID.value.toFloat();
+    if(v != SmOT.mypid.Kidiss)
+    { SmOT.mypid.Kidiss = v;
+      isChange = 1;
+    }
+    v = Set_CH_GIST.value.toFloat();
+    if(v != SmOT.CH_StartGist)
+    { SmOT.CH_StartGist = v;
+      isChange = 1;
+    }
+      
+//CH_StartGist
+
+    v = SetXtagPID.value.toFloat();
     if(SmOT.usePID == 1)
     {   if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
         else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
@@ -1484,6 +1497,12 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   
   sprintf(str0,"%.4f",SmOT.mypid.Ki);
   SetKiPID.value = str0;
+
+  sprintf(str0,"%.4f",SmOT.mypid.Kidiss);
+  SetIdissPID.value = str0;
+
+  sprintf(str0,"%.4f",SmOT.CH_StartGist);
+  Set_CH_GIST.value = str0;
 
   sprintf(str0,"%.2f",SmOT.mypid.xTag);
   SetXtagPID.value = str0;

@@ -39,6 +39,7 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
                  sizeof(SD_Termo::UDPserver_port) + sizeof(SD_Termo::TCPserver_report_period) + sizeof(SD_Termo::TCPserver_port) + sizeof(SD_Termo::tcp_remoteIP) + sizeof(SD_Termo::Use_remoteTCPserver) + sizeof(SD_Termo::UseID2) +
                  sizeof(SD_Termo::ID2masterID) + sizeof(SD_Termo::CH2_DHW_flag) + sizeof(SD_Termo::UseWinterMode) + sizeof(SD_Termo::Use_OTC) +sizeof(SD_Termo::Use_ID29_DHW_flag) +
                  sizeof(SD_Termo::Immergas_fix_flag) +
+                 sizeof(SD_Termo::CH_StartGist) +
 #if MQTT_USE
             sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
             sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
@@ -46,7 +47,7 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
 #if PID_USE
             sizeof(SD_Termo::usePID) + sizeof(SD_Termo::srcTroom) + sizeof(SD_Termo::srcText) + sizeof(SD_Termo::mypid.Kp) + sizeof(SD_Termo::mypid.Kd) +
             sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::mypid.umax) + sizeof(SD_Termo::mypid.umin) + sizeof(SD_Termo::mypid.u0) +
-            sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1)
+            sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss)
 #endif
     ;
 /**^^^******************************/
@@ -107,6 +108,8 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(Use_ID29_DHW_flag);
     memcpy((void *) &Immergas_fix_flag, &Buff[n], sizeof(Immergas_fix_flag));
     n += sizeof(Immergas_fix_flag);
+    memcpy((void *) &CH_StartGist, &Buff[n], sizeof(CH_StartGist));
+    n += sizeof(CH_StartGist);
 
 #if MQTT_USE
   if(n < nw)
@@ -177,6 +180,10 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
     n += sizeof(mypid.y1);
     if(n >= nw) goto END;
+    memcpy((void *) &mypid.Kidiss, &Buff[n], sizeof(mypid.Kidiss));
+    n += sizeof(mypid.Kidiss);
+    if(n >= nw) goto END;
+
 #endif //PID_USE
 
 //    if(n >= nw) goto END;
@@ -384,6 +391,8 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(Use_ID29_DHW_flag);    
     memcpy(&Buff[n],(void *) &Immergas_fix_flag, sizeof(Immergas_fix_flag));
     n += sizeof(Immergas_fix_flag);    
+    memcpy(&Buff[n],(void *) &CH_StartGist , sizeof(CH_StartGist));
+    n += sizeof(CH_StartGist);
 
 #if MQTT_USE
     memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
@@ -432,6 +441,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(mypid.u1);
     memcpy(&Buff[n],(void *) &mypid.y1 , sizeof(mypid.y1));
     n += sizeof(mypid.y1);
+    memcpy(&Buff[n],(void *) &mypid.Kidiss , sizeof(mypid.Kidiss));
+    n += sizeof(mypid.Kidiss);
+
 #endif
 
 

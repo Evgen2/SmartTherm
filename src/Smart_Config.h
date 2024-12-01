@@ -10,7 +10,11 @@
 #define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
+#if defined(ARDUINO_ARCH_ESP8266)
+#define MQTT_USE 0
+#else
 #define MQTT_USE 1
+#endif
 
 #if MQTT_USE
   #define PID_USE 1 

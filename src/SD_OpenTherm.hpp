@@ -278,7 +278,8 @@ public:
       UseID2 = 0;
       ID2masterID = 0;
       CH2_DHW_flag = 0;
-      UseWinterMode = Use_OTC = 0;
+      UseWinterMode = 0;
+      Use_OTC = 0;
       Use_ID29_DHW_flag = 0;
       Immergas_fix_flag = 0;
       CH_StartGist = 10.f;

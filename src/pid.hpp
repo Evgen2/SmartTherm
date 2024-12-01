@@ -112,7 +112,7 @@ class pid
    
    pid(void)
    {  Kp = 1.;
-      Kd = 0.5;
+      Kd = 0.2;
       Ki = 0.002;
       x = xTag = 0.;
       t_interval = 30;

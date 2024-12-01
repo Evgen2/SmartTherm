@@ -99,7 +99,7 @@ HAHVAC hvacDHW(
 #if PID_USE
 HAHVAC hvacPID(
   NULL,
-  HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature |HAHVAC::ActionFeature,
+  HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature | HAHVAC::ActionFeature,
   HANumber::PrecisionP2
 );
 #endif
@@ -174,6 +174,20 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
 
     sender->setMode(mode); // report mode back to the HA panel
 }
+
+void onModeCommandPID(HAHVAC::Mode mode, HAHVAC* sender) {
+    Serial.print("Mode: ");
+    if (mode == HAHVAC::OffMode) {
+        Serial.println(F("PID off"));
+        SmOT.usePID = 0;
+    } else if (mode == HAHVAC::AutoMode) {
+        Serial.println("PID on");
+        SmOT.usePID = 1;
+    }
+
+    sender->setMode(mode); // report mode back to the HA panel
+}
+
 void onModeCommandDHW(HAHVAC::Mode mode, HAHVAC* sender) {
     Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
@@ -264,6 +278,8 @@ extern unsigned int OTcount;
     sprintf(str,"%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
     device.setSoftwareVersion(str); //должно быть static!!
   }
+    device.enableSharedAvailability();
+    device.enableLastWill();
 
     lastReadAt = millis();
     lastAvailabilityToggleAt = millis();
@@ -395,6 +411,14 @@ extern unsigned int OTcount;
       hvacPID.setMaxTemp(80);
     }
     hvacPID.setTempStep(0.1);
+    hvacPID.setModes(HAHVAC::OffMode|HAHVAC::AutoMode);
+    if(SmOT.usePID)
+            hvacPID.setMode(HAHVAC::AutoMode);
+    else
+            hvacPID.setMode(HAHVAC::OffMode);
+
+    hvacPID.onModeCommand(onModeCommandPID);
+
 //todo    
 #endif
 /*********************************/
