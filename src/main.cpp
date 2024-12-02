@@ -518,6 +518,7 @@ bit: description [ clear/0, set/1]
             }
 
             SmOT.OTmemberCode = _SConfigSMemberIDcode & 0xff;
+        Serial.printf("SmOT.OTmemberCode %d\n", SmOT.OTmemberCode);
          }
 //        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
         break;
@@ -690,6 +691,7 @@ unsigned int buildRequest(void)
     }
 
 M0:    
+//   Serial.printf("st %d\n", st);
     switch(st)
     {
       case 0: // запрос статуса
@@ -858,11 +860,14 @@ M0:
         st++; 
         if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
         {
+//        Serial.printf("st %d SmOT.OTmemberCode %d\n", st,  SmOT.OTmemberCode);
           if(ot.OTid_used(OpenThermMessageID::TrSet)) // 16  Room Setpoint (°C)
           { unsigned int data = ot.temperatureToData(SmOT.TroomTarget);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TrSet, data);
-
+          }  else {
+              goto M0;
           }
+          break;
         }
 
     case 12:
@@ -872,26 +877,33 @@ M0:
           if(ot.OTid_used(OpenThermMessageID::Tr)) //  24 Room temperature (°C)
           { unsigned int data = ot.temperatureToData(SmOT.tempindoor);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::Tr, data);
-
+          }  else {
+              goto M0;
           }
+          break;
         }
 
       case 13: //getFault flags
  //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
-        request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
+          if(ot.OTid_used(OpenThermMessageID::ASFflags)) 
+          {
+            request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
 /*
 0: fault indication [ no fault, fault ] 0x01
 6: diagnostic/service indication [no diagnostics, diagnostic event] 0x40
 */
-        if(SmOT.BoilerStatus & 0x41 || SmOT.Fault )
-            st++;
-        else 
-           st = 0;
-      break;
+            if(SmOT.BoilerStatus & 0x41 || SmOT.Fault )
+                st++;
+            else 
+                st = 0;
+            break;
+          }
 
       case 14: //getFault code
  //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
-          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
+          if(ot.OTid_used(OpenThermMessageID::OEMDiagnosticCode)) 
+          {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
+          }
          st = 0;
       break;
 

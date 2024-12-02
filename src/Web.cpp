@@ -116,7 +116,7 @@ ACInput(ID2MaserID,"", "IDcode","", "", AC_Tag_BR, AC_Input_Text, STYLE_WIDTH);
 
 AutoConnectCheckbox UseOTC_ChB("UseOTC_ChB","", "Использовать OTC (ID0:HB3)",         false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2 для горячей воды (ID0:HB4)", false, AC_Behind, AC_Tag_BR);
-AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лето/зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
