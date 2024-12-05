@@ -358,7 +358,7 @@ void loop_udp(int sts)
     }
   } else if (sts && TcpUdp_Lsend > 0) {
 #if SERIAL_DEBUG
-		Serial.printf("udp send l=%i bytes to %s port %d\n",  TcpUdp_Lsend, Udp_remoteIP.toString().c_str(), Udp_RemotePort);	
+		Serial.printf("udp send l=%i bytes to %s port %d\n",  TcpUdp_Lsend, p_sd->udp_remoteIP.toString().c_str(), Udp_RemotePort);	
 #endif		
 		Udp.beginPacket( p_sd->udp_remoteIP, Udp_RemotePort);
 		Udp.write(Udp_MsgOut, TcpUdp_Lsend);

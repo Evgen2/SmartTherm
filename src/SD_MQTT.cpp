@@ -368,7 +368,7 @@ extern unsigned int OTcount;
 
     hvac.setMinTemp(10);
     hvac.setMaxTemp(80);
-    hvac.setTempStep(0.1);
+    hvac.setTempStep(1.);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
     #if  PID_USE
     if(SmOT.enable_CentralHeating_real)
@@ -389,7 +389,7 @@ extern unsigned int OTcount;
       hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
       hvacDHW.setMinTemp(30);
       hvacDHW.setMaxTemp(80);
-      hvacDHW.setTempStep(0.5);
+      hvacDHW.setTempStep(1.);
 
       hvacDHW.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
 
@@ -403,8 +403,12 @@ extern unsigned int OTcount;
 #if PID_USE
      hvacPID.onTargetTemperatureCommand(onTargetTemperatureCommand);
      hvacPID.setNameUniqueIdStr(SmOT.MQTT_topic,"ПИД", "PID");
-    if(SmOT.usePID == 1)
+    if(SmOT.usePID == 0)
     {   hvacPID.setMinTemp(MIN_ROOM_TEMP);
+        hvacPID.setMaxTemp(MAX_ROOM_TEMP);
+        hvacPID.setAvailability(false);
+    } else  if(SmOT.usePID == 1)  {
+        hvacPID.setMinTemp(MIN_ROOM_TEMP);
         hvacPID.setMaxTemp(MAX_ROOM_TEMP);
     } else {
       hvacPID.setMinTemp(30);
@@ -629,6 +633,7 @@ if(SmOT.stsMQTT == 0)
                   hvacDHW.setAvailability(true);
               }
 #if PID_USE            
+        if(SmOT.usePID > 0)
               hvacPID.setAvailability(true);
 #endif            
 
@@ -884,6 +889,20 @@ int  MQTT_pub_cmdCH(int on)
   } else {
     return 0;
   }
+}
+
+int  MQTT_pub_usePID(void)
+{
+#if PID_USE
+  if(SmOT.stsMQTT == 2)
+  {
+    if(SmOT.usePID)
+            hvacPID.setMode(HAHVAC::AutoMode);
+    else
+            hvacPID.setMode(HAHVAC::OffMode);
+  }            
+#endif 
+  return 0;           
 }
 /*******************************************************************************/
 

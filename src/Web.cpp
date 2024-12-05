@@ -91,7 +91,7 @@ ACText(Ctrl2, "", "", "", AC_Tag_DIV);
 //ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
-AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление 2", false, AC_Behind , AC_Tag_DIV);
+AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
 #if MQTT_USE
 AutoConnectCheckbox CtrlChB4("CtrlChB4","4", "MQTT", false, AC_Behind , AC_Tag_DIV);
 ACInput(SetMQTT_server,"", "сервер"); 
@@ -205,6 +205,7 @@ void onConnect(IPAddress& ipaddr);
   extern void mqtt_setup(void);
   extern void mqtt_loop(void);
   extern void mqtt_start(void);
+  extern int MQTT_pub_usePID(void);
 #endif
 String onInfo(AutoConnectAux& aux, PageArgument& args);
 String on_Setup(AutoConnectAux& aux, PageArgument& args);
@@ -1162,6 +1163,19 @@ if(SmOT.useMQTT)
         SetNewBoilerTemp.enable = true;
     else 
         SetNewBoilerTemp.enable = false;
+    if(SetBoilerTemp.enable)
+    { sprintf(str0,"%.1f",SmOT.Tset);
+      SetBoilerTemp.value = str0;
+    }
+    if(SetDHWTemp.enable)
+    { sprintf(str0,"%.1f",SmOT.TdhwSet);
+      SetDHWTemp.value = str0;
+    }
+    if(SetBoilerTemp2.enable)
+    { sprintf(str0,"%.1f",SmOT.Tset2);
+      SetBoilerTemp2.value = str0;
+    }
+
   } else {
         Info2.value = "";
         Info4.value = "";
@@ -1177,7 +1191,7 @@ if(SmOT.useMQTT)
 // SmOT.OTmemberCode
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
-{  
+{  const char *pstr; 
 
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
@@ -1209,7 +1223,6 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   Info1.value ="";
 
   Ctrl2.value = "Котёл: "; 
-  
 /*
 Baxi Fourtech/Luna 3  1
 Baxi Slim  4
@@ -1223,33 +1236,15 @@ Navinien 	148
 Baxi ampera (electro) 247
 Zota Lux-x (electro)  248
 */
-
-
-  if(SmOT.OTmemberCode ==1)
-      Ctrl2.value += "Baxi Fourtech/Luna 3"; 
-  else if(SmOT.OTmemberCode == 4)
-      Ctrl2.value += "Baxi Slim"; 
-  else if(SmOT.OTmemberCode == 8)
-      Ctrl2.value += "Buderus/Bosh"; 
-  else if(SmOT.OTmemberCode == 9)
-      Ctrl2.value += "Ferrolli"; 
-  else if(SmOT.OTmemberCode == 11)
-      Ctrl2.value += "Remeha"; 
-  else if(SmOT.OTmemberCode == 27)
-      Ctrl2.value += "Baxi"; 
-  else if(SmOT.OTmemberCode == 33)
-      Ctrl2.value += "Viessmann";
-  else if(SmOT.OTmemberCode == 56)
-      Ctrl2.value += "Baxi Luna Duo-Tec P67=2";
-  else if(SmOT.OTmemberCode == 148)
-      Ctrl2.value += "Navinien"; 
-  else if(SmOT.OTmemberCode == 247)
-      Ctrl2.value += "Baxi ampera (electro)"; 
-  else if(SmOT.OTmemberCode == 248)
-      Ctrl2.value += "Zota Lux-x (electro)"; 
-  else 
+  
+  pstr = GetOTVendorName(SmOT.OTmemberCode);
+  if(pstr)
+  {   Ctrl2.value += pstr; 
+  } else {
       Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
-   if(SmOT.DHW_tank_present) 
+  }
+
+  if(SmOT.DHW_tank_present) 
       Ctrl2.value +=  "\nбойлер косвенного нагрева";
 
 /*********************************/      
@@ -1332,7 +1327,12 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
   if((icheck|icheck2) != SmOT.usePID)
   { SmOT.usePID = icheck|icheck2;
     isChange = 1;
+#if MQTT_USE
+    MQTT_pub_usePID();    
+#endif    
+
   }
+
 
   if(SmOT.usePID)
   { 

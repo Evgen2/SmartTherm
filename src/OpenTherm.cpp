@@ -553,9 +553,9 @@ int OpenTherm::update_OTid(int id, int sts)
 		if(sts )
 			OT_ids[ind].countOk++;
 //Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
-		if(OT_ids[ind].count > 16)
+		if(OT_ids[ind].count > 8)
 		{
-    		if(OT_ids[ind].countOk > 8)
+    		if(OT_ids[ind].countOk > 4)
 				OT_ids[ind].used  = 1;
 			else
 				OT_ids[ind].used = 0;
@@ -571,4 +571,39 @@ int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 	count = OT_ids[ind].count;
 	countok= OT_ids[ind].countOk;
 	return OT_ids[ind].used;
+}
+
+// use https://github.com/Jeroen88/EasyOpenTherm/blob/main/src/EasyOpenTherm.h
+OpenThermVendor OTvendorList[] =
+{	1,  "Baxi Fourtech/Luna 3",
+    2,  "AWB/Brink/Viessmann",
+	4,  "Baxi Slim",
+    5,  "Itho Daalderop",
+    6,  "IDEAL",
+    8,  "Buderus/Bosch/Hoval",
+	9,  "Ferrolli",
+	11, "Remeha",
+	16, "Unical",
+	24, "Vaillant/Bulex",
+	27, "Baxi Luna Duo-Tec P67=0",
+	29, "Itho Daalderop",
+	33, "Viessmann",
+	41, "Italtherm/Radiant",
+	56,	"Baxi Luna Duo-Tec P67=2",
+	131, "Nefit",
+    148, "Navien",
+    173, "Intergas",
+    247, "Baxi Ampera",
+    248, "Zota" // Lux-X, mk-s plus
+};
+
+const char * GetOTVendorName(int id)
+{	int i, n;
+	n = sizeof(OTvendorList)/sizeof(OpenThermVendor);
+	for(i=0;i<n;i++)
+	{	if(id == OTvendorList[i].id)
+		{	return OTvendorList[i].name;
+		}
+	}
+	return NULL;
 }

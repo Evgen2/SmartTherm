@@ -518,7 +518,7 @@ bit: description [ clear/0, set/1]
             }
 
             SmOT.OTmemberCode = _SConfigSMemberIDcode & 0xff;
-        Serial.printf("SmOT.OTmemberCode %d\n", SmOT.OTmemberCode);
+//        Serial.printf("SmOT.OTmemberCode %d\n", SmOT.OTmemberCode);
          }
 //        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
         break;
@@ -862,7 +862,9 @@ M0:
         {
 //        Serial.printf("st %d SmOT.OTmemberCode %d\n", st,  SmOT.OTmemberCode);
           if(ot.OTid_used(OpenThermMessageID::TrSet)) // 16  Room Setpoint (°C)
-          { unsigned int data = ot.temperatureToData(SmOT.TroomTarget);
+          { 
+//          unsigned int data = ot.temperatureToData(SmOT.TroomTarget);
+            unsigned int data = ot.temperatureToData(22.f);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TrSet, data);
           }  else {
               goto M0;
@@ -875,7 +877,8 @@ M0:
         if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
         {
           if(ot.OTid_used(OpenThermMessageID::Tr)) //  24 Room temperature (°C)
-          { unsigned int data = ot.temperatureToData(SmOT.tempindoor);
+          { //unsigned int data = ot.temperatureToData(SmOT.tempindoor);
+             unsigned int data = ot.temperatureToData(24.f);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::Tr, data);
           }  else {
               goto M0;
@@ -1267,9 +1270,9 @@ SmOT.enable_OTlog = 0; //test
 #endif //OT_DEBUGLOG
 //if(dms < 500)
 //    return;
-  if(raz > 500)
+  if(raz > 1000)
     return;
-  if(raz == 500)
+  if(raz == 1000)
   {   Serial.printf("End of OT log\n");
       raz++; 
       return;     
