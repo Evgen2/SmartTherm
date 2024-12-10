@@ -523,7 +523,7 @@ bit: description [ clear/0, set/1]
 //        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
         break;
 
-    case OpenThermMessageID::TrSet: // 16  Room Setpoint (°C)TSet:  
+    case OpenThermMessageID::TrSet: // 16  Room Setpoint (°C) TrSet:  
         break;
 
     case OpenThermMessageID::Tr: // 24 f8.8  Room temperature (°C)
