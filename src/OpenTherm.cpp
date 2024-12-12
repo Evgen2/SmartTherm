@@ -585,7 +585,7 @@ OpenThermVendor OTvendorList[] =
 	11, "Remeha",
 	16, "Unical",
 	24, "Vaillant/Bulex",
-	27, "Baxi Luna Duo-Tec P67=0",
+	27, "Baxi Eco4s/Luna Duo-Tec P67=0",
 	29, "Itho Daalderop",
 	33, "Viessmann",
 	41, "Italtherm/Radiant",

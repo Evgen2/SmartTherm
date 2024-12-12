@@ -1289,16 +1289,17 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
 	memcpy((void *)&s,(void *)&bf[6],4); 
     memcpy((void *)buf,(void *)&bf[10],20); 
 
-  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
+//  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
 
 
-  Serial.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
 
     ip.fromString(buf);
     if(tcp_remoteIP != ip)
     {   ischange++;
         tcp_remoteIP = ip;
     }
+
+  Serial.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
 
 #if SERIAL_DEBUG 
 //  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);

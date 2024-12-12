@@ -330,6 +330,9 @@ static int timeOutcounter = 0;
     }
   
     if (status == OpenThermResponseStatus::SUCCESS) {
+		   if(SmOT.stsOT != 0)
+               SmOT.MQTT_need_report = 1;
+
         SmOT.stsOT = timeOutcounter = 0;
         SmOT.response = response; 
         OTDebugInfo[0]++;
@@ -345,7 +348,9 @@ static int timeOutcounter = 0;
     } else if (status == OpenThermResponseStatus::TIMEOUT) {
       if(SmOT.stsOT != -1)
 	    { if(timeOutcounter > 10)
-		    {	SmOT.stsOT = 2;
+		    { if(SmOT.stsOT != 2)
+               SmOT.MQTT_need_report = 1;
+          SmOT.stsOT = 2;
 		    } else {
 			    timeOutcounter++;
 		    }	
@@ -691,7 +696,7 @@ unsigned int buildRequest(void)
     }
 
 M0:    
-//   Serial.printf("st %d\n", st);
+ //  Serial.printf("st %d\n", st);
     switch(st)
     {
       case 0: // запрос статуса
@@ -753,7 +758,7 @@ M0:
             {  if(raz > 2)
                  SmOT.CapabilitiesDetected = 1;
             } else if(SmOT.CapabilitiesDetected == 1) {
-               if(raz > 32)
+               if(raz > 16)
                {   SmOT.CapabilitiesDetected = 2;
                   SmOT.DetectCapabilities();
                }
@@ -764,7 +769,7 @@ M0:
                 if(SmOT.enable_HotWater) 
                     SmOT.need_set_dhwT = 1;                   
                 if(SmOT.enable_CentralHeating2)
-                    SmOT.need_set_T2  = 1; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+                    SmOT.need_set_T2  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
                 raz = 0;
             }
           }
@@ -813,8 +818,8 @@ M0:
         }  else {
             goto M0;
         }
-//          st++;
       break;
+
       case 7: //TSetCH2
          st++;
         if(SmOT.enable_CentralHeating2 && ot.OTid_used(OpenThermMessageID::TflowCH2))       
@@ -887,7 +892,8 @@ M0:
         }
 
       case 13: //getFault flags
- //Serial.printf("8 Request: %d\n",OpenThermMessageID::ASFflags);
+ //Serial.printf("13 Request: %d\n",OpenThermMessageID::ASFflags);
+        st++;
           if(ot.OTid_used(OpenThermMessageID::ASFflags)) 
           {
             request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::ASFflags, 0);
@@ -895,19 +901,18 @@ M0:
 0: fault indication [ no fault, fault ] 0x01
 6: diagnostic/service indication [no diagnostics, diagnostic event] 0x40
 */
-            if(SmOT.BoilerStatus & 0x41 || SmOT.Fault )
-                st++;
-            else 
+            if(!(SmOT.BoilerStatus & 0x41 || SmOT.Fault) )
                 st = 0;
             break;
           }
 
       case 14: //getFault code
- //Serial.printf("9 Request: %d\n",OpenThermMessageID::OEMDiagnosticCode);
+        st = 0;
           if(ot.OTid_used(OpenThermMessageID::OEMDiagnosticCode)) 
           {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
+          }  else {
+              goto M0;
           }
-         st = 0;
       break;
 
     }

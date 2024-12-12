@@ -185,7 +185,7 @@ AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
 #if PID_USE
 AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
 #endif
-AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6,  DebugApply});
+AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6, Info7,  DebugApply});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
 AutoConnectConfig config;
@@ -500,6 +500,8 @@ int WiFists = -1;
 
 int OutUTCtime(time_t now);
 
+#include "esp32/rom/rtc.h"
+
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[180];
   // int l;
@@ -561,7 +563,9 @@ extern int minRamFree;
 
     }
 #endif   
-
+  //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
+      sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+  Info7.value = str;
 #if 0   
    {  int i;
       extern char ot_data_used[60];
