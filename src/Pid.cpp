@@ -6,37 +6,63 @@
 #include "pid.hpp"
 
 void  pid::Set_NewTag( float _Tag, float _x)
-{  float dt;
-   dt = _Tag - xTag;
+{  float dtag, _xerr, _xerrnew;
+   
+//   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
+   _xerr = xTag - _x;
+   _xerrnew = _Tag - _x;
+   dtag = _Tag - xTag;
    xTag = _Tag;
-   if(fabs(dt) > 0.1)
-   {  Init_I(_x);
+   if(fabs(dtag) > 0.1)
+   {  //Init_I(_x);
+      Init_I(dtag,  _xerrnew);
+
+//   Serial.printf("**** Set_NewTag: dtag = %f xerr =%f xerrnew =%f\n", dtag, _xerr, _xerrnew);
+//   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
+
       dSt.n = dSt.ind = 0;
       dSt.nlast = dSt.ind_last = 0;
    }
 }
 
-void pid::Init_I(float _x)
-{  float  _xerr, I0, I1;
-//Limit for InT with constant  xerr:  xerr * dt/Kidiss  
+/* 
+U =  Kp*(Xtag-X) + Ki*I
+Xtag ->Xtagnew = Xtag + _dtag, I -> Inew = I + di
+di = coeff * _dtag
+
+*/
+void pid::Init_I(float _dtag, float _xernew)
+{  float di, I1;
    if(Ki == 0.)
          return;
+   di = _dtag * 2.f/Ki;
+   if((_xernew > 0.f && InT < 0.f) || (_xernew < 0.f && InT > 0.f))
+         InT = 0.f;
+   I1 = InT + di;
+   if(I1 * Ki > 30.f )
+      I1 = 30.f/Ki;
+   else
+      if(I1 * Ki < -30.f )
+            I1 = -30.f/Ki;
+   InT = I1;
+}
+
+void pid::Init_I(float _x)
+{  float  _xerr, I0, I1;
+   if(Ki == 0.)
+         return;
+//Limit for InT with constant  xerr:  xerr * dt/Kidiss  
    _xerr = xTag - _x;
-   I0 = _xerr * (t_interval) /Kidiss;
+   I0 = _xerr * (t_interval) /Kidiss * 0.5;
    I1 = I0 * Ki;
    if(I1 > 30.f)
    {  I0 = 30.f / Ki;
-   } else if(I1 > 10.f) {
-     // I1 = 10 + (I1-10)/2 
-     I0 = (I1 + 10.f) / (Ki * 2.f);
-   } else if(I1 > -10.f) {
-      ;
-   } else if(I1 > -30.f) {
-     I0 = (I1 - 10.f) / (Ki * 2.f);
-   } else {
+   } else if(I1 < -30.f) {
      I0 = -30.f / Ki;
    }
    InT = I0;
+   
+//   Serial.printf("**** Init_I _x =%f, _xerr %f InT %f InT * Ki %f\n", _x, _xerr, InT, InT * Ki ); 
 
 }
 

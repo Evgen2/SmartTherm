@@ -10,7 +10,7 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
-#define MASTER_SUBVERSION1 0
+#define MASTER_SUBVERSION1 1
 /***************/
 
 #define U8   unsigned char

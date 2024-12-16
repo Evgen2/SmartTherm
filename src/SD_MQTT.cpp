@@ -128,6 +128,7 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
 
     SmOT.set_new_PID_setpoint(temperatureFloat); //change mypid.xTag 
     SmOT.TroomTarget = temperatureFloat;
+   Serial.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
 
 //todo    
 #endif
@@ -588,7 +589,8 @@ if(SmOT.stsMQTT == 0)
     }
 
     if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000 || SmOT.MQTT_need_report)
-    {   if(SmOT.stsOT == -1)
+    {   
+        if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
           sensorState.setValue("OpenTherm не подключен");
         } else {
@@ -836,13 +838,12 @@ todo
         }
 
         { static int raz = 0;
-          if(raz == 0)
+          if(raz++ == 0)
           { sprintf(str,"%d",  ESP.getFreeHeap() );
             sensorFreeRam.setValue(str);  
           } else {
-            raz++;
-            if(raz == 50)
-              raz = 0;
+            if(raz == 100)
+                raz = 0;
           }
         }
 

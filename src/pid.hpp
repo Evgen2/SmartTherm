@@ -136,6 +136,7 @@ class pid
 
    int Pid(float _x, float u0);
    void Init_I(float _x);
+   void Init_I(float _dtag, float _xernew);
    void Set_NewTag( float _Tag, float _x);
 };
 

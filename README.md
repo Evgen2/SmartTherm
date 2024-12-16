@@ -20,6 +20,10 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+0.8.1
+* At PID startup and room setpoint change recalculate the integral part of PID
+  to speed up reaching the target setpoint. I.e start and restart PID with non zero integral
+
 0.8.0
 * TCP API changes for Andriod application & remote server support
 * PID changes

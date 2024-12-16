@@ -199,11 +199,9 @@ void SD_Termo::loop_mean(void)
 int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения tindoor и toutdoor
 {   int is;
     if(_start)
-    {   int start0 = 0;
-        if(_start == 2)
+    {   if(_start == 2)
         {  // start_t = t;
             _start = 1;
-            start0 = 1;
             mypid.NextTact();
         }
 
@@ -216,12 +214,14 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
             {   if(t_mean[srcTroom].nx > 1)
                 {    tempindoor = t_mean[srcTroom].xmean / float(t_mean[srcTroom].nx) ; 
                     is |= 1;
+                    _start = 0; 
                 }
             } else {
                 tempindoor = t_mean[srcTroom].x;
                 is |= 1;
-                _start = 0; //
+                _start = 0; 
             }
+
             if(srcText < 0 || srcText > MAX_PID_SRC) 
             {
                 is &= ~2;
@@ -236,7 +236,8 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 is |= 2;
             }
 
-            if(start0 && (is & 0x01))
+//        Serial.printf("****is =%d, tempindoor =%f tempoutdoor=%f\n",  is, tempindoor, tempoutdoor ); 
+            if(is & 0x01)
                     mypid.Init_I(tempindoor );
 
         }
