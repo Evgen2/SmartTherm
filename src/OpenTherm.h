@@ -283,4 +283,13 @@ public:
 #define IRAM_ATTR ICACHE_RAM_ATTR
 #endif
 
+
+struct OpenThermVendor
+{	int id;
+	const char *name;
+};
+
+const char * GetOTVendorName(int id);
+
+
 #endif // OpenTherm_h

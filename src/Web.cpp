@@ -1,4 +1,4 @@
-/* Web.cpp  UTF-8  */
+﻿/* Web.cpp  UTF-8  */
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -1511,7 +1511,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   sprintf(str0,"%.2f",SmOT.mypid.xTag);
   SetXtagPID.value = str0;
 
-  Serial.printf("**** WWW TroomTarget = %f  mypid.xTag= %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
+  //Serial.printf("**** WWW TroomTarget = %f  mypid.xTag= %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
 
   Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
 

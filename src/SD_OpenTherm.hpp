@@ -233,7 +233,7 @@ public:
       Tset2_r = 0.;
 
       TdhwSet = 40.;
-      need_set_T = 1;
+      need_set_T = 8;
       need_set_T2 = 0;
       need_set_dhwT = 1;
       need_write_f = 0;
