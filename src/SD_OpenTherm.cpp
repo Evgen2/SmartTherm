@@ -8,6 +8,7 @@ typedef ESP8266WebServer WEBServer;
 #elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
 #include <WebServer.h>
+#include "esp32/rom/rtc.h"
 typedef WebServer WEBServer;
 #endif
 #include <AutoConnect.h>
@@ -467,7 +468,7 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
  static char OT_DebugLog[OT_DEBUGLOG_SIZE];
 #endif //OT_DEBUGLOG
 
-void SD_Termo::init(void)
+void SD_Termo::init(int src)
 {
 #if OT_DEBUGLOG
   OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
@@ -478,6 +479,10 @@ void SD_Termo::init(void)
   if(usePID && !enable_CentralHeating)
   {   usePID = 0;
   }
+  if(src != 3)
+   _U0start = mypid.u0;
+// Serial.printf("src %d _U0start ->mypid.u0\n",  src, _U0start);
+
 #endif   
     if(Use_remoteTCPserver)
         TCPserver_sts = 2;  /* статус сервера */
@@ -533,24 +538,22 @@ void SD_Termo::loop(void)
     */   
   
         if(TCPserver_sts)
-        {  static unsigned long ts0=0;
-
-	static int ols_sts=-1;
-	if(TCPserver_sts2 != ols_sts)
-	{
-		ols_sts = TCPserver_sts2;
-	}
-
+        {   static unsigned long ts0=0;
+	        static int _start = 1, nattemps=0;
 
              switch(TCPserver_sts2)
             {   case 0:
-                    if(millis() - ts0 > TCPserver_report_period) //todo
+                    if(millis() - ts0 > TCPserver_report_period ||  _start) //todo
                     {   TCPserver_sts2 = 1; 
+                    if(_start)
+//      Serial.printf("SD_Termo::loop  start%li\n",  millis());
+                        _start = 0;
                     }
                         break;
                 case 1:
                     TCPserver_rc = 0;
                     Send_to_server_HandShake();
+//      Serial.printf("++++++  Send_to_server_HandShake%li\n",  millis());
                     TCPserver_sts2++;
                     ts0 = millis();
 //    Serial.printf("SD_Termo::loop Send_to_server_HandShake\n");
@@ -561,11 +564,17 @@ void SD_Termo::loop(void)
     /* если есть ответ - переход на след sts, иначе после таймаута переход на паузу  
     */          
                     if(millis() - ts0 > 5000) //todo
-                    {   TCPserver_sts2 = 0; 
+                    {   TCPserver_sts2 = 0;
+                        nattemps++; 
+                        if(nattemps > 10)
+                                start_sts = 0; // связь отвалилась, восстанавливать параметры PID не будем
                         ts0 = millis();
                     } else if(TCPserver_rc == MCMD_HAND_SHAKE) {
                         TCPserver_rc = 0;
+                        nattemps = 0; 
+
                         Send_to_server_IdentifySelf();
+//      Serial.printf("++++++  Send_to_server_IdentifySelf %li\n",  millis());
                         TCPserver_sts2++;
                         ts0 = millis();
 //    Serial.printf("SD_Termo::loop Send_to_server_IdentifySelf\n");
@@ -580,6 +589,7 @@ void SD_Termo::loop(void)
                         ts0 = millis();
                     } else if(TCPserver_rc == MCMD_INTRODUCESELF) {
                         TCPserver_sts2 = 5; //4; 
+//      Serial.printf("++++++  Send_to_server_IdentifySelf answer %li\n",  millis());
                         ts0 = millis();
                     }
 
@@ -599,6 +609,7 @@ void SD_Termo::loop(void)
                     if(millis() - ts0 > TCPserver_report_period) //todo
                     {   TCPserver_sts2 = 6; 
                         //send  CCMD_SEND_STS
+//      Serial.printf("SD_Termo::loop  Send_to_server_Sts %li\n",  millis());
                         Send_to_server_Sts();
                         ts0 = millis();
                     } else {
@@ -620,7 +631,7 @@ void SD_Termo::loop(void)
                         TCPserver_sts2 = 5; 
                         ts0 = millis();
                     } else if(TCPserver_rc == SCMD_GET_HAND_SHAKE) {
-                        Serial.printf(">>>>>>>>>>>>>>>>>>>>  Сервер хочет HAND_SHAKE\n" );
+                     //   Serial.printf(">>>>>>>>>>>>>>>>>>>>  Сервер хочет HAND_SHAKE\n" );
                         TCPserver_sts2 = 1; //HandShake
                     }
                     break;
@@ -650,12 +661,12 @@ void SD_Termo::Send_to_server_HandShake(void)
 //MCMD_INTRODUCESELF MD_IDENTIFY
 void SD_Termo::Send_to_server_IdentifySelf(void)
 { int l, lp; 
-    unsigned char * MsgOut;
+    unsigned char * MsgOut, ch;
     struct Msg1 *msg;
 
     l = strlen((PGM_P)IDENTIFY_TEXT); 
 
-    lp =  sizeof(int)*6 + 6 + 12 + l;
+    lp =  sizeof(int)*6 + 6 + 12 + l +3;
     TcpServer_Lsend = 6 +  sizeof(short int) + lp;	
   
 //    Serial.printf("Send_IdentifySelf l= %d %d %d\n", l, lp, TcpUdp_Lsend);
@@ -666,7 +677,7 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
     msg->ind = indcmd++;
 
     *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
-    *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
+    *((PACKED int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
     *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
     *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
     *((PACKED int *) (&MsgOut[20]))  =  Vers;	
@@ -678,7 +689,13 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
 //    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",Mac[0], Mac[1],Mac[2], Mac[3], Mac[4], Mac[5]);
 
     memcpy_P((void *)&MsgOut[50],(void *)(PGM_P)IDENTIFY_TEXT, l);
-  
+
+    MsgOut[50+l] =  start_sts;	
+    MsgOut[51+l] =  rtc_get_reset_reason(0);	
+    MsgOut[52+l] =  rtc_get_reset_reason(1);
+
+    Serial.printf("start_sts %d %d %d l=%d lsend=%d\n", start_sts, MsgOut[51+l], MsgOut[52+l], l, TcpServer_Lsend );
+
 }
 
  //send to remote MCMD_OT_INFO  
@@ -896,7 +913,7 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
     int rc = 1, tmp4, statDS, l;
     struct Msg1 *msg;
 
-    l = 78;
+    l = 78+8;
     Lsend = 6 +  l;	
   
     MsgOut = get_buf(Lsend);
@@ -960,11 +977,15 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 	 memcpy((void *)&msg->Buf[66],(void *) &tempindoor,4); 
 	 memcpy((void *)&msg->Buf[70],(void *) &tempoutdoor,4); 
 	 memcpy((void *)&msg->Buf[74],(void *) &TroomTarget,4); 
+	 memcpy((void *)&msg->Buf[78],(void *) &mypid.InT,4); 
+	 memcpy((void *)&msg->Buf[82],(void *) &mypid.ub,4); 
 #else
     {   float tmp = 0.f;
 	 memcpy((void *)&msg->Buf[66],(void *) &tmp,4); 
 	 memcpy((void *)&msg->Buf[70],(void *) &tmp,4); 
 	 memcpy((void *)&msg->Buf[74],(void *) &tmp,4); 
+	 memcpy((void *)&msg->Buf[78],(void *) &tmp,4); 
+	 memcpy((void *)&msg->Buf[82],(void *) &tmp,4); 
     }
 #endif
 
@@ -980,9 +1001,11 @@ int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)
 	memcpy((void *)&ClientId,(void *)&bf[6],4);
 	memcpy((void *)&ClientId_k,(void *)&bf[10],4);
 	memcpy((void *)&tmp4,(void *)&bf[14],4);
-//    Serial.printf("******* server_answer_IdentifySelf ClientId %d ClientId_k %x TCPserver_report_period %d\n", 
-//                    ClientId, ClientId_k, tmp4);
     TCPserver_report_period = tmp4*1000;
+//    Serial.printf("******* server_answer_IdentifySelf ClientId %d ClientId_k %x TCPserver_report_period %d\n", 
+//                    ClientId, ClientId_k, TCPserver_report_period);
+//    Serial.printf("******* %li\n",  millis());
+
     return 0;
 }
 
@@ -994,7 +1017,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
     float v, vT;
     int isChange = 0;
 
-//    Serial.printf("##### servercallback_send_Sts_answ len %d\n", len);
+//  Serial.printf("##### servercallback_send_Sts_answ len %d\n", len);
     TCPserver_rc = CCMD_SEND_STS_S;
 	memcpy((void *)&tmp4,(void *)&bf[6],4);
     TCPserver_report_period = tmp4*1000;
@@ -1024,7 +1047,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             if(usePID)
             {   if(mypid.xTag !=  TroomTarget_toSet)
                 {   mypid.xTag =  TroomTarget = TroomTarget_toSet;
-   Serial.printf("**** servercallback_send_Sts_answ: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
+//   Serial.printf("**** servercallback_send_Sts_answ: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
                     
                     isChange = 1;
                 }
@@ -1050,6 +1073,20 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 
             if(isChange)
                 need_write_f = 1;  //need write changes to FS
+        } 
+    } else if(len == 6+4*3+2) {
+        memcpy((void *)&tmp2,(void *)&bf[10],2);
+        if(tmp2 == 0x10)
+        {   float _It, _U0;
+            start_sts = 0;  
+            memcpy((void *)&_It, (void *)&bf[12],4);
+            memcpy((void *)&_U0, (void *)&bf[16],4);
+//todo             
+//   Serial.printf("**** servercallback_send_Sts_answ: _It = %f _U0 = %f\n", _It, _U0);
+            if(_U0 != 0.f)
+                    _U0start = _U0;
+             mypid.InT = _It;
+             InTstartset = 1;       
         }
 
     }
@@ -1131,7 +1168,7 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
         {   mypid.xTag = TroomTarget = roomSetpointT;
-   Serial.printf("**** callback_Set_OpenThermData: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
+//   Serial.printf("**** callback_Set_OpenThermData: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
             isChange = 1;
         }
     } else {
@@ -1211,7 +1248,7 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
         {   mypid.xTag = TroomTarget =roomSetpointT;
-   Serial.printf("**** callback_Set_State: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
+//   Serial.printf("**** callback_Set_State: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
             isChange = 1;
         }
     } else {
@@ -1298,7 +1335,7 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
 
     ip.fromString(buf);
     if(tcp_remoteIP != ip)
-    {   ischange++;
+    {   ischange |= 0x01;
         tcp_remoteIP = ip;
     }
 
@@ -1314,30 +1351,26 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
     memcpy((void *)&dt, (void *)&bf[30],4); 
     memcpy((void *)&p,(void *)&bf[34],4); 
 
-    if(tcp_remoteIP != ip)
-        ischange++;
-
-  
     TCPserver_sts = s;  /* статус сервера */
     if(s)
         TCPserver_t = millis();
 
     if(TCPserver_port != p)
-    {   ischange++;
+    {   ischange |= 0x02;
         TCPserver_port = p;  
     }
   
 
     if(TCPserver_report_period != dt)
-    {   ischange++;
+    {   ischange |= 0x04;
         TCPserver_report_period = dt;
     }
   
     if(ischange)
         need_write_f = 1;
 
-  Serial.printf("need_write_f %d TCPserver_port %d sts=%d TCPserver_report_period =%d\n", 
-        need_write_f, TCPserver_port, TCPserver_sts, TCPserver_report_period);
+  Serial.printf("need_write_f %d %x TCPserver_port %d sts=%d TCPserver_report_period =%d\n", 
+        need_write_f,  ischange, TCPserver_port, TCPserver_sts, TCPserver_report_period);
 
 }
 
@@ -1376,6 +1409,8 @@ void SD_Termo::OnChangeT(float t, int src)
     if(src>= 0 && src <= MAX_PID_SRC)
     {
         t_mean[src].add(t);
+//   if(src ==2)
+//     Serial.printf("OnChangeT 2, %li t =%f\n", millis(), t); 
 //    Serial.printf("OnChangeT src =%d, t =%f mean =%f nx=%d\n", src, t, t_mean[src].xmean, t_mean[src].nx); 
     }
 #endif

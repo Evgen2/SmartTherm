@@ -71,8 +71,12 @@ void SD_Termo::loop_PID(void)
                   u0 = mypid.xTag;
         }
     } else { //нет внешней температуры
-        u0 = mypid.u0;
+        u0 = _U0start;
     } 
+
+//   Serial.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
+//             is, start, tempoutdoor, u0, mypid.InT );
+
 /**********************************************/
     if(!(is & 0x01))  // если нет  tempindoor 
                 return;
@@ -237,8 +241,10 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
             }
 
 //        Serial.printf("****is =%d, tempindoor =%f tempoutdoor=%f\n",  is, tempindoor, tempoutdoor ); 
-            if(is & 0x01)
-                    mypid.Init_I(tempindoor );
+            if(is & 0x01 && InTstartset == 0) 
+            {        mypid.Init_I(tempindoor );
+        //Serial.printf("****is =%d, tempindoor =%f tempoutdoor=%f\n",  is, tempindoor, tempoutdoor ); 
+            }
 
         }
 //        Serial.printf("0 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 

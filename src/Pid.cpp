@@ -13,7 +13,7 @@ void  pid::Set_NewTag( float _Tag, float _x)
    _xerrnew = _Tag - _x;
    dtag = _Tag - xTag;
    xTag = _Tag;
-   if(fabs(dtag) > 0.1)
+   if(fabs(dtag) > 0.5)
    {  //Init_I(_x);
       Init_I(dtag,  _xerrnew);
 
@@ -21,7 +21,7 @@ void  pid::Set_NewTag( float _Tag, float _x)
 //   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
 
       dSt.n = dSt.ind = 0;
-      dSt.nlast = dSt.ind_last = 0;
+//      dSt.nlast = dSt.ind_last = 0;
    }
 }
 
@@ -36,8 +36,8 @@ void pid::Init_I(float _dtag, float _xernew)
    if(Ki == 0.)
          return;
    di = _dtag * 2.f/Ki;
-   if((_xernew > 0.f && InT < 0.f) || (_xernew < 0.f && InT > 0.f))
-         InT = 0.f;
+//   if((_xernew > 0.f && InT < 0.f) || (_xernew < 0.f && InT > 0.f))
+//         InT = 0.f;
    I1 = InT + di;
    if(I1 * Ki > 30.f )
       I1 = 30.f/Ki;
@@ -45,6 +45,7 @@ void pid::Init_I(float _dtag, float _xernew)
       if(I1 * Ki < -30.f )
             I1 = -30.f/Ki;
    InT = I1;
+//   Serial.printf("**** Init_I2  InT %f InT * Ki %f\n",InT, InT * Ki ); 
 }
 
 void pid::Init_I(float _x)
@@ -61,7 +62,9 @@ void pid::Init_I(float _x)
      I0 = -30.f / Ki;
    }
    InT = I0;
-   
+
+//   Serial.printf("**** Init_I1  InT %f InT * Ki %f\n",InT, InT * Ki ); 
+
 //   Serial.printf("**** Init_I _x =%f, _xerr %f InT %f InT * Ki %f\n", _x, _xerr, InT, InT * Ki ); 
 
 }
@@ -177,6 +180,8 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
             t0 = t[i]; 
          dmid += d[i];
          tmid += (t[i] - t0); 
+
+//     Serial.printf("%d %d %f %li \n",ii, i, d[i], t[i]-t0); 
 
       }
       dmid += xerr;

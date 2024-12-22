@@ -510,6 +510,10 @@ extern unsigned int OTcount;
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
     sensorPID_U0.setDeviceClass(temperature_str); 
+            sprintf(str,"%.4f", SmOT.mypid.ub);
+            sensorPID_U0.setValue(str);
+//    Serial.printf("sensorPID_U0 =%s\n", str);
+
     
     sensorPID_Extra.setAvailability(true);
     sensorPID_Extra.setNameUniqueIdStr(SmOT.MQTT_topic,"Uextra", "pid_extra");
