@@ -53,6 +53,7 @@ class SD_Termo SmOT;
 
   const int DS1820_1 = 15; // D15 esp32  3 снизу
   const int DS1820_2 = 26; // D26 esp32  7 снизу
+  const int RelayPin = 23;
 
 #endif
 
@@ -96,6 +97,12 @@ int LedSts = 0; //LOW
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
+  pinMode(RelayPin, OUTPUT);  
+  digitalWrite(RelayPin, 0);  
+  delay(1000);
+  digitalWrite(RelayPin, 1);  
+
+  
   delay(10);
   Serial.begin(115200);
 //  Serial.println(F("Start"));
@@ -1182,7 +1189,7 @@ static int mday_prev = 0;
         SmOT.Bstat.ModIntegral_d = 0.;
         SmOT.Bstat.sec_h = SmOT.Bstat.sec_d = 0;
 
-        SmOT.init();        
+        SmOT.init(3);        
 	      interrupts();
   }
   

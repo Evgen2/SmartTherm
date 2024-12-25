@@ -1,4 +1,4 @@
-﻿/* Web.cpp  UTF-8  */
+/* Web.cpp  UTF-8  */
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -305,7 +305,7 @@ void setup_web_common(void)
 #endif //SERIAL_DEBUG     
 
   SmOT.Read_ot_fs();
-  SmOT.init();
+  SmOT.init(1);
 
   {  char str[40];
      sprintf(str,"%.1f",SmOT.Tset);
@@ -561,6 +561,22 @@ extern int minRamFree;
 
       Info6.value += str;
 
+      sprintf(str,"<br>RoomSetpoint change src %d from %f to %f at ", 
+      SmOT.src_lastSetPointChange, SmOT.oldTroomSetpoint, SmOT.mypid.xTag); 
+      Info6.value += str;
+//    t_lastSetPointChange = time(nullptr);
+{
+    struct tm* tm_info;
+  tm_info = localtime(&SmOT.t_lastSetPointChange);
+
+      strftime(str, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
+      str[25] = 0;
+
+}
+
+      Info6.value += str;
+      Info6.value += " UTC";
+
     }
 #endif   
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
@@ -668,7 +684,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   if(check != SmOT.Use_remoteTCPserver)
   { isChange++;
     SmOT.Use_remoteTCPserver = check;
-    SmOT.init();
+    SmOT.init(2);
   }
 
 #if MQTT_USE
@@ -1401,7 +1417,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     }
     if(v != SmOT.mypid.xTag)
     {
-      SmOT.set_new_PID_setpoint(v); //change mypid.xTag 
+      SmOT.set_new_PID_setpoint(v, 0); //change mypid.xTag 
 //      SmOT.mypid.xTag = v;
       SmOT.TroomTarget = v;
 
@@ -1659,7 +1675,6 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi) {
   return qu;
 }
 
-
 int OutUTCtime(time_t now)
 {   char str[312];
     char buffer[26];
@@ -1681,17 +1696,17 @@ document.getElementById("utcl").innerHTML = d;
 </script>
 */  
 
-  now = time(nullptr);
-//  Serial.printf("2 %s\n", ctime(&now));
+//  now = time(nullptr);
+//  Serial.printf("****** 2 %s\n", ctime(&now));
   tm_info = localtime(&now);
 
   strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
   buffer[25] = 0;
-//  Serial.printf("3 %s\n", buffer);
+//  Serial.printf("*******3 %s\n", buffer);
   sprintf(str,"%s%sZ%s%s", s0,buffer,s1, s2);
   utc_time_jc = str;
 /*  
-  Serial.printf("%s len=%d\n", str, strlen(str));
+  Serial.printf("****** %s len=%d\n", str, strlen(str));
   Serial.println(utc_time_jc);
 */
   return 0;

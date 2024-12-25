@@ -126,7 +126,7 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
 //    Serial.print("PID Target temperature: ");
 //    Serial.println(temperatureFloat);
 
-    SmOT.set_new_PID_setpoint(temperatureFloat); //change mypid.xTag 
+    SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
     SmOT.TroomTarget = temperatureFloat;
    Serial.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
 

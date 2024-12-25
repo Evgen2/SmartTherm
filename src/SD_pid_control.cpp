@@ -17,7 +17,7 @@ int wait_if_takt = 60*3;
 void SD_Termo::loop_PID(void)
 {   static int start = 2;
     static int start_heat = 2;
-    static  unsigned long int  t0=0, t_start_heat=0, flame_old = 0;
+    static  unsigned long int  t0=0, t_start_heat=0, t_stop_heat = 0;
     static float _ustart = 0.f;
     static int OldBoilerStatus=0, issF = 0;
     unsigned long int t;
@@ -94,7 +94,7 @@ void SD_Termo::loop_PID(void)
                 return;
         if(enable_CentralHeating_real && !(BoilerStatus& 0x08)) //flame off если горелка выключена
         {   dt = now - Bstat.t_HW_off;
-            if(dt < 180 /* 500 */)  //если HW выключилось 500 сек назад или раньше, то не регулируем
+            if(dt < 180 /* 500 */)  //если HW выключилось 180 сек назад или раньше, то не регулируем
                 return;
         }
     }
@@ -112,16 +112,23 @@ void SD_Termo::loop_PID(void)
 //    Serial.printf("==>PID _u %f need_heat %d\n", _u, need_heat); 
 
     if(need_heat == 1 && (start_heat == 0 || start_heat == 2)) //включение отопления
-    {   enable_CentralHeating_real = true;
-//       MQTT_pub_cmd(enable_CentralHeating_real);
-        start_heat = 1;
-        t_start_heat = now; //время включения отопления
-        _ustart  = _u;
+    {   dt =  now - t_stop_heat;
+        if(dt > 180) //3 минуты - защита от кратковременного вЫключения
+        {
+            enable_CentralHeating_real = true;
+            start_heat = 1;
+            t_start_heat = now; //время включения отопления
+            _ustart  = _u;
+        }
     } else if(need_heat == 0 && (start_heat == 1 || start_heat == 2)) { //выключение отопления
-        enable_CentralHeating_real = false;
-        _u = mypid.umin;
-//        MQTT_pub_cmd(enable_CentralHeating_real);
-        start_heat = 0;
+        dt =  now - t_start_heat;
+        if(dt > 180) //3 минуты - защита от кратковременного включения
+        {
+            enable_CentralHeating_real = false;
+            _u = mypid.umin;
+            start_heat = 0;
+            t_stop_heat = now; //время выключения отопления
+        }
     }
 
 //    Serial.printf("==>PID _u %f need_heat %d enable_CentralHeating_real %d\n",
@@ -176,10 +183,15 @@ void SD_Termo::loop_PID(void)
 
 }
 
-void SD_Termo::set_new_PID_setpoint(float Tsetpoint)
+//src = 0 - Web, 1 - MQTT, 2 servercallback_send_Sts_answ, 3 callback_Set_OpenThermData,
+// 4 callback_Set_State
+void SD_Termo::set_new_PID_setpoint(float Tsetpoint, int src)
 {
 #if PID_USE
+    oldTroomSetpoint = mypid.xTag;
+    src_lastSetPointChange = src;
     mypid.Set_NewTag(Tsetpoint, tempindoor);
+    t_lastSetPointChange = time(nullptr);
 #endif    
 }
 

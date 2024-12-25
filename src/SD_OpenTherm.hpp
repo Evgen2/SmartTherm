@@ -183,8 +183,10 @@ public:
   float tempindoor;
   #define TroomTarget mypid.xTag
   float tempoutdoor;
+  float _U0start;
+  int InTstartset;
 #endif
-
+  int start_sts; //1 - start state, need ask server for last I and U0(?),  &0x02 - OT start log, 0 - not start
   unsigned short int UseID2;
   unsigned short int ID2masterID;
   unsigned short int CH2_DHW_flag;
@@ -197,6 +199,10 @@ public:
   float CH_StartGist; 
 
   int CapabilitiesDetected;
+  time_t t_lastSetPointChange;
+  int  src_lastSetPointChange;
+  float oldTroomSetpoint; 
+
   SD_Termo(void)
   {	  
     enable_CentralHeating = true;
@@ -222,6 +228,7 @@ public:
 
       stsOT = -1;
       t_lastwork = 0;
+      t_lastSetPointChange = 0;
 	    stsT1 = -1;
 	    stsT2 = -1;
       t1 = t2 = 0.;
@@ -283,9 +290,15 @@ public:
       Use_ID29_DHW_flag = 0;
       Immergas_fix_flag = 0;
       CH_StartGist = 10.f;
+
+      start_sts = 1;
+      _U0start = 0;
+      InTstartset = 0;
+      oldTroomSetpoint = 0.;
+      src_lastSetPointChange = -1;
   }
   
-  void init(void);
+  void init(int src);
   void loop(void);
   void OpenThermInfo(void);
   void Send_to_server_HandShake(void);
@@ -325,7 +338,7 @@ public:
   void loop_PID(void);
   void loop_mean(void); //получаем средние значения для используемых температур
   int loop_pid_gettemp(int &_start); //получаем значения tindoor и toutdoor
-  void set_new_PID_setpoint(float Tsetpoint);
+  void set_new_PID_setpoint(float Tsetpoint, int src);
 #endif
   void DetectCapabilities(void);
 };

@@ -694,7 +694,7 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
     MsgOut[51+l] =  rtc_get_reset_reason(0);	
     MsgOut[52+l] =  rtc_get_reset_reason(1);
 
-    Serial.printf("start_sts %d %d %d l=%d lsend=%d\n", start_sts, MsgOut[51+l], MsgOut[52+l], l, TcpServer_Lsend );
+//    Serial.printf("start_sts %d %d %d l=%d lsend=%d\n", start_sts, MsgOut[51+l], MsgOut[52+l], l, TcpServer_Lsend );
 
 }
 
@@ -1046,7 +1046,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 
             if(usePID)
             {   if(mypid.xTag !=  TroomTarget_toSet)
-                {   mypid.xTag =  TroomTarget = TroomTarget_toSet;
+                {   set_new_PID_setpoint(TroomTarget_toSet, 2); 
 //   Serial.printf("**** servercallback_send_Sts_answ: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
                     
                     isChange = 1;
@@ -1167,7 +1167,7 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
 
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
-        {   mypid.xTag = TroomTarget = roomSetpointT;
+        {   set_new_PID_setpoint(roomSetpointT, 3); 
 //   Serial.printf("**** callback_Set_OpenThermData: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
             isChange = 1;
         }
@@ -1247,7 +1247,7 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
 
     if(usePID)
     {   if(mypid.xTag != roomSetpointT)
-        {   mypid.xTag = TroomTarget =roomSetpointT;
+        {   set_new_PID_setpoint(roomSetpointT, 4);
 //   Serial.printf("**** callback_Set_State: TroomTarget = %f xTag = %f\n", TroomTarget, mypid.xTag);
             isChange = 1;
         }
