@@ -13,9 +13,9 @@ Build with [PlatformIO](https://platformio.org/)
 
 Features:
 * [Captive portal](https://en.wikipedia.org/wiki/Captive_portal) before WiFi connection
-* Web interface after WiFi connectiom
+* Web interface after WiFi connection
 * [OpenTherm](https://en.wikipedia.org/wiki/OpenTherm) interface for Gas/Electric boiler contol (HVAC)
-* personal cloud control used (todo)
+* [Personal cloud control](https://github.com/Evgen2/SmartServer) used
 * [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
