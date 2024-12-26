@@ -412,7 +412,7 @@ extern unsigned int OTcount;
         hvacPID.setMinTemp(MIN_ROOM_TEMP);
         hvacPID.setMaxTemp(MAX_ROOM_TEMP);
     } else {
-      hvacPID.setMinTemp(30);
+      hvacPID.setMinTemp(5);
       hvacPID.setMaxTemp(80);
     }
     hvacPID.setTempStep(0.1);
