@@ -103,9 +103,9 @@ void SD_Termo::loop_PID(void)
     if(_u > mypid.umax)
         _u =  mypid.umax;
 
-    if(_u <= mypid.xTag || (_u <= mypid.umin -1.f) )
-    {    need_heat = 0;
-    }  else {
+    if(_u <= mypid.xTag || (_u <= mypid.umin - 0.5f) )
+    {   need_heat = 0;
+    }  else if(_u >= mypid.umin + 0.5f) {
         need_heat = 1;
     }
 
@@ -199,16 +199,18 @@ void SD_Termo::set_new_PID_setpoint(float Tsetpoint, int src)
 //получаем средние значения для используемых температур
 void SD_Termo::loop_mean(void) 
 { 
+
     for(int i=0; i < 8; i++)
     {
          if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
             continue;
         t_mean[i].get();
 //debug
+//if(i < 2)
 //    Serial.printf("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
 
         if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
-                t_mean[i].init();
+                t_mean[i].init(1);
     }
 }
 
@@ -234,7 +236,7 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 }
             } else {
                 tempindoor = t_mean[srcTroom].x;
-                is |= 1;
+                    is |= 1;
                 _start = 0; 
             }
 
@@ -252,38 +254,29 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 is |= 2;
             }
 
-//        Serial.printf("****is =%d, tempindoor =%f tempoutdoor=%f\n",  is, tempindoor, tempoutdoor ); 
             if(is & 0x01 && InTstartset == 0) 
             {        mypid.Init_I(tempindoor );
-        //Serial.printf("****is =%d, tempindoor =%f tempoutdoor=%f\n",  is, tempindoor, tempoutdoor ); 
             }
 
         }
-//        Serial.printf("0 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
     } else {  // start == 0
         if(srcTroom >= 0 && srcTroom <= 3 ) // !4
         {
-//    Serial.printf("00 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
-//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
-
             if(t_mean[srcTroom].isset >= 0)
             {   tempindoor = t_mean[srcTroom].x;
-                //tempindoor = (tempindoor + t_mean[srcTroom].x) * 0.5;
-                is |= 1;
+            is |= 1;
             }
         }
         if((srcText >= 0 && srcText <= 2) || (srcText >= 4 && srcText <= MAX_PID_SRC)) // !3 MAX_PID_SRC!!
         {
             if(t_mean[srcText].isset >= 0)
             {   tempoutdoor = t_mean[srcText].x; 
-                //tempoutdoor = (tempoutdoor + t_mean[srcText].x) * 0.5;
 #if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
                 need_set_dhwT = 1;
 #endif
                 is |= 2;
             }
         }
-//    Serial.printf("1 is =%d, tempindoor =%f tempoutdoor=%f\n", is, tempindoor, tempoutdoor ); 
     }
 /************ endof  if(_start) **********************************/
     return is;

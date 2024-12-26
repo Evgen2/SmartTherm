@@ -239,7 +239,6 @@ void loopDS1820(void)
 #endif            
           } else {
             SmOT.status &= ~0x10; // сброс бита CRC error
-            SmOT.t1 = t;
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else

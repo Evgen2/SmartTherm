@@ -9,21 +9,29 @@
 class x_mean
 {
   public:
-//  int id;
    float x;
    float xmean; //среднее для вычисления x
+   float x0, xold;
    int nx;       // число отсчетов xmean
    int isset;
+   int canfilter;
    int can_report;
    x_mean(void)
-   { x = 0.f;
-     init();
+   { x = xold = 0.f;
+     init(0);
      isset = -1;
+     canfilter = 0;
      can_report = 0; 
    }
 
-   void init(void)
-   {  xmean = 0;
+   void init(int canf)
+   {  if(canf)
+      { xold = x;
+        canfilter = 1;
+      } else {
+        canfilter = 0;
+      }
+      xmean = 0;
       isset = 0;
       nx = 0;
       can_report = 1;
@@ -35,8 +43,16 @@ class x_mean
    }
    float get(void)
    {  if(nx > 0) 
-      { x = xmean/float(nx);
-        isset = 1;
+      { x0 = xmean/float(nx);
+        if(isset != 1)
+        {   x = x0;
+            isset = 1;
+        } 
+        
+        if(canfilter)
+        {
+            x = (x0 + xold) * 0.5;
+        }
       }
       return x;
    }
