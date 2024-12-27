@@ -26,7 +26,7 @@ void SD_Termo::loop_PID(void)
     time_t now; 
     extern OpenTherm ot;
     int is = 0;
-    int need_heat = 0;
+    static int need_heat = 0;
 
     if(!usePID)
         return;

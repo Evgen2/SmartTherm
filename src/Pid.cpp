@@ -122,7 +122,10 @@ void pid::Init_I(float _x)
    dD = dX * Kd;   //dD - grad, Kd - hour
    dI = InT * Ki;  //dI - grad, Ki - (1/sec)
    _u = dP + dD + dI;
-   u = _u + _u0;
+   if(dSt.n <= 4)
+         u = _u + _u0;
+   else
+         u = (u + _u + _u0) * 0.5; //filter output of pid
 
 #if SERIAL_DEBUG 
 //   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
@@ -154,7 +157,8 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 
 //   Serial.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
 
-      if( n < 2)
+//    if( n < 2)
+      if( n < 4)
       {  diff = 0.f;
          return 0;
       }
