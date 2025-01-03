@@ -769,7 +769,7 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
     if(RetT_present)          B_flags4 |= 0x04;  //OTid_used
     if(Toutside_present)      B_flags4 |= 0x08;  //OTid_used 
     if(Pressure_present)      B_flags4 |= 0x10;  //OTid_used
-//todo
+    if(Dhw_t_present)         B_flags4 |= 0x2000;  //OTid_used
 
 #if  MQTT_USE
      B_flags4 |= 0x100;  //MQTT_defined
@@ -831,6 +831,8 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
     if(CH2_present)           B_flags |= 0x20;  
     if(Toutside_present)      B_flags |= 0x40;  
     if(Pressure_present)      B_flags |= 0x80; 
+    if(RetT_present)          B_flags |= 0x1000;  //OTid_used
+    if(Dhw_t_present)         B_flags |= 0x2000;  //OTid_used
 #if  MQTT_USE
      B_flags |= 0x100;  //MQTT_defined
      if(useMQTT)
@@ -937,6 +939,9 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
     if(CH2_present)           B_flags |= 0x20;  
     if(Toutside_present)      B_flags |= 0x40;  
     if(Pressure_present)      B_flags |= 0x80; 
+    if(RetT_present)          B_flags |= 0x1000;  //OTid_used
+    if(Dhw_t_present)         B_flags |= 0x2000;  //OTid_used
+      
 #if  MQTT_USE
      B_flags |= 0x100;  //MQTT_defined
      if(useMQTT)
@@ -1562,7 +1567,6 @@ extern OpenTherm ot;
 //                Pressure_present, Toutside_present, RetT_present  ) ;
 }
 
-//MCMD_GET_CAP    
 
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)
