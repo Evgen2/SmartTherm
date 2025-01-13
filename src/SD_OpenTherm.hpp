@@ -124,6 +124,11 @@ public:
     bool Pressure_present;
     bool Dhw_t_present;  //у Buderus'а с косвенным нагревом есть dhw и нет dhw_t
     bool Tstorage_present; // ID29
+    bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting    
+
+    bool Relay_present;
+    bool Relay_init_sts;
+    bool Relay_sts;
   unsigned int OTmemberCode;
   unsigned long response;
   float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
@@ -141,7 +146,7 @@ public:
   float Texhaust;// s16  Boiler exhaust temperature (°C)
   float FlameModulation; //Relative Modulation Level (%)
   float Pressure; // Water pressure in CH circuit  (bar)
-  float MaxRelModLevelSetting;
+  float MaxRelModLevelSetting; // if MaxRelModLevel_present + need_set_MaxRelModLevel
   unsigned int MaxCapacity;
   unsigned int MinModLevel;
   unsigned int Fault;
@@ -152,6 +157,7 @@ public:
   byte need_set_T; 
   byte need_set_T2; 
   byte need_set_dhwT;
+  byte need_set_MaxRelModLevel;
   byte need_write_f; 
 
   int TestCmd;
@@ -210,6 +216,8 @@ public:
   unsigned short int Use_OTC;
   unsigned short int Use_ID29_DHW_flag;
   unsigned short int Immergas_fix_flag;
+  unsigned short int Use_MaxRelModLevel; 
+
   //гистерезис включения отопления, минимальная разница между заданной и текущей температурой теплоносителя
   // при которой включится горелка. У Mizudo может быть 15 и больше градусов 
   float CH_StartGist; 
@@ -225,7 +233,13 @@ public:
     #if PID_USE
     enable_CentralHeating_real   = enable_CentralHeating;
     #endif
-
+    #if RELAY_USE
+      Relay_present = true;
+      Relay_init_sts = false;
+      Relay_sts = 0;
+    #else
+      Relay_present = false;
+    #endif
     HotWater_present  = false;
     DHW_tank_present  = false;
 
@@ -239,6 +253,7 @@ public:
     enable_HotWater = true;
     enable_Cooling = false;
     enable_CentralHeating2 = false;
+    MaxRelModLevel_present = false;
 
     CapabilitiesDetected = 0;
 
@@ -256,9 +271,12 @@ public:
       Tset2_r = 0.;
 
       TdhwSet = 40.;
-      need_set_T = 8;
+/* look at int OpenTherm::update_OTid(int id, int sts) */      
+      need_set_T = 9;
       need_set_T2 = 0;
-      need_set_dhwT = 1;
+      need_set_dhwT = 2;
+      need_set_MaxRelModLevel = 9;
+/********************************/      
       need_write_f = 0;
       RetT = 0.;
       dhw_t = 0.;
@@ -267,7 +285,7 @@ public:
       Tstorage = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
-      MaxRelModLevelSetting = 0.;
+      MaxRelModLevelSetting = 100.;
       MaxCapacity = MinModLevel = 0;
       Fault = 0;
       OEMDcode = 0;
@@ -306,6 +324,7 @@ public:
       Use_ID29_DHW_flag = 0;
       Immergas_fix_flag = 0;
       CH_StartGist = 10.f;
+      Use_MaxRelModLevel = 0;
 
       start_sts = 1;
       _U0start = 0;
@@ -313,7 +332,8 @@ public:
       oldTroomSetpoint = 0.;
       src_lastSetPointChange = -1;
   }
-  
+  void RelayInit(void);
+  void RelayOnOff(bool onoff);
   void init(int src);
   void loop(void);
   void OpenThermInfo(void);
@@ -350,6 +370,7 @@ public:
   float RoomtempLimit(float _t); /* return t within limit MIN_ROOM_TEMP MAX_ROOM_TEMP*/
 
   void OnChangeT(float t, int src);
+  void OnOpenThermRestore(void);
 #if PID_USE
   void loop_PID(void);
   void loop_mean(void); //получаем средние значения для используемых температур

@@ -4,17 +4,39 @@
 
 #include "DeviceType.h"
 
-#define CONFIG_VERSION 0x1002
+#define CONFIG_VERSIONBASE 0x1002
+
+//ST_VERS 0   SmartTherm32
+//ST_VERS 1   SmartTherm = SmartTherm32 + Relay
+//ST_VERS 2   SmartTherm 2 = SmartTherm32 + Relay + 2 OpenTherm (master+slave)
+#define ST_VERS 0
+
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
-#if defined(ARDUINO_ARCH_ESP8266)
-#define MQTT_USE 0
-#else
-#define MQTT_USE 1
+
+#if ST_VERS == 0
+  #if defined(ARDUINO_ARCH_ESP8266)
+  #define MQTT_USE 0
+  #else
+  #define MQTT_USE  1
+  #endif
+  #define RELAY_USE 0
+  #define CONFIG_VERSION CONFIG_VERSIONBASE
+#elif ST_VERS == 1
+  #define MQTT_USE  1
+  #define RELAY_USE 1
+  #define CONFIG_VERSION (CONFIG_VERSIONBASE|0x4000)
+#elif ST_VERS == 2
+  #define MQTT_USE  1
+  #define RELAY_USE 1
+  #define CONFIG_VERSION (CONFIG_VERSIONBASE|0x8000)
+#else 
+  error
 #endif
+
 
 #if MQTT_USE
   #define PID_USE 1 
@@ -45,7 +67,13 @@
  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP8266")
 #elif defined(ARDUINO_ARCH_ESP32)
  #define PROSESSOR_CODE  2
- #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP32")
+  #if ST_VERS == 0
+  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP32")
+  #elif ST_VERS == 1
+  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm")
+  #elif ST_VERS == 2
+  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm 2")
+ #endif
 #endif
 
 #define IDENTIFY_CODE   (PROSESSOR_CODE<<24)|(USE_SENSOR_T<<8)

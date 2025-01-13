@@ -451,7 +451,7 @@ OpenThermID OT_ids[N_OT_NIDS] =
  { 	TSet,					OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Control setpoint ie CH water temperature setpoint (°C)")},
  {	MConfigMMemberIDcode,	OtW,	FLAG8,	OTU8,	0,	0,	0,	OTD("Master Configuration Flags / Master MemberID Code") }, 
  {	SConfigSMemberIDcode,	OtR,	FLAG8,	OTU8,	0,	0,	0,	OTD("Slave Configuration Flags / Slave MemberID Code") },
- {	Command,				OtW,	OTU8,	OTU8,	0,	0,	0,	OTD("Remote Command")},
+ {	RemoteRequest,			OtW,	OTU8,	OTU8,	0,	0,	0,	OTD("Remote Command")},
  {	ASFflags,				OtR,	FLAG8,	OTU8,	0,	0,	0,	OTD("OEM-fault-code Application-specific fault flags and OEM fault code")},
  {	RBPflags,				OtR,	FLAG8,	FLAG8,	0,	0,	0,	OTD("Remote boiler parameter transfer-enable & read/write flags")},
  {	CoolingControl,			OtW,	F88,	OTNONE,	0,	0,	0,	OTD("Cooling control signal (%)")},
@@ -493,7 +493,7 @@ OpenThermID OT_ids[N_OT_NIDS] =
 
  {	RemoteOverrideFunction,	OtR,	FLAG8,	OTNONE,	0,	0,	0, OTD("Function of manual and program changes in master and remote room setpoint")}, // = 100
  {	OEMDiagnosticCode,		OtR,	OTU16,	OTNONE,	0,	0,	0, OTD("OEM-specific diagnostic/service code")}, // = 115
- {	BurnerStarts,			OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts burner")}, 
+ {	SuccessfulBurnerStarts,	OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of succesful starts burner")}, 
  {	CHPumpStarts,			OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts CH pump")},
  {	DHWPumpValveStarts, 	OtRW,	OTU16,	OTNONE,	0,	0,	0, OTD("Number of starts DHW pump/valve")},
  
@@ -552,6 +552,8 @@ int OpenTherm::update_OTid(int id, int sts)
 		OT_ids[ind].count++;
 		if(sts )
 			OT_ids[ind].countOk++;
+if(ind == 14)			
+	Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
 //Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
 		if(OT_ids[ind].count > 8)
 		{

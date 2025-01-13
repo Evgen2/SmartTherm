@@ -86,14 +86,17 @@ ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
 /************* SetupPage ***************/
-ACText(Ctrl1, "Настройки котла:", "", "", AC_Tag_DIV);
 ACText(Ctrl2, "", "", "", AC_Tag_DIV);
 //ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
+AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_None);
+ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); 
+AutoConnectCheckbox CtrlChBUseRelay("ChbUseRelay","5", "Реле", false, AC_Behind , AC_Tag_None);
+AutoConnectCheckbox CtrlChBStartRelaySts("ChbStertRelay","6", "Вкл при старте", false, AC_Behind , AC_Tag_BR);
 #if MQTT_USE
-AutoConnectCheckbox CtrlChB4("CtrlChB4","4", "MQTT", false, AC_Behind , AC_Tag_DIV);
+AutoConnectCheckbox CtrlChbUseMQTT("ChbUseMQTT","7", "MQTT", false, AC_Behind , AC_Tag_DIV);
 ACInput(SetMQTT_server,"", "сервер"); 
 ACInput(SetMQTT_port,"", "порт", "",  "", AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
 ACInput(SetMQTT_user,"", "user"); 
@@ -122,9 +125,9 @@ AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Be
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID});
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { Ctrl1, UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar});
 #endif //#if PID_USE
 
 
@@ -172,10 +175,10 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 
 #if MQTT_USE
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, Ctrl2, CtrlChB4, 
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3,CtrlChBMmod, SetMaxMod, CtrlChBUseRelay, CtrlChBStartRelaySts,  CtrlChbUseMQTT, 
             SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl1, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChB_UseRemoteControl, Ctrl2, ApplyAdd, ApplyChB});
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, CtrlChBUseRelay,CtrlChBStartRelaySts, CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});
 #endif // MQTT_USE
 
 
@@ -196,6 +199,7 @@ AutoConnect portal;
 //int test_fs(void);
 
 void setup_web_common(void);
+void check_fs(void);
 int setup_web_common_onconnect(void);
 void loop_web(void);
 void onRoot(void);
@@ -226,86 +230,12 @@ String utc_time_jc;
 /************************************/
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
-/************************************/
 
 void setup_web_common(void)
 {    bool b;
 
 //  Serial.println();
 //   Serial.println("setup_web_common");
-  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
-  if(b == false)
-  {   Serial.println(F("FlashFS.begin failed"));
-  }
-    
-/**********************************/
-    // Check consistency of reported partiton size info.
-/*    
-   {  esp_err_t ret;
-        Serial.println("Performing SPIFFS_check().");
-        ret = esp_spiffs_check(NULL);
-        // Could be also used to mend broken files, to clean unreferenced pages, etc.
-        // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
-        if (ret != ESP_OK) {
-            Serial.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
-            return;
-        } else {
-            Serial.println("SPIFFS_check() successful");
-        }
-    }
-*/
-/*******************************/
-
- #if defined(ARDUINO_ARCH_ESP32)
-{ File root = FlashFS.open("/");
-  File file = root.openNextFile();
- 
-  while(file){
- 
-      Serial.print("FILE: ");
-      Serial.printf( "%s %d\n", file.name(), file.size());
-      if(file.size() > 1000000)
-       { char str[80];
-         sprintf(str,"/%s",file.name() );
-         Serial.printf( "remove %s\n", str);
-         file.close();
-         b = FlashFS.remove(str);
-         Serial.printf( "remove  rc = %d\n", b);
-         break;
-       }
-      
-      file = root.openNextFile();
-      
-  }
-}
-#endif
-//  FlashFS.begin(FORMAT_ON_FAIL); //AUTOCONNECT_FS_INITIALIZATION);
-
-#if SERIAL_DEBUG      
- #if defined(ARDUINO_ARCH_ESP8266)
-   Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
- #elif defined(ARDUINO_ARCH_ESP32)
-   Serial.printf("OT_ids[0].used =%d %s\n", OT_ids[0].used,  OT_ids[0].descript);
- #endif
-#endif
-
-#if SERIAL_DEBUG      
-    { int tBytes, uBytes; 
-#if defined(ARDUINO_ARCH_ESP8266)
-      FSInfo info;
-      FlashFS.info(info);
-      tBytes  = info.totalBytes;
-      uBytes = info.usedBytes;
-#else
-      tBytes  = FlashFS.totalBytes();
-      uBytes = FlashFS.usedBytes();
-#endif      
-      Serial.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
-    }
-#endif //SERIAL_DEBUG     
-
-  SmOT.Read_ot_fs();
-  SmOT.init(1);
 
   {  char str[40];
      sprintf(str,"%.1f",SmOT.Tset);
@@ -645,8 +575,9 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
+// goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0,  redir = 0;
+{  int isChange=0,  redir = 0, v;
    bool check;
 
   if( CtrlChB1.checked) check = true;
@@ -689,7 +620,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
 #if MQTT_USE
   int isChangeMQTT = 0;
-  if( CtrlChB4.checked) check = true;
+  if( CtrlChbUseMQTT.checked) check = true;
   else                  check = false;
 
   if(check)
@@ -711,7 +642,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
    if(SmOT.useMQTT && redir== 0)
    {   char str0[80];
-      int i,v;
+      int i;
  
     SetMQTT_server.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_server,str0))
@@ -774,8 +705,57 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
    }
 
 #endif //MQTT_USE
+
+#if RELAY_USE
+  if( CtrlChBUseRelay.checked) check = true;
+  else                         check = false;
+  if(check != SmOT.Relay_present)
+  { isChange++;
+    if(check && CtrlChBStartRelaySts.enable == false)
+       redir = 1; 
+    SmOT.Relay_present = check;
+  }  
+  if(CtrlChBStartRelaySts.enable == true)
+  { if(CtrlChBStartRelaySts.checked) check = true;
+    else                             check = false;
+    if(check != SmOT.Relay_init_sts)
+    {  isChange++;
+       SmOT.Relay_init_sts = check;
+    }
+  }
+
+#endif
+
+  if(SmOT.MaxRelModLevel_present)
+  {   if(CtrlChBMmod.checked) check = true;
+      else                    check = false;
+      if(SmOT.Use_MaxRelModLevel)
+      { if(!check)
+        {   SmOT.Use_MaxRelModLevel = 0;
+            isChange++; 
+        } else {
+            v = SetMaxMod.value.toInt();
+            if(v != int(SmOT.MaxRelModLevelSetting+0.5))
+            {   isChange++;
+                SmOT.MaxRelModLevelSetting = (float)v;
+                SmOT.need_set_MaxRelModLevel = 2;
+            }
+        }
+      } else {
+        if(check)
+        {   SmOT.Use_MaxRelModLevel = 1;
+            redir = 1;
+
+        } else {
+            SmOT.Use_MaxRelModLevel = 0;
+        }
+      }
+  } 
+
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
+
+
 #if MQTT_USE
     if(isChangeMQTT && SmOT.useMQTT == 0x03)
     {      mqtt_start();
@@ -1048,8 +1028,13 @@ if(SmOT.useMQTT)
         break;
   }
   
+} else {
+   if(SmOT.CapabilitiesDetected == 0)
+          Info1.value += "<br>Тест котла";
 }
-
+#else 
+   if(SmOT.CapabilitiesDetected == 0)
+          Info1.value += "<br>Тест котла";
 #endif // MQTT_USE 
 #if PID_USE
     if(SmOT.usePID && SmOT.enable_CentralHeating)
@@ -1212,6 +1197,43 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  const char *pstr; 
+   char str[40]; 
+    
+#if RELAY_USE
+    CtrlChBUseRelay.enable = true;
+    if(SmOT.Relay_present)
+    {   CtrlChBUseRelay.checked = true;
+        CtrlChBStartRelaySts.enable = true;
+        if(SmOT.Relay_init_sts)
+            CtrlChBStartRelaySts.checked = true;
+        else
+            CtrlChBStartRelaySts.checked = false;
+    } else {
+        CtrlChBUseRelay.checked = false;
+        CtrlChBStartRelaySts.enable = false;
+    }
+#else
+    CtrlChBUseRelay.enable = false;
+    CtrlChBStartRelaySts.enable = false;
+#endif
+
+  Serial.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
+   
+  if(SmOT.MaxRelModLevel_present)
+  {     CtrlChBMmod.enable = true;
+        if(SmOT.Use_MaxRelModLevel)
+        {   CtrlChBMmod.checked = true;
+            SetMaxMod.enable = true;
+            sprintf(str, "%d",int(SmOT.MaxRelModLevelSetting+0.5));
+            SetMaxMod.value = str;           
+        } else {
+            CtrlChBMmod.checked = false;
+            SetMaxMod.enable = false;
+        }  
+  } else {
+       SetMaxMod.enable = false;
+       CtrlChBMmod.enable = false;
+  }
 
   if( SmOT.enable_CentralHeating)
       CtrlChB1.checked = true;
@@ -1243,20 +1265,6 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   Info1.value ="";
 
   Ctrl2.value = "Котёл: "; 
-/*
-Baxi Fourtech/Luna 3  1
-Baxi Slim  4
-Buderus/Bosh	8
-Ferrolli 	9
-Remeha	11
-Baxi 27 (Baxi Luna Duo-Tec  P67=0)
-Viessmann  VITOPEND 	33
-Baxi Luna Duo-Tec 1.24 GA P67=2 56
-Navinien 	148
-Baxi ampera (electro) 247
-Zota Lux-x (electro)  248
-*/
-  
   pstr = GetOTVendorName(SmOT.OTmemberCode);
   if(pstr)
   {   Ctrl2.value += pstr; 
@@ -1276,12 +1284,11 @@ Zota Lux-x (electro)  248
  }
  
 #if MQTT_USE
-  CtrlChB4.enable  = true;
+  CtrlChbUseMQTT.enable  = true;
   if(SmOT.useMQTT) 
-  { char str[40]; 
-    if(SmOT.useMQTT == 1) 
+  { if(SmOT.useMQTT == 1) 
       Info1.value = "проверь после Reset"; 
-    CtrlChB4.checked = true;
+    CtrlChbUseMQTT.checked = true;
     SetMQTT_server.enable  = true;
     SetMQTT_user.enable  = true;
     SetMQTT_pwd.enable  = true;
@@ -1303,7 +1310,7 @@ Zota Lux-x (electro)  248
       SetMQTT_devname.value = SmOT.MQTT_devname;
     
   } else {
-    CtrlChB4.checked = false;
+    CtrlChbUseMQTT.checked = false;
     SetMQTT_server.enable  = false;
     SetMQTT_user.enable  = false;
     SetMQTT_pwd.enable  = false;
@@ -1315,7 +1322,7 @@ Zota Lux-x (electro)  248
 #else //MQTT_USE
 
 /*
-    CtrlChB4.enable  = false;
+    CtrlChbUseMQTT.enable  = false;
     SetMQTT_server.enable  = false;
     SetMQTT_user.enable  = false;
     SetMQTT_pwd.enable  = false;
@@ -1711,3 +1718,87 @@ document.getElementById("utcl").innerHTML = d;
 */
   return 0;
 }
+
+/************************************/
+void setup_read_config(void)
+{ bool b;
+  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+  if(b == false)
+  {   Serial.println(F("FlashFS.begin failed"));
+  }
+   
+  SmOT.Read_ot_fs();
+  SmOT.init(1);
+
+}
+
+void check_fs(void)
+{ bool b;
+/**********************************/
+// Check consistency of reported partiton size info.
+/*    
+   {  esp_err_t ret;
+        Serial.println("Performing SPIFFS_check().");
+        ret = esp_spiffs_check(NULL);
+        // Could be also used to mend broken files, to clean unreferenced pages, etc.
+        // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
+        if (ret != ESP_OK) {
+            Serial.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
+            return;
+        } else {
+            Serial.println("SPIFFS_check() successful");
+        }
+    }
+*/
+/*******************************/
+ #if defined(ARDUINO_ARCH_ESP32)
+{ File root = FlashFS.open("/");
+  File file = root.openNextFile();
+ 
+  while(file){
+ 
+      Serial.print("FILE: ");
+      Serial.printf( "%s %d\n", file.name(), file.size());
+      if(file.size() > 1000000)
+       { char str[80];
+         sprintf(str,"/%s",file.name() );
+         Serial.printf( "remove %s\n", str);
+         file.close();
+         b = FlashFS.remove(str);
+         Serial.printf( "remove  rc = %d\n", b);
+         break;
+       }
+      
+      file = root.openNextFile();
+      
+  }
+}
+#endif
+
+
+#if SERIAL_DEBUG      
+ #if defined(ARDUINO_ARCH_ESP8266)
+   Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
+ #elif defined(ARDUINO_ARCH_ESP32)
+   Serial.printf("OT_ids[0].used =%d %s\n", OT_ids[0].used,  OT_ids[0].descript);
+ #endif
+#endif
+
+#if SERIAL_DEBUG      
+    { int tBytes, uBytes; 
+#if defined(ARDUINO_ARCH_ESP8266)
+      FSInfo info;
+      FlashFS.info(info);
+      tBytes  = info.totalBytes;
+      uBytes = info.usedBytes;
+#else
+      tBytes  = FlashFS.totalBytes();
+      uBytes = FlashFS.usedBytes();
+#endif      
+      Serial.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
+    }
+#endif //SERIAL_DEBUG     
+
+}
+
+

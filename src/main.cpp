@@ -24,6 +24,8 @@ typedef WebServer WEBServer;
 #include "SD_OpenTherm.hpp"
 
 /************************************/
+extern void setup_read_config(void);
+extern void check_fs(void);
 extern void setup_web_common(void);
 extern void loop_web(void);
 extern void setup_tcpudp(SmartDevice *psd);
@@ -65,9 +67,11 @@ class SD_Termo SmOT;
 static int OTstartSts_MAX = 2;
 
 OpenTherm ot(inPin, outPin);
+
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
 int OTloop(void);
 void loop2(void);
+unsigned int buildRequest(int mode);
 #if OT_DEBUG
 void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88);
 #endif
@@ -97,15 +101,9 @@ int LedSts = 0; //LOW
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
-  pinMode(RelayPin, OUTPUT);  
-  digitalWrite(RelayPin, 0);  
-  delay(1000);
-  digitalWrite(RelayPin, 1);  
-
   
-  delay(10);
+  delay(2);
   Serial.begin(115200);
-//  Serial.println(F("Start"));
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
 
@@ -118,8 +116,11 @@ void setup() {
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
 
+  setup_read_config();
+  SmOT.RelayInit();
 /*******************************************/
   ot.begin(handleInterrupt, OTprocessResponse);
+
   setupDS1820();
 
   setup_web_common();
@@ -337,7 +338,10 @@ static int timeOutcounter = 0;
   
     if (status == OpenThermResponseStatus::SUCCESS) {
 		   if(SmOT.stsOT != 0)
-               SmOT.MQTT_need_report = 1;
+        {   SmOT.MQTT_need_report = 1;
+            SmOT.OnOpenThermRestore();
+            buildRequest(1);
+        }
 
         SmOT.stsOT = timeOutcounter = 0;
         SmOT.response = response; 
@@ -574,7 +578,7 @@ bit: description [ clear/0, set/1]
         break;
 
     case OpenThermMessageID::MaxRelModLevelSetting: //14 Maximum relative modulation level setting (%) W
-        SmOT.MaxRelModLevelSetting = t;
+//        SmOT.MaxRelModLevelSetting = t;
         break;
 
     case OpenThermMessageID::MaxCapacityMinModLevel:	//15 MaxCapacityMinModLevel, // u8 / u8  Maximum boiler capacity (kW) / Minimum boiler modulation level(%) R
@@ -691,9 +695,142 @@ unsigned int buildRequestOnStart(void)
 
 extern int  MQTT_pub_cmdCH(int on);
 
-unsigned int buildRequest(void)
-{   static int st = 0, raz=0;
+// rc = 0 - nothing to do
+// rc = 1 - build request, need repeat
+// rc = 2 - build request, not need repeat
+int buildRequestIfNeed(unsigned int &request)
+{   int rc = 0, need,flag, i,j,j0, s;
+    static int raz=0, rraz=0, sts = 0, idrep=0;
+    const int Nneed = 4;
+
+/***************************************************/
+  need = flag = 0;
+#if  PID_USE
+    if(SmOT.enable_CentralHeating_real && SmOT.need_set_T)
+#else 
+    if(SmOT.enable_CentralHeating  && SmOT.need_set_T)
+#endif
+                  { need++, flag |= 0x01; s = 1; }
+
+  if(SmOT.enable_HotWater && SmOT.need_set_dhwT)
+                  { need++, flag |= 0x02; s = 2; } 
+  if(SmOT.enable_CentralHeating2 && SmOT.need_set_T2)
+                  { need++, flag |= 0x04; s = 3; }
+  if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && SmOT.need_set_MaxRelModLevel) 
+                  { need++, flag |= 0x08; s = 4; }
+  if(need == 1)
+  { sts = s;
+    if(rraz == 0)
+    { rraz = 1;
+    } else {
+      rraz = 0;
+      sts = 0;
+    }
+  } else if (need > 1) {
+    j0 = sts -1;
+    if(sts == 0) j0 = 0;
+    for(i=0; i < Nneed; i++)
+    {	j = (j0 + i)%Nneed;
+      if(flag & (1<<j) && ((j+1) != sts))
+      { sts = j+1;
+        break;
+      }
+      if(rraz < need)
+      { rraz++;
+      } else {
+        rraz = 0;
+        sts = 0;
+      }
+    }   
+
+  } else {
+    sts = 0;
+  }
+
+  switch(sts)
+  { 
+    case 0:
+        raz++;
+//Serial.printf("buildRequestIfNeed raz %d\n", raz);
+        if(SmOT.CapabilitiesDetected == 0)
+        {  if(raz > 2)
+           {   SmOT.CapabilitiesDetected = 1;
+               SmOT.DetectCapabilities();
+           }
+        } else if(SmOT.CapabilitiesDetected == 1) {
+            if(raz > 16)
+            {   SmOT.CapabilitiesDetected = 2;
+              SmOT.DetectCapabilities();
+            }
+        }
+        if(raz > 100)
+        {  SmOT.OnOpenThermRestore();
+           raz = 0;            
+        }
+        need = 0;
+      break;
+
+    case 1:
+        if(SmOT.need_set_T > 0)
+        { request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset); //1
+          SmOT.need_set_T--;
+        }
+      break;
+    case 2:
+        if(SmOT.need_set_dhwT > 0) {
+ //Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
+#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
+              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.tempoutdoor); //56
+#else              
+              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.TdhwSet); //56
+#endif              
+              SmOT.need_set_dhwT--;
+        }
+      break;
+
+    case 3:
+        if(SmOT.need_set_T2 > 0) {
+              request = ot.buildSetBoilerCH2TemperatureRequest(SmOT.Tset2); //8
+               SmOT.need_set_T2--;
+        }
+      break;
+
+    case 4:
+        if(SmOT.need_set_MaxRelModLevel > 0)
+        { 	unsigned int data = ot.temperatureToData(SmOT.MaxRelModLevelSetting);
+	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxRelModLevelSetting, data);
+            SmOT.need_set_MaxRelModLevel--;
+        }
+    
+      break;
+  }
+
+/********************************/
+  if(need > 1)
+  { idrep++;
+    if(idrep >= need)
+    {	idrep = 0;
+      rc = 2;
+    } else {
+      rc = 1;
+    }
+  } else if(need == 1) {
+	  rc = 2;
+  } else {
+	  rc = 0;
+  }
+
+  return rc;
+}
+
+unsigned int buildRequest(int mode)
+{   static int st = 0;
     unsigned int request = 0;
+    int rc;
+    if(mode == 1)
+    { st = 0;
+      return 0;
+    }
 
     if(SmOT.TestCmd == 1)
     {   request = buildTestRequest();  
@@ -735,8 +872,18 @@ M0:
       SmOT.BoilerStatusRequest = request;
         st++;
       break;
-      case 1: //setBoilerTemperature
-        st++;
+      case 1: 
+        rc = buildRequestIfNeed(request);
+        if(rc == 0)
+        {  st++;
+        } else if(rc == 1)  {
+            break;
+        } else {
+            st++;
+            break;
+        }
+
+#if 0
           if(SmOT.need_set_T)
           {    //Set Boiler Temperature to 
 // Serial.printf("1 Request: %d\n",OpenThermMessageID::TSet);
@@ -780,6 +927,7 @@ M0:
             }
           }
      // break; especially omitted = специально пропущен !!!! 
+#endif //0
 
       case 2: //getBoilerTemperature
 // Serial.printf("2 Request: %d\n",OpenThermMessageID::Tboiler);
@@ -937,6 +1085,7 @@ M0:
     return request;
 }
 
+
 /* return 0 if no response, 1 if have responce */
 int OTloop(void)
 {   static int st = 1;
@@ -954,7 +1103,7 @@ int OTloop(void)
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
-            request = buildRequest();
+            request = buildRequest(0);
 
 /*     
           unsigned int id;
@@ -1178,7 +1327,8 @@ static int mday_prev = 0;
   nowtime = localtime(&now);
   year = nowtime->tm_year;
 
-  
+  if(prev == 0)  check_fs();
+
   prev = now;
 
   if( year_prev == 70 && year  >= 123)  //change time with nttp server
@@ -1238,6 +1388,34 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
 
 //     Serial.printf("sec_d = %d Eff_Mod_d=%f ModIntegral_d=%f\n", SmOT.Bstat.sec_d, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.ModIntegral_d );
   }
+}
+
+
+void SD_Termo::RelayInit(void)
+{
+#if RELAY_USE
+  if(Relay_present)
+  {
+
+    pinMode(RelayPin, OUTPUT);  
+    RelayOnOff(Relay_init_sts); 
+  }
+#endif  
+}
+
+void SD_Termo::RelayOnOff(bool onoff)
+{
+#if RELAY_USE
+  if(!Relay_present)
+      return;
+   if(onoff)
+   {  Relay_sts = true;
+      digitalWrite(RelayPin, 1);  
+   } else {
+      Relay_sts = false;
+      digitalWrite(RelayPin, 0);  
+   }
+#endif  
 }
 
     

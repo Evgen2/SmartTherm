@@ -40,7 +40,12 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
                  sizeof(SD_Termo::UDPserver_port) + sizeof(SD_Termo::TCPserver_report_period) + sizeof(SD_Termo::TCPserver_port) + sizeof(SD_Termo::tcp_remoteIP) + sizeof(SD_Termo::Use_remoteTCPserver) + sizeof(SD_Termo::UseID2) +
                  sizeof(SD_Termo::ID2masterID) + sizeof(SD_Termo::CH2_DHW_flag) + sizeof(SD_Termo::UseWinterMode) + sizeof(SD_Termo::Use_OTC) +sizeof(SD_Termo::Use_ID29_DHW_flag) +
                  sizeof(SD_Termo::Immergas_fix_flag) +
-                 sizeof(SD_Termo::CH_StartGist) +
+                 sizeof(SD_Termo::CH_StartGist) + sizeof(SD_Termo::Use_MaxRelModLevel) + sizeof(SD_Termo::MaxRelModLevelSetting) +
+
+#if RELAY_USE    
+                sizeof(SD_Termo::Relay_present) +  sizeof(SD_Termo::Relay_init_sts) +
+#endif
+
 #if MQTT_USE
             sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
             sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
@@ -111,6 +116,18 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(Immergas_fix_flag);
     memcpy((void *) &CH_StartGist, &Buff[n], sizeof(CH_StartGist));
     n += sizeof(CH_StartGist);
+
+    memcpy((void *) &Use_MaxRelModLevel, &Buff[n], sizeof(Use_MaxRelModLevel));
+    n += sizeof(Use_MaxRelModLevel);
+    memcpy((void *) &MaxRelModLevelSetting, &Buff[n], sizeof(MaxRelModLevelSetting));
+    n += sizeof(MaxRelModLevelSetting);
+
+#if RELAY_USE    
+    memcpy((void *) &Relay_present, &Buff[n], sizeof(Relay_present));
+    n += sizeof(Relay_present);
+    memcpy((void *) &Relay_init_sts, &Buff[n], sizeof(Relay_init_sts));
+    n += sizeof(Relay_init_sts);
+#endif
 
 #if MQTT_USE
   if(n < nw)
@@ -243,6 +260,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 
 /* *config version & length control */
     n = file.read((unsigned char *)&v, sizeof(nn));
+   
     if(v != CONFIG_VERSION)
     {   file.close();
         return 2;
@@ -394,6 +412,18 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(Immergas_fix_flag);    
     memcpy(&Buff[n],(void *) &CH_StartGist , sizeof(CH_StartGist));
     n += sizeof(CH_StartGist);
+
+    memcpy(&Buff[n],(void *) &Use_MaxRelModLevel, sizeof(Use_MaxRelModLevel));
+    n += sizeof(Use_MaxRelModLevel);
+    memcpy(&Buff[n],(void *) &MaxRelModLevelSetting, sizeof(MaxRelModLevelSetting));
+    n += sizeof(MaxRelModLevelSetting);
+
+#if RELAY_USE    
+    memcpy(&Buff[n],(void *) &Relay_present, sizeof(Relay_present));
+    n += sizeof(Relay_present);
+    memcpy(&Buff[n],(void *) &Relay_init_sts, sizeof(Relay_init_sts));
+    n += sizeof(Relay_init_sts);
+#endif
 
 #if MQTT_USE
     memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
@@ -639,6 +669,7 @@ void SD_Termo::loop(void)
         }
     }
 }
+
 
 //send to remote MCMD_HAND_SHAKE
 void SD_Termo::Send_to_server_HandShake(void)
@@ -1508,32 +1539,38 @@ extern OpenTherm ot;
     if(CapabilitiesDetected  == 1)
     {   int count, countok;
             ot.Get_OTid_count(OpenThermMessageID::CHPressure, count, countok);
-            if(countok > 2)
+            if(countok > 1)
                 Pressure_present = true; 
             else
                 Pressure_present = false; 
             ot.Get_OTid_count(OpenThermMessageID::Toutside, count, countok);
-            if(countok > 2)
+            if(countok > 1)
                 Toutside_present = true;                 
             else
                 Toutside_present  = false; 
             ot.Get_OTid_count(OpenThermMessageID::Tret, count, countok);
-            if(countok > 2)
+            if(countok > 1)
                 RetT_present = true;                 
             else
                 RetT_present  = false; 
 
             ot.Get_OTid_count(OpenThermMessageID::Tstorage, count, countok); //ID 29
-            if(countok > 2)
+            if(countok > 1)
                 Tstorage_present = true;                 
             else
                 Tstorage_present = false;
 
             ot.Get_OTid_count(OpenThermMessageID::Tdhw, count, countok); //ID 26
-            if(countok > 2)
+            if(countok > 1)
                 Dhw_t_present = true;                 
             else
                 Dhw_t_present = false;
+
+            ot.Get_OTid_count(OpenThermMessageID::MaxRelModLevelSetting, count, countok); //ID 14
+            if(countok > 1)
+                MaxRelModLevel_present = true;                 
+            else
+                MaxRelModLevel_present = false;
 
     } else  if(CapabilitiesDetected  == 2) {
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
@@ -1560,13 +1597,41 @@ extern OpenTherm ot;
         else
                 Dhw_t_present  = false;
 
+        if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting))
+                MaxRelModLevel_present = true;
+        else
+                MaxRelModLevel_present  = false;
+
     }
     
 //  Serial.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
 //    Serial.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
 //                Pressure_present, Toutside_present, RetT_present  ) ;
+//    Serial.printf("MaxRelModLevel_present %d  \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting)); 
+                
 }
 
+void SD_Termo::OnOpenThermRestore(void)
+{
+extern OpenTherm ot;
+extern OpenThermID OT_ids[N_OT_NIDS];
+
+#if  PID_USE
+    if(enable_CentralHeating_real)
+#else 
+    if(SmOT.enable_CentralHeating)
+#endif
+        need_set_T  = 4; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+    if(enable_HotWater) 
+            need_set_dhwT = 2;                   
+    if(enable_CentralHeating2)
+            need_set_T2  = 2; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+
+
+    if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting))
+    {   need_set_MaxRelModLevel = 2;
+    }
+}
 
 /* считаем число включений горелки */
 void BoilerStatisic::calcNflame(int newSts)

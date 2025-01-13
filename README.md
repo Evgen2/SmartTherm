@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.8.1
+Version 0.8.2
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -19,6 +19,10 @@ Features:
 * [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.8.2
+* Add build variant with oboard relay
+* Add support for OT:MaxRelModLevelSetting
 
 0.8.1
 * At PID startup and room setpoint change recalculate the integral part of PID
