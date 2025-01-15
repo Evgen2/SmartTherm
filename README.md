@@ -21,7 +21,7 @@ Features:
 * up to 2 DS18B20 temperature sensors
 
 0.8.2
-* Add build variant with oboard relay
+* Add build variant with onboard relay
 * Add support for OT:MaxRelModLevelSetting
 
 0.8.1
