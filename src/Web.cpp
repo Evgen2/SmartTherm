@@ -51,14 +51,16 @@ unsigned int OTcount = 0;
 
 
 /*********************************/
-const char* INFO_URI = "/info";
+const char* INFO_URI  = "/info";
 const char* SETUP_URI = "/setup";
+const char* RELAY_URI = "/relay";
+const char* BLOR_URI  = "/blor";
 const char* SETUP_ADD_URI =  "/setupadd";
-const char* ABOUT_URI = "/about";
-const char* SET_T_URI =  "/set_t";
-const char* SET_PAR_URI =  "/set_par";
-const char* SET_ADD_URI =  "/add";
-const char* DEBUG_URI = "/debug";
+const char* ABOUT_URI   = "/about";
+const char* SET_T_URI   = "/set_t";
+const char* SET_PAR_URI = "/set_par";
+const char* SET_ADD_URI = "/add";
+const char* DEBUG_URI   = "/debug";
 
 #if PID_USE
 const char* PID_URI = "/pid";
@@ -82,7 +84,10 @@ ACInput(SetBoilerTemp,"", "Температура теплоносителя:<br
 ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>", "",  "Введи температуру",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH);  // DHW Control setpoint
 ACInput(SetBoilerTemp2,"", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
-ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_DIV);
+#if RELAY_USE
+ACSubmit(RelayOmFf, "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
+#endif
+ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_BR);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
 /************* SetupPage ***************/
@@ -91,10 +96,12 @@ ACText(Ctrl2, "", "", "", AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
 AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
-AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_None);
-ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); 
+ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
+AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_BR);
+#if RELAY_USE
 AutoConnectCheckbox CtrlChBUseRelay("ChbUseRelay","5", "Реле", false, AC_Behind , AC_Tag_None);
 AutoConnectCheckbox CtrlChBStartRelaySts("ChbStertRelay","6", "Вкл при старте", false, AC_Behind , AC_Tag_BR);
+#endif
 #if MQTT_USE
 AutoConnectCheckbox CtrlChbUseMQTT("ChbUseMQTT","7", "MQTT", false, AC_Behind , AC_Tag_DIV);
 ACInput(SetMQTT_server,"", "сервер"); 
@@ -123,11 +130,13 @@ AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лет
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
+ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
+
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID, Info1, SendBLOR });
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar, Info1, SendBLOR});
 #endif //#if PID_USE
 
 
@@ -172,13 +181,25 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 /*****************************************/
 
 // AutoConnectAux for the custom Web page.
+
+#if RELAY_USE
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, RelayOmFf,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
+#else
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
+#endif 
 
 #if MQTT_USE
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3,CtrlChBMmod, SetMaxMod, CtrlChBUseRelay, CtrlChBStartRelaySts,  CtrlChbUseMQTT, 
-            SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3, SetMaxMod, CtrlChBMmod, 
+  #if RELAY_USE
+CtrlChBUseRelay, CtrlChBStartRelaySts,
+  #endif
+     CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, CtrlChBUseRelay,CtrlChBStartRelaySts, CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod,
+  #if RELAY_USE
+ CtrlChBUseRelay,
+  #endif
+  CtrlChBStartRelaySts, CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});  
 #endif // MQTT_USE
 
 
@@ -188,6 +209,9 @@ AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
 #if PID_USE
 AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
 #endif
+AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
+AutoConnectAux SendBLORPage(BLOR_URI, "SendBlor", false, {}, false);
+
 AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6, Info7,  DebugApply});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
@@ -218,11 +242,16 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args);
 String onSetPar(AutoConnectAux& aux, PageArgument& args);
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args);
 String onDebug(AutoConnectAux& aux, PageArgument& args);
-String onS(AutoConnectAux& aux, PageArgument& args);
 String onAbout(AutoConnectAux& aux, PageArgument& args);
+String onSendBlor(AutoConnectAux& aux, PageArgument& args);
+
 #if PID_USE
 String onSetupPID(AutoConnectAux& aux, PageArgument& args);
 String onSetPID(AutoConnectAux& aux, PageArgument& args);
+#endif
+
+#if RELAY_USE
+String onSetRelay(AutoConnectAux& aux, PageArgument& args);
 #endif
 
 String utc_time_jc;
@@ -264,29 +293,39 @@ void setup_web_common(void)
   SetParPage.on(onSetPar);
   SetupAdd_Page.on(on_SetupAdd);
   SetAddParPage.on(onSetAddPar);
-  
+#if RELAY_USE  
+  SetRelayPage.on(onSetRelay);
+#endif
+
 #if PID_USE
   PID_Page.on(onSetupPID);
   SetPIDPage.on(onSetPID);
 #endif  
+  SendBLORPage.on(onSendBlor);
   debugPage.on(onDebug);
   AboutPage.on(onAbout);
 /**/  
 #if MQTT_USE
-#if PID_USE
-  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
+  #if PID_USE
+    portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
                SetAddParPage, PID_Page, SetPIDPage, debugPage,  AboutPage});     // Join pages.
-#else
-  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
+  #else
+    portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, 
                SetAddParPage, debugPage,  AboutPage});     // Join pages.
-#endif               
+  #endif      
 #else
-#if PID_USE
-  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, PID_Page, SetPIDPage, debugPage,  AboutPage});     // Join pages.
-#else
-  portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, debugPage,  AboutPage});     // Join pages.
-#endif  
+  #if PID_USE
+    portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, PID_Page, SetPIDPage, debugPage,  AboutPage});     // Join pages.
+  #else
+    portal.join({InfoPage, Setup_Page,SetupAdd_Page, SetTempPage, SetParPage, SetAddParPage, debugPage,  AboutPage});     // Join pages.
+  #endif  
 #endif
+
+#if RELAY_USE  
+    portal.join({SetRelayPage});
+#endif
+    portal.join({SendBLORPage});
+
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
@@ -893,6 +932,15 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       Immergas_fix_ChB.checked = false;
 
+  if(SmOT.RemoteRequest_present)
+  {   SendBLOR.enable = true;
+      Info1.value = "Удаленный сброс ошибки (BLOR), я знаю, что я делаю";
+
+  } else {
+     SendBLOR.enable = false;
+  }
+
+
   return String();
 }
 
@@ -1189,6 +1237,24 @@ if(SmOT.useMQTT)
         Info7.value = "";
   }
  
+ #if  RELAY_USE
+  if(SmOT.Relay_present)
+  {
+      RelayOmFf.enable = true;
+      if(SmOT.Relay_sts )
+      { strcpy(str0,"Реле вЫкл");
+
+      } else {
+         strcpy(str0,"Реле Вкл");
+      }
+      RelayOmFf.value = str0;
+
+  } else {
+      RelayOmFf.enable = false;
+  }
+ 
+ #endif
+
 /********************/
   return String();
 }
@@ -1212,12 +1278,9 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
         CtrlChBUseRelay.checked = false;
         CtrlChBStartRelaySts.enable = false;
     }
-#else
-    CtrlChBUseRelay.enable = false;
-    CtrlChBStartRelaySts.enable = false;
 #endif
 
-  Serial.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
+//  Serial.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
    
   if(SmOT.MaxRelModLevel_present)
   {     CtrlChBMmod.enable = true;
@@ -1564,6 +1627,30 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 }
 
 #endif
+
+#if RELAY_USE
+//AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
+String onSetRelay(AutoConnectAux& aux, PageArgument& args)
+{
+  //  Serial.printf("onSetRelay\n");
+    if(SmOT.Relay_sts)
+      SmOT.RelayOnOff(false);
+    else
+      SmOT.RelayOnOff(true);
+
+  aux.redirect(INFO_URI);
+  return String();
+}
+#endif //RELAY_USE
+
+String onSendBlor(AutoConnectAux& aux, PageArgument& args)
+{
+    SmOT.need_set_RemoteRequest = 1;
+    SmOT.need_send_Blor = 1;
+
+  aux.redirect(INFO_URI);
+  return String();
+}
 
 
 const char SM_OT_HomePage[]= "https://t.me/smartTherm";

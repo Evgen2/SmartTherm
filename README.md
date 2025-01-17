@@ -23,6 +23,7 @@ Features:
 0.8.2
 * Add build variant with onboard relay
 * Add support for OT:MaxRelModLevelSetting
+* Add support for OT:RemoteRequest (BLOR)
 
 0.8.1
 * At PID startup and room setpoint change recalculate the integral part of PID

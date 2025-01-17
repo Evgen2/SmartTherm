@@ -552,8 +552,6 @@ int OpenTherm::update_OTid(int id, int sts)
 		OT_ids[ind].count++;
 		if(sts )
 			OT_ids[ind].countOk++;
-if(ind == 14)			
-	Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
 //Serial.printf("OT_ids[%d].count %d  %d\n", ind, OT_ids[ind].count, OT_ids[ind].countOk );
 		if(OT_ids[ind].count > 8)
 		{

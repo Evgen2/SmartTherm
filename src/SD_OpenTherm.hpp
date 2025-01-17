@@ -124,7 +124,8 @@ public:
     bool Pressure_present;
     bool Dhw_t_present;  //у Buderus'а с косвенным нагревом есть dhw и нет dhw_t
     bool Tstorage_present; // ID29
-    bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting    
+    bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting 
+    bool RemoteRequest_present; // ID4 present, can be used for BLOR = Boiler Lock-out Reset  
 
     bool Relay_present;
     bool Relay_init_sts;
@@ -158,6 +159,8 @@ public:
   byte need_set_T2; 
   byte need_set_dhwT;
   byte need_set_MaxRelModLevel;
+  byte need_set_RemoteRequest;
+  byte need_send_Blor;
   byte need_write_f; 
 
   int TestCmd;
@@ -236,7 +239,7 @@ public:
     #if RELAY_USE
       Relay_present = true;
       Relay_init_sts = false;
-      Relay_sts = 0;
+      Relay_sts = false;
     #else
       Relay_present = false;
     #endif
@@ -254,6 +257,7 @@ public:
     enable_Cooling = false;
     enable_CentralHeating2 = false;
     MaxRelModLevel_present = false;
+    RemoteRequest_present  = false; 
 
     CapabilitiesDetected = 0;
 
@@ -276,6 +280,8 @@ public:
       need_set_T2 = 0;
       need_set_dhwT = 2;
       need_set_MaxRelModLevel = 9;
+      need_set_RemoteRequest = 3;
+      need_send_Blor = 0;
 /********************************/      
       need_write_f = 0;
       RetT = 0.;

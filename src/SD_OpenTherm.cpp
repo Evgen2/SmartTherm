@@ -1572,6 +1572,12 @@ extern OpenTherm ot;
             else
                 MaxRelModLevel_present = false;
 
+            ot.Get_OTid_count(OpenThermMessageID::RemoteRequest, count, countok); //ID 4
+            if(countok > 1)
+                RemoteRequest_present = true;                 
+            else
+                RemoteRequest_present = false;
+
     } else  if(CapabilitiesDetected  == 2) {
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
                 Pressure_present = true;
@@ -1602,8 +1608,13 @@ extern OpenTherm ot;
         else
                 MaxRelModLevel_present  = false;
 
+        if(ot.OTid_used(OpenThermMessageID::RemoteRequest))
+                RemoteRequest_present = true;
+        else
+                RemoteRequest_present  = false;
+
     }
-    
+
 //  Serial.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
 //    Serial.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
 //                Pressure_present, Toutside_present, RetT_present  ) ;
