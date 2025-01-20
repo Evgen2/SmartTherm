@@ -78,10 +78,6 @@ void pid::Init_I(float _x)
 
 //      Serial.printf("****pid: dt = %ld\n", dt );
 
- //   if(dt < (unsigned long int)(t_interval*1000))
-//    {   return 0;
-//    } 
-
 //P    
    x = _x;
    xerr = xTag - x; //grad

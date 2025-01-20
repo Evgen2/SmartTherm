@@ -41,12 +41,19 @@ extern OpenTherm ot;
 //HAMqtt *pMqtt;
 
 HADevice device;
-#if PID_USE
-HAMqtt mqtt(espClient, device,27);
+#if RELAY_USE
+ #if PID_USE
+  HAMqtt mqtt(espClient, device,28);
+ #else
+  HAMqtt mqtt(espClient, device,13);
+ #endif
 #else
-HAMqtt mqtt(espClient, device,12);
+ #if PID_USE
+  HAMqtt mqtt(espClient, device,27);
+ #else
+  HAMqtt mqtt(espClient, device,12);
+ #endif
 #endif
-
 const char * temperature_str = "temperature";
 
 HABinarySensor sensorOT(NULL);
@@ -55,6 +62,9 @@ HABinarySensor sensor_CH(NULL);
 HABinarySensor sensor_HW(NULL);
 HABinarySensor sensor_CMD_on(NULL);
 HABinarySensor sensor_CMD_CH_on(NULL);
+#if RELAY_USE
+HASwitch relayHA(NULL);
+#endif
 HASensor sensorModulation(NULL);
 HASensor sensorBoilerT(NULL);
 HASensor sensorBoilerRetT(NULL);
@@ -242,6 +252,19 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 }
 #endif
 
+#if RELAY_USE
+void onRelayCommand(bool state, HASwitch* sender)
+{ if(sender == &relayHA)
+  {
+    if(state)
+      SmOT.RelayOnOff(1);
+    else
+      SmOT.RelayOnOff(0);
+  }
+}
+#endif
+
+
 int statemqtt = -1;
 int state_mqtt = -10000;
 int attempt_mqtt = 0;
@@ -335,7 +358,18 @@ extern unsigned int OTcount;
     sensorBoilerT.setAvailability(false);
     sensorBoilerT.setDeviceClass(temperature_str);
     sensorBoilerT.setUnitOfMeasurement("°C");
-    
+#if RELAY_USE
+  if(SmOT.Relay_present)
+  {
+    relayHA.setNameUniqueIdStr(SmOT.MQTT_topic,"Реле", "Relay");
+    relayHA.setAvailability(true);
+    relayHA.setDeviceClass("switch");
+    relayHA.setState(SmOT.Relay_sts);
+    relayHA.onCommand(onRelayCommand);
+
+  }
+#endif//RELAY_USE    
+
     if(SmOT.RetT_present)
     { sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
       sensorBoilerRetT.setAvailability(false);
@@ -863,7 +897,12 @@ int MQTT_pub_data(void)
     return 0;
 
 }
-
+#if RELAY_USE
+void  MQTT_pub_relay(void)
+{
+  relayHA.setState(SmOT.Relay_sts);
+}
+#endif
  
 void  MQTT_pub_cmd2(int val)
 { char str[80];

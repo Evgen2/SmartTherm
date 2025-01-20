@@ -511,6 +511,10 @@ void SD_Termo::init(int src)
   }
   if(src != 3)
    _U0start = mypid.u0;
+  else
+  { mypid.NextTact();
+    mypid.dSt.n = mypid.dSt.ind = 0;
+  }
 // Serial.printf("src %d _U0start ->mypid.u0\n",  src, _U0start);
 
 #endif   

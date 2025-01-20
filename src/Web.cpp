@@ -1167,13 +1167,15 @@ if(SmOT.useMQTT)
              if(SmOT.Fault & 0x0200)
                  Info6.value += " Lockout-reset";
              if(SmOT.Fault & 0x0400)
-                 Info6.value += " Lowwater press";
+                 Info6.value += " LowWater press";
              if(SmOT.Fault & 0x0800)
                  Info6.value += " Gas/flame fault";
              if(SmOT.Fault & 0x01000)
                  Info6.value += " Air press fault";
              if(SmOT.Fault & 0x02000)
                  Info6.value += " Water over-temp fault";
+            if(SmOT.Fault & 0x00ff)
+              Info6.value += " &";
         }
         if(SmOT.Fault & 0x00ff)
         {    sprintf(str0, (PGM_P)F(" OEM-specific fault/error cod = %d ( hex %x)"), (SmOT.Fault&0xff), (SmOT.Fault&0xff));

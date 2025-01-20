@@ -33,7 +33,11 @@ extern void setup_tcpudp(SmartDevice *psd);
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
-
+#if RELAY_USE
+#if MQTT_USE 
+extern void MQTT_pub_relay(void);
+#endif
+#endif
 
 void loop_time(void);
 
@@ -1335,12 +1339,6 @@ static int mday_prev = 0;
   if(now == prev)
       return;
 
-#if PID_USE
-    if(SmOT.enable_CentralHeating)
-        SmOT.loop_PID();
-#endif
-
-//    SmOT.Bstat.calcIntegral(0.25); //debug
 
   nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
@@ -1357,11 +1355,16 @@ static int mday_prev = 0;
         SmOT.Bstat.ModIntegral_h = 0.;
         SmOT.Bstat.ModIntegral_d = 0.;
         SmOT.Bstat.sec_h = SmOT.Bstat.sec_d = 0;
+        SmOT.Bstat.t_flame_on = SmOT.Bstat.t_flame_off = now;      
 
         SmOT.init(3);        
 	      interrupts();
   }
   
+#if PID_USE
+    if(SmOT.enable_CentralHeating)
+        SmOT.loop_PID();
+#endif
 
 //  Serial.printf("%s", ctime(&now));
  
@@ -1435,6 +1438,10 @@ void SD_Termo::RelayOnOff(bool onoff)
       Relay_sts = false;
       digitalWrite(RelayPin, 0);  
    }
+#if MQTT_USE 
+   MQTT_pub_relay();
+#endif   
+
 #endif  
 }
 
