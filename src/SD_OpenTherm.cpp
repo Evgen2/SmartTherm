@@ -46,6 +46,10 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
                 sizeof(SD_Termo::Relay_present) +  sizeof(SD_Termo::Relay_init_sts) +
 #endif
 
+#if ST_VERS == 2
+                sizeof(SD_Termo::OT_slave_present) +  sizeof(SD_Termo::OT_slave_mode) +
+#endif
+
 #if MQTT_USE
             sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
             sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
@@ -127,6 +131,13 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(Relay_present);
     memcpy((void *) &Relay_init_sts, &Buff[n], sizeof(Relay_init_sts));
     n += sizeof(Relay_init_sts);
+#endif
+
+#if ST_VERS == 2
+    memcpy((void *) &OT_slave_present, &Buff[n], sizeof(OT_slave_present));
+    n += sizeof(OT_slave_present);
+    memcpy((void *) &OT_slave_mode, &Buff[n], sizeof(OT_slave_mode));
+    n += sizeof(OT_slave_mode);
 #endif
 
 #if MQTT_USE
@@ -423,6 +434,13 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(Relay_present);
     memcpy(&Buff[n],(void *) &Relay_init_sts, sizeof(Relay_init_sts));
     n += sizeof(Relay_init_sts);
+#endif
+
+#if ST_VERS == 2
+    memcpy(&Buff[n],(void *) &OT_slave_present, sizeof(OT_slave_present));
+    n += sizeof(OT_slave_present);
+    memcpy(&Buff[n],(void *) &OT_slave_mode, sizeof(OT_slave_mode));
+    n += sizeof(OT_slave_mode);
 #endif
 
 #if MQTT_USE

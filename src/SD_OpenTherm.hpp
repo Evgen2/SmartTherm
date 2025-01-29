@@ -107,29 +107,37 @@ public:
   float t2;
 //sizeof(unsigned long)=4
     //Set Boiler Status
-    bool enable_CentralHeating;     //user set
-    #if  PID_USE
-    bool enable_CentralHeating_real;//real used. Without PID equal to enable_CentralHeating 
-    #endif
+  bool enable_CentralHeating;     //user set
+  #if  PID_USE
+  bool enable_CentralHeating_real;//real used. Without PID equal to enable_CentralHeating 
+  #endif
 
-    bool enable_HotWater;
-    bool enable_Cooling;
-    bool enable_CentralHeating2;
+  bool enable_HotWater;
+  bool enable_Cooling;
+  bool enable_CentralHeating2;
 
-    bool HotWater_present;
-    bool RetT_present; 
-    bool CH2_present;
-    bool DHW_tank_present; //DHW configuration: storage tank
-    bool Toutside_present; 
-    bool Pressure_present;
-    bool Dhw_t_present;  //у Buderus'а с косвенным нагревом есть dhw и нет dhw_t
-    bool Tstorage_present; // ID29
-    bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting 
-    bool RemoteRequest_present; // ID4 present, can be used for BLOR = Boiler Lock-out Reset  
+  bool HotWater_present;
+  bool RetT_present; 
+  bool CH2_present;
+  bool DHW_tank_present; //DHW configuration: storage tank
+  bool Toutside_present; 
+  bool Pressure_present;
+  bool Dhw_t_present;  //у Buderus'а с косвенным нагревом есть dhw и нет dhw_t
+  bool Tstorage_present; // ID29
+  bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting 
+  bool RemoteRequest_present; // ID4 present, can be used for BLOR = Boiler Lock-out Reset  
+#if RELAY_USE  
+  bool Relay_present; //Relay present and use
+  bool Relay_init_sts; //Relay state at start
+  bool Relay_sts;      //Relay state 
+#endif  
+#if ST_VERS == 2
+  bool OT_slave_present; //OT_slave  present and use
+  short int OT_slave_mode; /* 0 slave readonly, 1 master readonly */
+  short int ot_slave_stsOT; // -1 not init, 0 - normal work, 2 - timeout
+  time_t ot_slave_t_lastwork; // time of last ot_slave_stsOT = 0
+#endif
 
-    bool Relay_present;
-    bool Relay_init_sts;
-    bool Relay_sts;
   unsigned int OTmemberCode;
   unsigned long response;
   float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
@@ -240,8 +248,6 @@ public:
       Relay_present = true;
       Relay_init_sts = false;
       Relay_sts = false;
-    #else
-      Relay_present = false;
     #endif
     HotWater_present  = false;
     DHW_tank_present  = false;
@@ -332,11 +338,18 @@ public:
       CH_StartGist = 10.f;
       Use_MaxRelModLevel = 0;
 
-      start_sts = 1;
-      _U0start = 0;
-      InTstartset = 0;
-      oldTroomSetpoint = 0.;
-      src_lastSetPointChange = -1;
+    start_sts = 1;
+    _U0start = 0;
+    InTstartset = 0;
+    oldTroomSetpoint = 0.;
+    src_lastSetPointChange = -1;
+#if ST_VERS == 2
+    OT_slave_present = true;
+    OT_slave_mode = 0; /* 0 slave readonly, 1 master readonly */
+    ot_slave_stsOT = -1; // -1 not init, 0 - normal work, 2 - timeout
+    ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
+#endif
+
   }
   void RelayInit(void);
   void RelayOnOff(bool onoff);

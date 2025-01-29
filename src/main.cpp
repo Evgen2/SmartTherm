@@ -33,10 +33,12 @@ extern void setup_tcpudp(SmartDevice *psd);
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
-#if RELAY_USE
 #if MQTT_USE 
-extern void MQTT_pub_relay(void);
-#endif
+ #if RELAY_USE
+  extern void MQTT_pub_relay(void);
+ #endif
+ extern int MQTT_pub_cmdCH(int on);
+ extern void MQTT_pub_Eff_Mod_h(void);
 #endif
 
 void loop_time(void);
@@ -54,8 +56,13 @@ class SD_Termo SmOT;
   const int DS1820_2 = D2; //
 
 #elif defined(ARDUINO_ARCH_ESP32)
-  const int inPin = 16;  // OpenTherm  in RX2 esp32
-  const int outPin = 4;  // OpenTherm out D4 esp32
+  const int inPin = 16;  // OpenTherm master in RX2 esp32
+  const int outPin = 4;  // OpenTherm master out D4 esp32
+
+#if ST_VERS == 2
+  const int inPinSlave  = 19; // OpenTherm slave in
+  const int outPinSlave = 18; // OpenTherm slave out
+#endif
 
   const int DS1820_1 = 15; // D15 esp32  3 снизу
   const int DS1820_2 = 26; // D26 esp32  7 снизу
@@ -71,7 +78,16 @@ class SD_Termo SmOT;
 static int OTstartSts_MAX = 2;
 
 OpenTherm ot(inPin, outPin);
-
+#if ST_VERS == 2
+  OpenTherm ot_slave(inPinSlave, outPinSlave, true); //Slave
+  extern volatile int ot_SlaveSts;
+  extern volatile unsigned long ot_SlaveResponse; 
+  extern volatile unsigned long ot_SlaveRequest; 
+  extern int OT_slaveloop(void);
+  extern int setup_ot_slave(void);
+  extern void sendResponse_ot_slave(void);
+#endif
+  
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
 int OTloop(void);
 void loop2(void);
@@ -124,6 +140,9 @@ void setup() {
   SmOT.RelayInit();
 /*******************************************/
   ot.begin(handleInterrupt, OTprocessResponse);
+#if ST_VERS == 2
+     setup_ot_slave();
+#endif
 
   setupDS1820();
 
@@ -385,6 +404,15 @@ static int timeOutcounter = 0;
   } 
 #endif         
 
+#if ST_VERS == 2
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+    { if(ot_SlaveSts == 2)
+      {  ot_SlaveSts = 3;
+         ot_SlaveResponse = response;
+      }
+    }
+#endif
+
     parity = ot.parity(response);
     if(parity)
     { OTDebugInfo[1]++;
@@ -403,7 +431,6 @@ static int timeOutcounter = 0;
       return;
     }
     
-      
     if(messagetype == UNKNOWN_DATA_ID)
     { OTDebugInfo[8]++;
       id = (response >> 16 & 0xFF);
@@ -429,6 +456,7 @@ static int timeOutcounter = 0;
     
     if(id != ot.LastRequestId)
     { OTDebugInfo[10]++;
+        Serial.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
 #if SERIAL_DEBUG 
         Serial.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
 #endif        
@@ -486,8 +514,8 @@ bit: description [ clear/0, set/1]
 #endif
 
         SmOT.BoilerStatus = u88;
-//        Serial.printf("BoilerStatus: %x %x\n", u88, response);
 
+//        Serial.printf("BoilerStatus: %x %x\n", u88, response);
 //        Serial.println("Central Heating: " + String(ot.isCentralHeatingActive(response) ? "on" : "off"));
 //        Serial.println("Hot Water: " + String(ot.isHotWaterActive(response) ? "on" : "off"));
 //        Serial.println("Flame: " + String(ot.isFlameOn(response) ? "on" : "off"));
@@ -560,7 +588,7 @@ bit: description [ clear/0, set/1]
 7: reserved
 
 LB: OEM fault code
-An OEM-specific fault/error cod
+An OEM-specific fault/error code
 */
         if(u88)
           OTDebugInfo[5]++;
@@ -701,7 +729,6 @@ unsigned int buildRequestOnStart(void)
     return request;
 }
 
-extern int  MQTT_pub_cmdCH(int on);
 
 // rc = 0 - nothing to do
 // rc = 1 - build request, need repeat
@@ -876,6 +903,7 @@ M0:
       } else {
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
+#if MQTT_USE 
 {  static int old_CH = -1;
     if(old_CH != SmOT.enable_CentralHeating_real)
     {
@@ -885,7 +913,8 @@ M0:
 
        }
     }
-}      
+}
+#endif      
 #else
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
       {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
@@ -1040,8 +1069,10 @@ M0:
         }
 
     case 11:
+  /* OTC = Outside Temperature Compensation). ID0:HB3*/
+  /* or Zota */
         st++; 
-        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
+        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) 
         {
 //        Serial.printf("st %d SmOT.OTmemberCode %d\n", st,  SmOT.OTmemberCode);
           if(ot.OTid_used(OpenThermMessageID::TrSet)) // 16  Room Setpoint (°C)
@@ -1057,7 +1088,7 @@ M0:
 
     case 12:
         st++;
-        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* Zota **/
+        if(SmOT.Use_OTC || SmOT.OTmemberCode == 248) /* OTC or Zota **/
         {
           if(ot.OTid_used(OpenThermMessageID::Tr)) //  24 Room temperature (°C)
           { //unsigned int data = ot.temperatureToData(SmOT.tempindoor);
@@ -1115,6 +1146,10 @@ int OTloop(void)
 {   static int st = 1;
     int rc = 0;
 
+#if ST_VERS == 2
+  OT_slaveloop();
+#endif
+
     switch(st)
     {
       case 0:
@@ -1124,10 +1159,32 @@ int OTloop(void)
           if((millis() - SmOT.RespMillis) < 100)
                Serial.printf((PGM_P)F("OTloop too fast: %d **********\n"), int (millis() - SmOT.RespMillis));
 #endif
+
+#if ST_VERS == 2
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+    { if(ot_SlaveSts == 1)
+      { int ids; 
+        request = ot_SlaveRequest;
+        ids = (request & 0xff0000) >>16;
+        if(ids ==0)
+             SmOT.BoilerStatusRequest = request;
+        ot.LastRequestId = ids;
+        ot_SlaveSts = 2;
+      } else {
+        break;
+      }
+    } else {
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
             request = buildRequest(0);
+    }
+#else
+         if(OTstartSts < OTstartSts_MAX)
+            request = buildRequestOnStart();
+         else
+            request = buildRequest(0);
+#endif
 
 /*     
           unsigned int id;
@@ -1380,13 +1437,16 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
   if(hour_prev != nowtime->tm_hour)
   { hour_prev = nowtime->tm_hour;
     SmOT.Bstat.NflameOn_h_prev = SmOT.Bstat.NflameOn_h;
-    SmOT.Bstat.Eff_Mod_h_prev = SmOT.Bstat.Eff_Mod_h;
+//  SmOT.Bstat.Eff_Mod_h_prev = SmOT.Bstat.Eff_Mod_h; // ?? 
+    SmOT.Bstat.Eff_Mod_h_prev = SmOT.Bstat.ModIntegral_h/3600.f;
     noInterrupts();
         SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_h = 0.;
         SmOT.Bstat.sec_h = 0;
 	   interrupts();
-
+#if MQTT_USE 
+     MQTT_pub_Eff_Mod_h();
+#endif
     if(mday_prev != nowtime->tm_mday)
     { SmOT.Bstat.NflameOn_day_prev = SmOT.Bstat.NflameOn_day;
       SmOT.Bstat.Eff_Mod_d_prev = SmOT.Bstat.Eff_Mod_d;

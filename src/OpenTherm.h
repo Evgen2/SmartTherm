@@ -73,7 +73,7 @@ ID0:LB7: Slave Status: Electricity production (???)
     RemoteRequest                                = 4, // u8/u8     Remote Request
     ASFflags                                     = 5, // flag8/u8  Application - specific fault flags and OEM fault code
     RBPflags                                     = 6, // flag8/flag8   Remote boiler parameter transfer - enable & read / write flags
-	CoolingControl                               = 7, // f8.8    Cooling control signal(%)
+    CoolingControl                               = 7, // f8.8    Cooling control signal(%)
     TsetCH2                                      = 8, // f8.8    Control Setpoint for 2e CH circuit(°C)
     TrOverride                                   = 9, // f8.8    Remote override room Setpoint
     TSP                                         = 10, // u8/u8     Number of Transparent - Slave - Parameters supported by slave
@@ -109,11 +109,11 @@ ID0:LB7: Slave Status: Electricity production (???)
 
     TdhwSetUBTdhwSetLB                          = 48, // s8/s8     DHW Setpoint upper & lower bounds for adjustment(°C)
     MaxTSetUBMaxTSetLB                          = 49, // s8/s8     Max CH water Setpoint upper & lower bounds for adjustment(°C)
-	HcratioUBHcratioLB							= 50, // s8 / s8  OTC heat curve ratio upper & lower bounds for adjustment
+    HcratioUBHcratioLB				= 50, // s8 / s8  OTC heat curve ratio upper & lower bounds for adjustment
 
     TdhwSet                                     = 56, // f8.8    DHW Setpoint(°C) (Remote parameter 1)
     MaxTSet                                     = 57, // f8.8    Max CH water Setpoint(°C) (Remote parameters 2)
-	Hcratio										= 58, // f8.8  OTC heat curve ratio (°C)  (Remote parameter 3)
+    Hcratio					= 58, // f8.8	OTC heat curve ratio (°C)  (Remote parameter 3)
 
     StatusVentilationHeatRecovery               = 70, // flag8/flag8   Master and Slave Status flags ventilation / heat - recovery
     Vset                                        = 71, // -/u8  Relative ventilation position (0-100%). 0% is the minimum set ventilation and 100% is the maximum set ventilation. 

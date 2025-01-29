@@ -28,6 +28,10 @@ void mqtt_start(void);
 void mqtt_loop(void);
 void mqtt_setup(void);
 int MQTT_pub_data(void);
+void MQTT_pub_Eff_Mod_h(void);
+#if RELAY_USE
+void MQTT_pub_relay(void);
+#endif
 
 extern WiFiClient tcp_client;
 
@@ -87,7 +91,7 @@ HASensor sensorPID_D(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_I(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_U(NULL,HANumber::PrecisionP3);
 HASensor sensorPID_U0(NULL,HANumber::PrecisionP3);
-HASensor sensorPID_Extra(NULL,HANumber::PrecisionP3);
+HASensor sensor_Eff_Mod(NULL,HANumber::PrecisionP3);
 
 #endif
 
@@ -327,7 +331,7 @@ extern unsigned int OTcount;
     sensorModulation.setNameUniqueIdStr(SmOT.MQTT_topic,"Модуляция", "Modulation");
     sensorModulation.setAvailability(false);
     sensorModulation.setIcon("mdi:fire");
-    sensorModulation.setDeviceClass("power_factor"); //"temperature"
+    sensorModulation.setDeviceClass("power_factor"); 
     sensorModulation.setUnitOfMeasurement("%");
 /**********/
     sensor_CH.setNameUniqueIdStr(SmOT.MQTT_topic,"Отопление", "CH");
@@ -465,6 +469,7 @@ extern unsigned int OTcount;
     { sensorT1.setAvailability(true);
       sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
       sensorT1.setDeviceClass(temperature_str); 
+      sensorT1.setUnitOfMeasurement("°C");
       sprintf(str,"%.3f", SmOT.t1);
       sensorT1.setValue(str);  
 //   Serial.printf("***000 MQTT T1=%s\n",  str); 
@@ -477,6 +482,7 @@ extern unsigned int OTcount;
     { sensorT2.setAvailability(true);
       sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
       sensorT2.setDeviceClass(temperature_str); 
+      sensorT2.setUnitOfMeasurement("°C");
       sprintf(str,"%.3f", SmOT.t2);
       sensorT2.setValue(str);  
     }  else {
@@ -487,6 +493,7 @@ extern unsigned int OTcount;
     { sensorText.setAvailability(false);
       sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
       sensorText.setDeviceClass(temperature_str); 
+      sensorText.setUnitOfMeasurement("°C");
     }
 
 #if PID_USE
@@ -549,9 +556,13 @@ extern unsigned int OTcount;
 //    Serial.printf("sensorPID_U0 =%s\n", str);
 
     
-    sensorPID_Extra.setAvailability(true);
-    sensorPID_Extra.setNameUniqueIdStr(SmOT.MQTT_topic,"Uextra", "pid_extra");
-    sensorPID_Extra.setDeviceClass(temperature_str); 
+    sensor_Eff_Mod.setAvailability(true);
+    sensor_Eff_Mod.setNameUniqueIdStr(SmOT.MQTT_topic,"effmod_h", "effmod_h");
+    sensor_Eff_Mod.setIcon("mdi:fire");
+    sensor_Eff_Mod.setDeviceClass("power_factor"); 
+    sensor_Eff_Mod.setUnitOfMeasurement("%");
+
+    //SmOT.Bstat.Eff_Mod_h_prev
 
 #endif
     mqtt.onConnected(OnMQTTconnected);
@@ -766,8 +777,6 @@ if(SmOT.stsMQTT == 0)
             sensorPID_U.setValue(str);
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
-            sprintf(str,"%.4f", SmOT.mypid.dP + SmOT.mypid.dD);
-            sensorPID_Extra.setValue(str);
             
 //Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
             if(SmOT.srcText >= 0 && SmOT.srcText < 3)
@@ -891,15 +900,26 @@ todo
 
 }
 
+void MQTT_pub_Eff_Mod_h(void)
+{ char str[80];
+  if(SmOT.stsMQTT != 2)
+    return;
+  sprintf(str,"%.4f", SmOT.Bstat.Eff_Mod_h_prev);
+  sensor_Eff_Mod.setValue(str);
+}
+
 int MQTT_pub_data(void)
 {
 //Serial.printf("todo %s\n",__FUNCTION__ );
     return 0;
 
 }
+
 #if RELAY_USE
 void  MQTT_pub_relay(void)
 {
+  if(SmOT.stsMQTT != 2)
+    return;
   relayHA.setState(SmOT.Relay_sts);
 }
 #endif

@@ -61,10 +61,13 @@ const char* SET_T_URI   = "/set_t";
 const char* SET_PAR_URI = "/set_par";
 const char* SET_ADD_URI = "/add";
 const char* DEBUG_URI   = "/debug";
-
 #if PID_USE
 const char* PID_URI = "/pid";
 const char* SET_PID_URI = "/set_pid";
+#endif
+#if ST_VERS == 2
+const char* SET_OT2_URI = "/setot2";
+const char* OT2_URI = "/ot2";
 #endif
 
 const char* STYLE_WIDTH = "width:15%";
@@ -165,14 +168,18 @@ ACInput(Set_CH_GIST,"", "Гистерезис включения горелки,
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
                       SetKpPID, SetKdPID, SetKiPID,SetIdissPID, SetTmaxPID, SetTminPID, Info2,
-                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });
+                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });  // onSetupPID()
 #endif
 /************* SetPID end ***************/
 
-/************* SetTempPage ***************/
-//ACText(SetTemp_info1, "", "", "", AC_Tag_DIV); //Заданная температура:
-//ACSubmit(SetTemp_OK, "Ok", INFO_URI, AC_Tag_DIV);
-/************* SetParPage ***************/
+#if ST_VERS == 2
+AutoConnectCheckbox UseOTslave("UseOTslave","", "Использовать OT slave интерфейс", false, AC_Behind ,  AC_Tag_DIV);
+AutoConnectRadio OTslaveMode("radio", { "SmartTherm", "Панель" }, "Котлом уравляет:", AC_Vertical, 1,  AC_Tag_DIV);
+ACSubmit(ApplySlave,   "Задать", SET_OT2_URI, AC_Tag_BR);
+AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, OTslaveMode, Info5, Info6, ApplySlave}); //onSetupOT_slave()
+AutoConnectAux SetOTslave_Page(SET_OT2_URI, "SetOT2", false, {}, false); //onSetOT_slave()
+
+#endif //
 
 /************* debugPage( ****************/
 ACSubmit(DebugApply, "Обновить", DEBUG_URI, AC_Tag_DIV);
@@ -210,7 +217,7 @@ AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
 AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
 #endif
 AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
-AutoConnectAux SendBLORPage(BLOR_URI, "SendBlor", false, {}, false);
+AutoConnectAux SendBLORPage(BLOR_URI, "SendBlor", false, {}, false); //onSendBlor()
 
 AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, Info5, Info6, Info7,  DebugApply});
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
@@ -253,6 +260,12 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args);
 #if RELAY_USE
 String onSetRelay(AutoConnectAux& aux, PageArgument& args);
 #endif
+
+#if ST_VERS == 2
+String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args);
+String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
+#endif
+
 
 String utc_time_jc;
 
@@ -297,6 +310,13 @@ void setup_web_common(void)
   SetRelayPage.on(onSetRelay);
 #endif
 
+#if ST_VERS == 2
+  OTslave_Page.on(onSetupOT_slave);
+  SetOTslave_Page.on(onSetOT_slave);
+//AutoConnectCheckbox UseOTslave("UseЩOTslave","", "Использовать OT slave интерфейс", false, AC_Behind ,  AC_Tag_DIV);
+//AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, Info5, Info6});
+#endif //
+
 #if PID_USE
   PID_Page.on(onSetupPID);
   SetPIDPage.on(onSetPID);
@@ -325,6 +345,9 @@ void setup_web_common(void)
     portal.join({SetRelayPage});
 #endif
     portal.join({SendBLORPage});
+#if ST_VERS == 2
+    portal.join({OTslave_Page,SetOTslave_Page});
+#endif    
 
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
@@ -1634,17 +1657,92 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 //AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
 String onSetRelay(AutoConnectAux& aux, PageArgument& args)
 {
-  //  Serial.printf("onSetRelay\n");
     if(SmOT.Relay_sts)
       SmOT.RelayOnOff(false);
     else
       SmOT.RelayOnOff(true);
 
   aux.redirect(INFO_URI);
+
   return String();
 }
 #endif //RELAY_USE
 
+#if ST_VERS == 2
+//SetOTslave_Page
+String onSetOT_slave(AutoConnectAux& aux, PageArgument& args)
+{ int isChange=0;
+  bool check;
+
+  if(UseOTslave.checked) check = true;
+  else                   check = false;
+  if(SmOT.OT_slave_present != check)
+  { isChange++;
+    SmOT.OT_slave_present = check;
+  }
+  if(SmOT.OT_slave_present)
+  {   if(OTslaveMode.checked+1 != SmOT.OT_slave_mode)
+      { isChange++;
+        SmOT.OT_slave_mode = OTslaveMode.checked - 1;
+      }
+  }
+
+  if(isChange)
+        SmOT.need_write_f = 1;  //need write changes to FS
+
+  aux.redirect(INFO_URI);
+  return String();
+}
+
+
+//AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, Info5, Info6});
+String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
+{   char str0[80];
+
+   Info1.value = "Интерфейс slave OpenTherm:<br>";
+   switch(SmOT.ot_slave_stsOT)
+   {  case -1:
+        Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован";
+        break;
+      case 0:
+        Info1.value +=  String(SmOT.ot_slave_stsOT) + ": работает";
+        break;
+      case 2:
+      {  time_t now = time(nullptr);
+        double dt;
+        dt = difftime(now,SmOT.ot_slave_t_lastwork);
+        if(dt < 3600.)
+        {   sprintf(str0, (PGM_P)F("Потеря связи %.f сек назад"), dt);
+
+        } else {        
+            sprintf(str0, (PGM_P)F("Потеря связи связи  %.1f час(ов) назад"), dt);
+        }
+        Info1.value +=  str0;
+      }
+        break;
+   }
+//UseOTslave
+
+    if(SmOT.OT_slave_present)
+    { UseOTslave.checked = true;
+      OTslaveMode.enable = true;
+      if(SmOT.OT_slave_mode == 0)
+        OTslaveMode.checked = 1;
+      else 
+        OTslaveMode.checked = 2;
+    } else {
+        UseOTslave.checked = false;
+        OTslaveMode.enable = false;
+    }
+  
+   Info5.value ="";
+   Info6.value ="";      
+
+  return String();
+}
+#endif // ST_VERS
+
+//SendBLORPage
 String onSendBlor(AutoConnectAux& aux, PageArgument& args)
 {
     SmOT.need_set_RemoteRequest = 1;
