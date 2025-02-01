@@ -174,7 +174,7 @@ AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPI
 
 #if ST_VERS == 2
 AutoConnectCheckbox UseOTslave("UseOTslave","", "Использовать OT slave интерфейс", false, AC_Behind ,  AC_Tag_DIV);
-AutoConnectRadio OTslaveMode("radio", { "SmartTherm", "Панель" }, "Котлом уравляет:", AC_Vertical, 1,  AC_Tag_DIV);
+AutoConnectRadio OTslaveMode("radio", { "SmartTherm", "Панель" }, "Котлом управляет:", AC_Vertical, 1,  AC_Tag_DIV);
 ACSubmit(ApplySlave,   "Задать", SET_OT2_URI, AC_Tag_BR);
 AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, OTslaveMode, Info5, Info6, ApplySlave}); //onSetupOT_slave()
 AutoConnectAux SetOTslave_Page(SET_OT2_URI, "SetOT2", false, {}, false); //onSetOT_slave()
@@ -407,6 +407,7 @@ int setup_web_common_onconnect(void)
 
   Serial.print(F("WiFi connected, IP address: "));
   Serial.println(WiFi.localIP());
+  sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
 
   if(init)
     return 1;
@@ -453,8 +454,10 @@ const char*  const _ntp2 = "pool.ntp.org";
 
 
 #if MQTT_USE
-   if(SmOT.useMQTT == 0x03) 
-     mqtt_setup();
+
+   SmOT.Read_mqtt_fs();
+//     mqtt_setup();
+//mqtt_setup is called from mqtt_loop()
 #endif
 }
 /****************************************************/
@@ -691,13 +694,11 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       redir = 1;  
     } else if(SmOT.useMQTT == 1) { 
       SmOT.useMQTT = 0x3;
-      isChange++;
       isChangeMQTT++;
     }
   } else {
     if(SmOT.useMQTT != 0)
     { SmOT.useMQTT = 0;
-      isChange++;
       isChangeMQTT++;
     }
   }
@@ -708,28 +709,24 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
  
     SetMQTT_server.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_server,str0))
-    { isChange++;
-      isChangeMQTT++;
+    {  isChangeMQTT++;
        strcpy(SmOT.MQTT_server,str0);      
     }
 
     SetMQTT_user.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_user,str0))
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        strcpy(SmOT.MQTT_user,str0);      
     }
     SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_pwd,str0))
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        strcpy(SmOT.MQTT_pwd,str0);      
     }
 
     SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.MQTT_devname,str0))
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        strcpy(SmOT.MQTT_devname,str0);      
     }
 
@@ -745,22 +742,19 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
        break;
     }
     if(strcmp(SmOT.MQTT_topic,str0))
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        strcpy(SmOT.MQTT_topic,str0);      
     }
 
     v = SetMQTT_interval.value.toInt();
     if((unsigned int)v !=SmOT.MQTT_interval )
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        SmOT.MQTT_interval = v;
     }
 
     v = SetMQTT_port.value.toInt();
     if((unsigned int)v !=SmOT.MQTT_port )
-    { isChange++;
-      isChangeMQTT++;
+    { isChangeMQTT++;
        SmOT.MQTT_port = v;
     }
 
@@ -819,8 +813,10 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
 
 #if MQTT_USE
-    if(isChangeMQTT && SmOT.useMQTT == 0x03)
-    {      mqtt_start();
+    if(isChangeMQTT)
+    { if(SmOT.useMQTT == 0x03)
+            mqtt_start();
+        SmOT.need_write_f |= 0x2;  //need write changes to FS
     }
 #endif //MQTT_USE
 
@@ -1262,6 +1258,41 @@ if(SmOT.useMQTT)
         Info7.value = "";
   }
  
+ #if ST_VERS == 2
+
+  Info7.value = "OT2: ";
+   if(SmOT.OT_slave_present)
+   {
+
+    switch(SmOT.ot_slave_stsOT)
+    {  case -1:
+          Info7.value += "<b>Ошибка:</b> не инициализирован";
+          break;
+        case 0:
+          Info7.value += "работает";
+          break;
+        case 2:
+        {  time_t now = time(nullptr);
+          double dt;
+          dt = difftime(now,SmOT.ot_slave_t_lastwork);
+          if(dt < 3600.)
+          {   sprintf(str0, (PGM_P)F("Потеря связи %.f сек назад"), dt);
+
+          } else {        
+              sprintf(str0, (PGM_P)F("Потеря связи связи  %.1f час(ов) назад"), dt);
+          }
+          Info7.value +=  str0;
+        }
+          break;
+    }
+    if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+          Info7.value +=  ", управление от панели";
+    else
+          Info7.value +=  ", управление от контроллера";
+
+   }
+ #endif
+
  #if  RELAY_USE
   if(SmOT.Relay_present)
   {
@@ -1915,6 +1946,7 @@ void setup_read_config(void)
   }
    
   SmOT.Read_ot_fs();
+//  SmOT.Read_mqtt_fs();
   SmOT.init(1);
 
 }
@@ -1944,15 +1976,21 @@ void check_fs(void)
  
   while(file){
  
+#if SERIAL_DEBUG      
       Serial.print("FILE: ");
       Serial.printf( "%s %d\n", file.name(), file.size());
+#endif      
       if(file.size() > 1000000)
        { char str[80];
          sprintf(str,"/%s",file.name() );
+      #if SERIAL_DEBUG      
          Serial.printf( "remove %s\n", str);
+      #endif         
          file.close();
          b = FlashFS.remove(str);
+      #if SERIAL_DEBUG      
          Serial.printf( "remove  rc = %d\n", b);
+      #endif         
          break;
        }
       
@@ -1960,15 +1998,6 @@ void check_fs(void)
       
   }
 }
-#endif
-
-
-#if SERIAL_DEBUG      
- #if defined(ARDUINO_ARCH_ESP8266)
-   Serial.printf("OT_ids[0].used =%d\n", OT_ids[0].used);
- #elif defined(ARDUINO_ARCH_ESP32)
-   Serial.printf("OT_ids[0].used =%d %s\n", OT_ids[0].used,  OT_ids[0].descript);
- #endif
 #endif
 
 #if SERIAL_DEBUG      

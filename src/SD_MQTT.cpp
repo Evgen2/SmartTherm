@@ -292,6 +292,12 @@ extern unsigned int OTcount;
         return;
   }
 
+
+   Serial.printf("SmOT.useMQTT = %d\n", SmOT.useMQTT);
+   if(SmOT.useMQTT != 0x03) 
+      return;
+
+  
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
@@ -305,6 +311,7 @@ extern unsigned int OTcount;
   { static char str[40];
     sprintf(str,"%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
     device.setSoftwareVersion(str); //должно быть static!!
+    device.setConfigurationUrl(SmOT.LocalUrl);// --//--
   }
     device.enableSharedAvailability();
     device.enableLastWill();
@@ -557,7 +564,7 @@ extern unsigned int OTcount;
 
     
     sensor_Eff_Mod.setAvailability(true);
-    sensor_Eff_Mod.setNameUniqueIdStr(SmOT.MQTT_topic,"effmod_h", "effmod_h");
+    sensor_Eff_Mod.setNameUniqueIdStr(SmOT.MQTT_topic,"EffModH", "effmod_h");
     sensor_Eff_Mod.setIcon("mdi:fire");
     sensor_Eff_Mod.setDeviceClass("power_factor"); 
     sensor_Eff_Mod.setUnitOfMeasurement("%");

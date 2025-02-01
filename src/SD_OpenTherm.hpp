@@ -197,7 +197,7 @@ public:
   char MQTT_devname[10];
  #elif defined(ARDUINO_ARCH_ESP32)
  //40+40+4+40+20+40=  184 (+110)
-  char MQTT_server[40];
+  char MQTT_server[80];
   char MQTT_topic[40];
   int MQTT_interval; //sec
   char MQTT_user[40];
@@ -380,10 +380,12 @@ public:
 #if OT_DEBUGLOG
   void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 #endif
-  int Write_data_fs(char *path, uint8_t *dataBuff, int len);
-  int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen);
+  int Write_data_fs(char *path, uint8_t *dataBuff, int len, int mode);
+  int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen, int mode);
   int Read_ot_fs(void);
   int Write_ot_fs(void);
+  int Read_mqtt_fs(void);
+  int Write_mqtt_fs(void);
 
   float CHtempLimit(float _t); /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
   float RoomtempLimit(float _t); /* return t within limit MIN_ROOM_TEMP MAX_ROOM_TEMP*/

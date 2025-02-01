@@ -46,6 +46,8 @@ void loop_time(void);
 /************************************/
 class SD_Termo SmOT;
 
+char SmartDevice::LocalUrl[24] = "";
+
 //Задаем пины
 #if defined(ARDUINO_ARCH_ESP8266)
 
@@ -127,11 +129,8 @@ void setup() {
   Serial.println(IDENTIFY_TEXT);
   Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
 
-
 // Serial.printf((PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
-
 //  Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
-  Serial.printf((PGM_P)F("IRAM free: %6d bytes\n"), ESP.getFreeHeap());
 
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
@@ -139,6 +138,7 @@ void setup() {
   setup_read_config();
   SmOT.RelayInit();
 /*******************************************/
+
   ot.begin(handleInterrupt, OTprocessResponse);
 #if ST_VERS == 2
      setup_ot_slave();
@@ -148,7 +148,6 @@ void setup() {
 
   setup_web_common();
   setup_tcpudp( &SmOT );
-//  Serial.printf("(6) %d\n", millis());
 
   if(SmOT.Immergas_fix_flag)
         ot.Immergas_fix = true;
@@ -407,8 +406,26 @@ static int timeOutcounter = 0;
 #if ST_VERS == 2
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
     { if(ot_SlaveSts == 2)
-      {  ot_SlaveSts = 3;
+      { static int slraz =0;
+         ot_SlaveSts = 3;
          ot_SlaveResponse = response;
+
+        slraz++;
+//Serial.printf("buildRequestIfNeed raz %d\n", raz);
+        if(SmOT.CapabilitiesDetected == 0)
+        {  if(slraz++ > 30)
+           {  SmOT.CapabilitiesDetected = 1;
+              SmOT.DetectCapabilities();
+           } 
+        } else if(SmOT.CapabilitiesDetected == 1) {
+            if(slraz == 150)
+            { SmOT.CapabilitiesDetected = 2;
+              SmOT.DetectCapabilities();
+              slraz++;   
+            } else {
+              slraz++;   
+            }
+        }
       }
     }
 #endif
@@ -477,8 +494,8 @@ static int timeOutcounter = 0;
 2: Cooling enable [ Cooling is disabled, Cooling is enabled]
 3: OTC active [OTC not active, OTC is active]
 4: CH2 enable [CH2 is disabled, CH2 is enabled]
-5: reserved | Summer/winter mode
-6: reserved | Master status: DHW blocking
+5: Summer/winter mode [winter mode active, summer mode active]
+6: DHW blocking  [DHW unblocked, DHW blocked] 
 7: reserved
 */
 /*  LB: Slave status   
@@ -490,7 +507,7 @@ bit: description [ clear/0, set/1]
 4: Cooling status [ cooling mode not active, cooling mode active ]
 5: CH2 mode [CH2 not active, CH2 active]
 6: diagnostic/service indication [no diagnostics, diagnostic event]
-7: reserved | Electricity production (???)
+7: Electricity production [off, on] 
 */   
 //        boiler_status = response & 0xFF;
         if((u88 & 0x08) != (SmOT.BoilerStatus & 0x08))

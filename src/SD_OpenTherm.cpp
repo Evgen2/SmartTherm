@@ -50,27 +50,30 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
                 sizeof(SD_Termo::OT_slave_present) +  sizeof(SD_Termo::OT_slave_mode) +
 #endif
 
-#if MQTT_USE
-            sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
-            sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
-#endif
 #if PID_USE
             sizeof(SD_Termo::usePID) + sizeof(SD_Termo::srcTroom) + sizeof(SD_Termo::srcText) + sizeof(SD_Termo::mypid.Kp) + sizeof(SD_Termo::mypid.Kd) +
             sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::mypid.umax) + sizeof(SD_Termo::mypid.umin) + sizeof(SD_Termo::mypid.u0) +
             sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss)
 #endif
     ;
+
+#if MQTT_USE
+const int FS_BUFMQTT =     
+            sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
+            sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port);
+#endif
+
 /**^^^******************************/
 
 
 const char *path="/smot_par";
+const char *pathmqtt="/smotmqtt";
 
 int SD_Termo::Read_ot_fs(void)
 {  int rc, n, nw;
     uint8_t Buff[FS_BUF];
 
-    rc = Read_data_fs((char *)path, Buff, FS_BUF, nw);
-    Serial.printf("Read_data_fs rc %i\n", rc);
+    rc = Read_data_fs((char *)path, Buff, FS_BUF, nw, 0);
     if(rc)
         return 1;
 #if SERIAL_DEBUG      
@@ -140,33 +143,6 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(OT_slave_mode);
 #endif
 
-#if MQTT_USE
-  if(n < nw)
-  {
-    memcpy((void *) &useMQTT, &Buff[n], sizeof(useMQTT));
-    n += sizeof(useMQTT);
-
-    memcpy((void *) MQTT_server, &Buff[n], sizeof(MQTT_server));
-    n += sizeof(MQTT_server);
-    memcpy((void *) MQTT_user, &Buff[n], sizeof(MQTT_user));
-    n += sizeof(MQTT_user);
-    memcpy((void *) MQTT_pwd, &Buff[n], sizeof(MQTT_pwd));
-    n += sizeof(MQTT_pwd);
-    memcpy((void *) MQTT_topic, &Buff[n], sizeof(MQTT_topic));
-    n += sizeof(MQTT_topic);
-    memcpy((void *) MQTT_devname, &Buff[n], sizeof(MQTT_devname));
-    n += sizeof(MQTT_devname);
-    memcpy((void *) &MQTT_interval, &Buff[n], sizeof(MQTT_interval));
-    n += sizeof(MQTT_interval);
-    {   unsigned short _port;
-        memcpy((void *) &_port, &Buff[n], sizeof(MQTT_port));
-        if(_port < 80) // old  version config
-                goto END;
-        MQTT_port = _port;
-        n += sizeof(MQTT_port);
-    }
-  }
-#endif
 #if PID_USE
     if(n >= nw) goto END;
     memcpy((void *) &usePID, &Buff[n], sizeof(usePID));
@@ -215,7 +191,6 @@ int SD_Termo::Read_ot_fs(void)
 
 #endif //PID_USE
 
-//    if(n >= nw) goto END;
 
 END:
 
@@ -236,7 +211,7 @@ END:
 }
 
 
-int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
+int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, int mode)
 {   int  n, nw, i, l;
     unsigned short int crs, crs_r, nn, v;
 
@@ -245,11 +220,6 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
     Serial.printf((PGM_P)F("Reading file: %s\n"), _path);
 #endif
 
-#if defined(ARDUINO_ARCH_ESP8266)
-//    File file = FlashFS.open(_path,"r" );
-#else
-//    File file = FlashFS.open(_path, FILE_READ );
-#endif
     File file = FlashFS.open(_path,"r" );
     if(!file || file.isDirectory())
     {  
@@ -278,7 +248,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
     }
 
     n = file.read((unsigned char *)&v, sizeof(nn));
-    if(v != FS_BUF)
+    if(((mode == 0) && (v != FS_BUF)) ||((mode == 1) && (v != FS_BUFMQTT)) ) 
     {   file.close();
         return 3;
     }
@@ -306,7 +276,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #if SERIAL_DEBUG      
         Serial.printf((PGM_P)F("file.read rc %i, must be =%i\n"),n,nw);
 #endif        
-        return 3;
+        return 5;
     }
     l = n;
     n = file.read((unsigned char *)&crs_r, sizeof(short int));  //read 2 bytes control sum
@@ -320,7 +290,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 #if SERIAL_DEBUG      
         Serial.printf((PGM_P)F("crs = %i, must be =%i\n"),crs_r,crs);
 #endif        
-        return 4;
+        return 6;
     }
 
     file.close();
@@ -333,7 +303,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen)
 }
 
 
-int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
+int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
 {   int rc=0, i, n, nw;
     unsigned short int crs, v;
 
@@ -353,6 +323,8 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
     v = CONFIG_VERSION;
     nw = file.write((unsigned char *) &v, sizeof(unsigned short int));
     v = FS_BUF;
+    if(mode == 1)
+        v = FS_BUFMQTT;
     n = file.write((unsigned char *) &v, sizeof(unsigned short int));
     nw += n;
 
@@ -365,9 +337,11 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len)
     if(n != len)
         rc = 1;
     else nw += n;    
+
     nw += file.write((unsigned char *) &crs, sizeof(unsigned short int));
-    if(nw != (len + 4))
+    if(nw != (len + 4*sizeof(unsigned short int) ) )
         rc = 2;
+//    Serial.printf("write nw =%d len=%d rc=%d\n", nw, len, rc);
     file.close();
     return rc;
 }
@@ -443,26 +417,6 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(OT_slave_mode);
 #endif
 
-#if MQTT_USE
-    memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
-    n += sizeof(useMQTT);
-    memcpy(&Buff[n],(void *) MQTT_server, sizeof(MQTT_server));
-    n += sizeof(MQTT_server);
-    memcpy(&Buff[n],(void *) MQTT_user, sizeof(MQTT_user));
-    n += sizeof(MQTT_user);
-    memcpy(&Buff[n],(void *) MQTT_pwd, sizeof(MQTT_pwd));
-    n += sizeof(MQTT_pwd);
-    memcpy(&Buff[n],(void *) MQTT_topic, sizeof(MQTT_topic));
-    n += sizeof(MQTT_topic);
-    memcpy(&Buff[n],(void *) MQTT_devname, sizeof(MQTT_devname));
-    n += sizeof(MQTT_devname);
-
-    memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
-    n += sizeof(MQTT_interval);
-    memcpy(&Buff[n],(void *) &MQTT_port, sizeof(MQTT_port));
-    n += sizeof(MQTT_port);
-
-#endif
 #if PID_USE
     memcpy(&Buff[n],(void *) &usePID, sizeof(usePID));
     n += sizeof(usePID);
@@ -502,7 +456,93 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
    Serial.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
 #endif         
     
-    rc = Write_data_fs((char *)path, Buff, n);
+    rc = Write_data_fs((char *)path, Buff, n, 0);
+
+    return rc;
+}
+
+int SD_Termo::Read_mqtt_fs(void)
+{   int rc, n, nw;
+    uint8_t Buff[FS_BUFMQTT];
+    uint8_t len;
+
+
+    rc = Read_data_fs((char *)pathmqtt, Buff, FS_BUFMQTT, nw, 1);
+#if SERIAL_DEBUG      
+    Serial.printf("Read %s rc %i\n", pathmqtt, rc);
+#endif    
+    if(rc)
+        return 1;
+#if MQTT_USE
+    n = sizeof(useMQTT);
+    memcpy((void *) &useMQTT, &Buff[0], sizeof(useMQTT));
+
+    memcpy((void *) &len, &Buff[n], 1);  n++;
+    memcpy((void *) MQTT_server, &Buff[n], len);  n += len;
+
+    memcpy((void *) &len, &Buff[n], 1);  n++;
+    memcpy((void *) MQTT_user, &Buff[n], len);  n += len;
+    
+    memcpy((void *) &len, &Buff[n], 1);  n++;
+    memcpy((void *) MQTT_pwd, &Buff[n], len);  n += len;
+
+    memcpy((void *) &len, &Buff[n], 1);  n++;
+    memcpy((void *) MQTT_topic, &Buff[n], len);  n += len;
+
+    memcpy((void *) &len, &Buff[n], 1);  n++;
+    memcpy((void *) MQTT_devname, &Buff[n], len);  n += len;
+
+    memcpy((void *) &MQTT_interval, &Buff[n], sizeof(MQTT_interval));
+    n += sizeof(MQTT_interval);
+    {   unsigned short _port;
+        memcpy((void *) &_port, &Buff[n], sizeof(MQTT_port));
+        MQTT_port = _port;
+        n += sizeof(MQTT_port);
+    }
+#endif
+    return 0;
+}
+
+int SD_Termo::Write_mqtt_fs(void)
+{   int rc, n;
+    uint8_t Buff[FS_BUFMQTT];
+    uint8_t len;
+
+#if MQTT_USE
+    memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
+    n += sizeof(useMQTT);
+
+    len = strlen(MQTT_server)+1;
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) MQTT_server, len); n += len;
+
+    len = strlen(MQTT_user)+1;
+    memcpy(&Buff[n],(void *) &len, 1);  n++;
+    memcpy(&Buff[n],(void *) MQTT_user, len);   n += len;
+
+    len = strlen(MQTT_pwd)+1; 
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) MQTT_pwd, len);    n += len;
+
+    len = strlen(MQTT_topic)+1; 
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) MQTT_topic, len);  n += len;
+
+    len = strlen(MQTT_devname)+1; 
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) MQTT_devname, len);    n += len;
+
+    memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
+    n += sizeof(MQTT_interval);
+    memcpy(&Buff[n],(void *) &MQTT_port, sizeof(MQTT_port));
+    n += sizeof(MQTT_port);
+
+#endif
+
+    rc = Write_data_fs((char *)pathmqtt, Buff, n, 1);
+#if SERIAL_DEBUG      
+    Serial.printf("Write %s rc %i\n", pathmqtt, rc);
+#endif
 
     return rc;
 }
@@ -557,8 +597,14 @@ void SD_Termo::loop(void)
         Serial.printf("Write_fs rc=%d  dt %d ms", rc, dt);
         need_write_f = 0;
 #else
-         Write_ot_fs();
-        need_write_f = 0;
+        if(need_write_f & 0x01)
+        {   Write_ot_fs();
+            need_write_f &= ~0x01;
+        }
+        if(need_write_f & 0x02)
+        {   Write_mqtt_fs();
+            need_write_f &= ~0x02;
+        }
 #endif // SERIAL_DEBUG      
      
     } else  if(WiFists  == WL_CONNECTED) {

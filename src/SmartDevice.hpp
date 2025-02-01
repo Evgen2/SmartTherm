@@ -10,7 +10,7 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
-#define MASTER_SUBVERSION1 2
+#define MASTER_SUBVERSION1 3
 /***************/
 
 #define U8   unsigned char
@@ -53,6 +53,8 @@ class SmartDevice
 #elif defined(ARDUINO_ARCH_ESP32)
   const char  BiosDate[12];     /* дата компиляции биоса */
 #endif
+                         
+static char LocalUrl[24]; /* smth like http://192.168.200.201 */
   int IdNumber;            /* номер устройства */
 #if defined(ARDUINO_ARCH_ESP8266)
   unsigned char Mac[6];   /* mac - адрес */
