@@ -487,7 +487,7 @@ static unsigned int jj=0xffff, Nlost=0;
 			case ACMD_SET_STATE_C:
 		p_sd->callback_Set_State(bf, len, MsgOut, Lsend, get_buf);
 				break;
-
+				
 			case  MCMD_GET_CAP:
 		p_sd->callback_Get_Capabilities(bf,len, MsgOut, Lsend, get_buf);
 				break; 
@@ -600,6 +600,7 @@ void loop_servertcp(void)
 #if defined(ARDUINO_ARCH_ESP32)
 			rc = send(asTCPserver.sockfd, buf_tcpserver_out, TcpServer_Lsend, 0);
 #endif //
+
 			TcpServer_Lsend = 0;
 			if(TCPserver_close_on_send )
 			{	tcp_serversts = 0;
@@ -710,6 +711,11 @@ static unsigned int jj=0xffff, Nlost=0;
 
 		case MCMD_INTRODUCESELF:
 	  	    rc = p_sd->server_answer_IdentifySelf( bf, len);
+
+			  break;
+
+		case SCMD_SEND_OTLOG_C:
+			rc = p_sd->server_answerOTLog(bf,len);
 
 			break;
 

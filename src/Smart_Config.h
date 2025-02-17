@@ -13,9 +13,10 @@
 
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
-#define OT_DEBUGLOG 0
 #define SERVER_DEBUG 0
 #define T_DEBUG 0
+
+#define OT_DEBUGLOG 1 //default
 
 #if ST_VERS == 0
   #if defined(ARDUINO_ARCH_ESP8266)
@@ -54,7 +55,8 @@
 
 #define MAX_PID_SRC 4
 
-#define IDENTIFY_TYPE DS_OPENTHERM
+#define IDENTIFY_TYPE     DS_OPENTHERM
+#define IDENTIFY_SUBTYPE  ST_VERS
 /* TCP/UDP buffer size in bytes */
 #define UDP_TSP_BUFSIZE 128
 
@@ -94,8 +96,15 @@
   #define AUTOCONNECT_MENU_TITLE  "SmartTherm ESP8266"
   #define AUTOCONNECT_APID  "ST_ESP8266"
 #elif defined(ARDUINO_ARCH_ESP32)
-  #define AUTOCONNECT_MENU_TITLE  "SmartTherm ESP32"
-  #define AUTOCONNECT_APID  "ST_ESP32"
+  #define AUTOCONNECT_MENU_TITLE  "SmartTherm"
+  #if ST_VERS == 0
+    #define AUTOCONNECT_APID  "ST_ESP32"
+  #elif ST_VERS == 1
+    #define AUTOCONNECT_APID  "ST"
+  #elif ST_VERS == 2
+    #define AUTOCONNECT_APID  "ST2"
+  #endif
+
  #else
 error not used in this config
  #endif // !ARDUINO_ARCH_ESP8266

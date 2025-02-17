@@ -77,7 +77,7 @@ HASensor sensorT1(NULL);
 HASensor sensorT2(NULL);
 HASensor sensorText(NULL);
 HASensor sensorFreeRam(NULL);
-HASensor sensor_TestNum(NULL);
+//HASensor sensor_TestNum(NULL);
 
 HASensor sensorState(NULL);
 #if PID_USE
@@ -397,13 +397,14 @@ extern unsigned int OTcount;
     sensorFreeRam.setAvailability(true);
     sensorFreeRam.setNameUniqueIdStr(SmOT.MQTT_topic,"Free RAM", "FreeRAM");
     sensorFreeRam.setDeviceClass("data_size"); 
-
+    sensorFreeRam.setUnitOfMeasurement("B");
+/*
     sensor_TestNum.setAvailability(true);
     sensor_TestNum.setNameUniqueIdStr(SmOT.MQTT_topic,"Test N", "TestN");
     sensor_TestNum.setDeviceClass("data_size"); 
     sprintf(str,"0");
      sensor_TestNum.setValue(str);  
-
+*/
     // assign callbacks (optional)
     hvac.onTargetTemperatureCommand(onTargetTemperatureCommand);
     hvac.onPowerCommand(onPowerCommand);
@@ -428,11 +429,14 @@ extern unsigned int OTcount;
     hvac.setAvailability(false);
 
 
-    if(SmOT.HotWater_present)
+    if(SmOT.HotWater_present) 
     {
       hvacDHW.onTargetTemperatureCommand(onTargetTemperatureCommand);
       hvacDHW.onModeCommand(onModeCommandDHW);
-      hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
+      if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
+        hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Бойлер", "DHW");
+      else
+        hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
       hvacDHW.setMinTemp(30);
       hvacDHW.setMaxTemp(80);
       hvacDHW.setTempStep(1.);
@@ -747,10 +751,10 @@ if(SmOT.stsMQTT == 0)
               else
                   hvacDHW.setMode(HAHVAC::OffMode);
 
-              if(SmOT.Dhw_t_present)
+              if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
+                 hvacDHW.setCurrentTemperature(SmOT.Tstorage);
+              else if(SmOT.Dhw_t_present)
                   hvacDHW.setCurrentTemperature(SmOT.dhw_t);
-              else if(SmOT.Use_ID29_DHW_flag)   
-                  hvacDHW.setCurrentTemperature(SmOT.Tstorage);
                
               hvacDHW.setTargetTemperature(SmOT.TdhwSet);
 //   Serial.printf("SmOT.TdhwSet %f SmOT.dhw_t %f\n", SmOT.TdhwSet, SmOT.dhw_t );
@@ -935,8 +939,8 @@ void  MQTT_pub_cmd2(int val)
 { char str[80];
   if(SmOT.stsMQTT != 2)
     return;
-  sprintf(str,"%d",  val);
-  sensor_TestNum.setValue(str);  
+//  sprintf(str,"%d",  val);
+//  sensor_TestNum.setValue(str);  
 }
 
 void  MQTT_pub_cmd(int on)

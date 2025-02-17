@@ -559,7 +559,8 @@ int SD_Termo::Write_mqtt_fs(void)
 void SD_Termo::init(int src)
 {
 #if OT_DEBUGLOG
-  OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
+    if(src == 1)
+        OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
 #endif  
   Bstat.t_I_last =time(nullptr);
   Bstat.sec_h = Bstat.sec_d = 0;
@@ -721,19 +722,43 @@ void SD_Termo::loop(void)
                     }
                     break;
 
-                case 6: //wait answer to CCMD_SEND_STS from server
+                    case 6: //wait answer to CCMD_SEND_STS from server
                     if(millis() - ts0 > 5000) //todo
                     {   TCPserver_sts2 = 0; 
                         ts0 = millis();
                     } else if(TCPserver_rc == CCMD_SEND_STS_S) {
                         TCPserver_sts2 = 5; 
                         ts0 = millis();
+                    } else if(TCPserver_rc == CCMD_SEND_OTLOG_S) {
+                        TCPserver_sts2 = 7; 
+                        ts0 = millis();
                     } else if(TCPserver_rc == SCMD_GET_HAND_SHAKE) {
                      //   Serial.printf(">>>>>>>>>>>>>>>>>>>>  Сервер хочет HAND_SHAKE\n" );
                         TCPserver_sts2 = 1; //HandShake
                     }
                     break;
-            }
+                    
+                    case 7: //send CCMD_SEND_OTLOG_S
+                        Send_to_server_OTlog();
+                        ts0 = millis();
+                        TCPserver_sts2 = 8; 
+
+                    break;
+
+                    case 8: //wait answer to CCMD_SEND_OTLOG_S from server
+                    if(millis() - ts0 > 5000) // timeout todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == SCMD_SEND_OTLOG_C) {
+                        TCPserver_sts2 = 5; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == CCMD_SEND_OTLOG_S) {
+                        TCPserver_sts2 = 7; 
+                        ts0 = millis();
+                    }
+                    break;
+                    
+                }
         }
     }
 }
@@ -776,7 +801,8 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
     msg->ind = indcmd++;
 
     *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
-    *((PACKED int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
+    *((unsigned short int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
+    *((unsigned short int *) (&MsgOut[10]))  =  IDENTIFY_SUBTYPE; 
     *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
     *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
     *((PACKED int *) (&MsgOut[20]))  =  Vers;	
@@ -817,7 +843,18 @@ void SD_Termo::OpenThermInfo(void)
 
     memcpy((void *)&msg->Buf[0],(void *) Mac,6); 
 
-    memcpy((void *)&msg->Buf[6],(void *)&stsOT,2); 	
+#if ST_VERS == 2
+    {   char stOT;
+        stOT = stsOT;
+        memcpy((void *)&msg->Buf[6],(void *) &stOT,1); 
+        stOT = ot_slave_stsOT;
+        memcpy((void *)&msg->Buf[7],(void *) &stOT,1); 
+    }
+#else
+    memcpy((void *)&msg->Buf[6],(void *) &stsOT,2); 
+
+#endif
+
     memcpy((void *)&msg->Buf[8],(void *)&BoilerStatus,4); 
     memcpy((void *)&msg->Buf[12],(void *)&BoilerT,4);
     memcpy((void *)&msg->Buf[16],(void *)&RetT,4);
@@ -848,7 +885,7 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
     unsigned int B_flags4;
   //  Serial.printf("callback_Get_Capabilities len %d ", len);
     
-    Lsend = 6 + 16;
+    Lsend = 6 + 20;
     MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 //  Serial.printf("callback_Get_Capabilities len %d ", len);
@@ -859,7 +896,17 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
     DetectCapabilities();
 
 	memcpy((void *)&MsgOut[12],(void *) &B_flags,2); 
+#if ST_VERS == 2
+    {   char stOT;
+        stOT = stsOT;
+        memcpy((void *)&MsgOut[14],(void *) &stOT,1); 
+        stOT = ot_slave_stsOT;
+        memcpy((void *)&MsgOut[15],(void *) &stOT,1); 
+    }
+#else
 	memcpy((void *)&MsgOut[14],(void *) &stsOT,2); 
+#endif
+
 
     B_flags4 = 0;
 
@@ -880,9 +927,22 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
      if(usePID)
          B_flags4 |= 0x800;  //use PID
 #endif
-	 memcpy((void *)&MsgOut[16],(void *) &B_flags4,4); 
-     tmp = Use_remoteTCPserver;
-	 memcpy((void *)&MsgOut[20],(void *) &tmp, 2); 
+#if RELAY_USE
+    if(Relay_present)
+        B_flags4 |= 0x4000;  
+#endif
+#if ST_VERS == 2
+    if(OT_slave_present)
+        B_flags4 |= 0x8000; 
+#endif
+
+	memcpy((void *)&MsgOut[16],(void *) &B_flags4,4); 
+    tmp = Use_remoteTCPserver;
+	memcpy((void *)&MsgOut[20],(void *) &tmp, 2); 
+//#define IDENTIFY_SUBTYPE ST_VERS
+    tmp = IDENTIFY_SUBTYPE;
+	memcpy((void *)&MsgOut[22],(void *) &tmp, 2); 
+	memcpy((void *)&MsgOut[24],(void *) &OTmemberCode, 2);     
 
      return 0;
 }
@@ -942,6 +1002,15 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
      if(usePID)
          B_flags |= 0x800;  //use PID
 #endif
+#if RELAY_USE
+    if(Relay_present)
+        B_flags |= 0x4000;  
+#endif
+#if ST_VERS == 2
+    if(OT_slave_present)
+        B_flags |= 0x8000; 
+#endif
+
 /*    
     Serial.printf("B_flags %x\n", B_flags);
     Serial.printf("stsOT %x\n", stsOT);
@@ -949,7 +1018,18 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
     Serial.printf("BoilerStatus %x\n", BoilerStatus);
 */         
 	 memcpy((void *)&MsgOut[6],(void *) &B_flags,2); 
+
+#if ST_VERS == 2
+    {   char stOT;
+        stOT = stsOT;
+        memcpy((void *)&MsgOut[8],(void *) &stOT,1); 
+        stOT = ot_slave_stsOT;
+        memcpy((void *)&MsgOut[9],(void *) &stOT,1); 
+    }
+ #else
 	 memcpy((void *)&MsgOut[8],(void *) &stsOT,2); 
+ #endif
+ 
      memcpy((void *)&MsgOut[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
      
 {
@@ -970,22 +1050,28 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
     else        
         memcpy((void *)&MsgOut[34],(void *)&dhw_t,4);
 
-	 memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
-     memcpy((void *)&MsgOut[42],(void *) &FlameModulation,4); 
-	 memcpy((void *)&MsgOut[46],(void *) &Pressure,4); 
-     statDS = 0;
-     if(stsT1 > 0)
-	        statDS |= (stsT1&03);
-     if(stsT2 > 0)
-	        statDS |= (stsT2&03)<<8;
-     memcpy((void *)&MsgOut[50],(void *) &statDS,4); 
-	 memcpy((void *)&MsgOut[54],(void *) &t1,4); 
-	 memcpy((void *)&MsgOut[58],(void *) &t2,4); 
-	 memcpy((void *)&MsgOut[62],(void *) &Toutside,4); 
+	memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
+    memcpy((void *)&MsgOut[42],(void *) &FlameModulation,4); 
+	memcpy((void *)&MsgOut[46],(void *) &Pressure,4); 
+    statDS = 0;
+    if(stsT1 > 0)
+	    statDS |= (stsT1&03);
+    if(stsT2 > 0)
+    statDS |= (stsT2&03)<<8;
+    #if RELAY_USE
+        if(Relay_sts)
+            statDS |= 0x1000;
+    #endif
+    //  memcpy((void *)&MsgOut[50],(void *) &statDS,4); 
+    memcpy((void *)&MsgOut[50],(void *) &statDS,2); 
+//todo 52-54     
+	memcpy((void *)&MsgOut[54],(void *) &t1,4); 
+	memcpy((void *)&MsgOut[58],(void *) &t2,4); 
+	memcpy((void *)&MsgOut[62],(void *) &Toutside,4); 
  #if PID_USE
-	 memcpy((void *)&MsgOut[66],(void *) &tempindoor,4); 
-	 memcpy((void *)&MsgOut[70],(void *) &tempoutdoor,4); 
-	 memcpy((void *)&MsgOut[74],(void *) &TroomTarget,4); 
+	memcpy((void *)&MsgOut[66],(void *) &tempindoor,4); 
+	memcpy((void *)&MsgOut[70],(void *) &tempoutdoor,4); 
+	memcpy((void *)&MsgOut[74],(void *) &TroomTarget,4); 
 #else
     {   float tmp = 0.f;
 	 memcpy((void *)&MsgOut[66],(void *) &tmp,4); 
@@ -1004,8 +1090,6 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
 void SD_Termo::Send_to_server_Sts(void) 
 {   unsigned char * MsgOut;
     Send_to_server_Sts(MsgOut, TcpServer_Lsend, server_get_buf );
-
-//  Serial.printf("++++++Send_to_server_Sts()\n");
 }
 
 //CCMD_SEND_STS_S send to remote server
@@ -1049,12 +1133,33 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 #if  PID_USE
      B_flags |= 0x400;  //PID_defined
      if(usePID)
-         B_flags |= 0x800;  //use PID
+     B_flags |= 0x800;  //use PID
 #endif
+
+#if RELAY_USE
+    if(Relay_present)
+        B_flags |= 0x4000;  
+#endif
+#if ST_VERS == 2
+    if(OT_slave_present)
+        B_flags |= 0x8000; 
+#endif
+
 /* todo Buf[6] -> Buf[4] */
     
 	 memcpy((void *)&msg->Buf[6],(void *) &B_flags,2); 
-	 memcpy((void *)&msg->Buf[8],(void *) &stsOT,2); 
+#if ST_VERS == 2
+    {   char stOT;
+        stOT = stsOT;
+        memcpy((void *)&msg->Buf[8],(void *) &stOT,1); 
+        stOT = ot_slave_stsOT;
+        memcpy((void *)&msg->Buf[9],(void *) &stOT,1); 
+    }
+#else
+    memcpy((void *)&msg->Buf[8],(void *) &stsOT,2); 
+
+#endif
+   
      memcpy((void *)&msg->Buf[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
 	 memcpy((void *)&msg->Buf[14],(void *) &BoilerStatus,4);  //20=12+8
 	 memcpy((void *)&msg->Buf[18],(void *) &BoilerT,4); 
@@ -1069,11 +1174,22 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
      memcpy((void *)&msg->Buf[42],(void *) &FlameModulation,4); 
 	 memcpy((void *)&msg->Buf[46],(void *) &Pressure,4); 
      statDS = 0;
-     if(stsT1 > 0)
-	        statDS |= (stsT1&03);
-     if(stsT2 > 0)
-	        statDS |= (stsT2&03)<<8;
-     memcpy((void *)&msg->Buf[50],(void *) &statDS,4); 
+    if(stsT1 > 0)
+        statDS |= (stsT1&03);
+    if(stsT2 > 0)
+        statDS |= (stsT2&03)<<8;
+#if RELAY_USE
+    if(Relay_sts)
+        statDS |= 0x1000;
+#endif
+    
+    memcpy((void *)&msg->Buf[50],(void *) &statDS,2); 
+
+#if OT_DEBUGLOG
+    statDS = OTlogBuf.GetLbuf();
+    memcpy((void *)&msg->Buf[52],(void *) &statDS,2); 
+#endif    
+
 	 memcpy((void *)&msg->Buf[54],(void *) &t1,4); 
 	 memcpy((void *)&msg->Buf[58],(void *) &t2,4); 
 	 memcpy((void *)&msg->Buf[62],(void *) &Toutside,4); 
@@ -1092,8 +1208,74 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 	 memcpy((void *)&msg->Buf[82],(void *) &tmp,4); 
     }
 #endif
-
+    TCPserver_rc = 0;
+    TCPserver_close_on_send = 0; //wait answer
      //78
+}
+
+//CCMD_SEND_OTLOG_S 
+void SD_Termo::Send_to_server_OTlog(void)
+{   unsigned char * MsgOut;
+    short int  tmp2;
+    int rc = 1, tmp4, i, l, lb;
+    struct Msg1 *msg;
+    unsigned char buf[8];
+//    Send_to_server_Sts(MsgOut, TcpServer_Lsend, server_get_buf );
+
+    if(nOT_need_send * OTlogBuf.Litem > (120-6)) nOT_need_send = (120-6)/OTlogBuf.Litem;
+    lb = OTlogBuf.GetLbuf();
+    if(nOT_need_send > lb) nOT_need_send = lb;
+    l = nOT_need_send * OTlogBuf.Litem;
+
+    TcpServer_Lsend = 6 + 6 + l;	
+  
+    MsgOut =  server_get_buf(TcpServer_Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+
+//    Serial.printf("Send_to_server_OTlog %d Lb %d L%d\n",  nOT_need_send, OTlogBuf.GetLbuf(), nOTlog );
+ 
+    msg->cmd0 = 0x22;
+    msg->cmd  = CCMD_SEND_OTLOG_S;
+
+    msg->ind = indcmd++;
+
+    memcpy((void *)&msg->Buf[0],(void *) &ClientId,4); 
+    if(lb > 255) lb = 255;
+    tmp2 = nOT_need_send | (lb<<8);
+
+    memcpy((void *)&msg->Buf[4],(void *) &tmp2,2); 
+    for(i=0;i<nOT_need_send;i++)
+    {   OTlogBuf.Get(buf);
+        memcpy((void *)&msg->Buf[6+i*OTlogBuf.Litem],(void *)buf,OTlogBuf.Litem); 
+//        Serial.printf("buf %02x %02x %02x %02x %02x %02x %02x %02x %02x \n",
+//                buf[0],buf[1],buf[2],buf[3], buf[4],buf[5],buf[6],buf[7]);
+    }
+    TCPserver_rc = 0;
+    TCPserver_close_on_send = 0; //wait answer
+}
+
+//SCMD_SEND_OTLOG_C = CCMD_SEND_OTLOG_S answer
+int SD_Termo::server_answerOTLog( U8 *bf, int len)
+{   unsigned char * MsgOut;
+    unsigned short int tmp2;
+    int rc = 0;
+    nOTsend += nOT_need_send;
+    if(len == 8)
+    {   memcpy((void *)&tmp2,(void *)&bf[6],2);
+        if(tmp2 > 16) tmp2 = 16;
+        nOT_need_send = tmp2; 
+//        Serial.printf(" get answer SCMD_SEND_OTLOG_C len=%d, nOT_need_send =%d\n", tmp2, nOT_need_send);
+        if(nOT_need_send > 0)          
+        {   TCPserver_rc = CCMD_SEND_OTLOG_S;
+            TCPserver_close_on_send = 0; //wait answer
+            rc = 1; //not call asTCPserver.closeTCP() after net_ServerCallback()
+
+        } else {
+            TCPserver_rc = SCMD_SEND_OTLOG_C;
+            TCPserver_close_on_send = 1; //not wait answer
+        }
+    }
+    return rc;
 }
 
 //MCMD_INTRODUCESELF answer
@@ -1101,8 +1283,8 @@ int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)
 {   int tmp4;
     if(len < 12)
         return -1;
-    TCPserver_rc = MCMD_INTRODUCESELF;
-	memcpy((void *)&ClientId,(void *)&bf[6],4);
+        TCPserver_rc = MCMD_INTRODUCESELF;
+        memcpy((void *)&ClientId,(void *)&bf[6],4);
 	memcpy((void *)&ClientId_k,(void *)&bf[10],4);
 	memcpy((void *)&tmp4,(void *)&bf[14],4);
     TCPserver_report_period = tmp4*1000;
@@ -1113,11 +1295,11 @@ int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)
     return 0;
 }
 
-//CCMD_SEND_STS answer from remote server
-// see also callback_Set_State(
+//CCMD_SEND_STS_S answer from remote server
+// see also callback_Set_State()
 int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
-{   int tmp4;
-    short int tmp2;
+{   int tmp4, rc=0;
+    short int remote_cmd;
     float v, vT;
     int isChange = 0;
 
@@ -1125,9 +1307,12 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
     TCPserver_rc = CCMD_SEND_STS_S;
 	memcpy((void *)&tmp4,(void *)&bf[6],4);
     TCPserver_report_period = tmp4*1000;
+    memcpy((void *)&remote_cmd,(void *)&bf[10],2);
+    TCPserver_close_on_send = 1; //not wait answer
+
     if(len == 6+4*4+2*2)
-    {   memcpy((void *)&tmp2,(void *)&bf[10],2);
-        if(tmp2 == 1)
+    {  
+        if(remote_cmd == 1)
         {
             short int B_flags_toSet;
             float Tset_toSet;    
@@ -1139,8 +1324,18 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             memcpy((void *)&TdhwSet_toSet,      (void *)&bf[22],4);
 //  Serial.printf("servercallback_send_Sts_answ TCPserver_report_period  %d\n", TCPserver_report_period);
 //    Serial.printf("B_flags_toSet %x Tset_toSet %f TroomTarget_toSet %f TdhwSet_toSet %f\n", B_flags_toSet, vT, v, TdhwSet_toSet );
+//    Serial.printf("B_flags_toSet %x \n", B_flags_toSet);
 
 //B_flags_toSet todo
+#if RELAY_USE    
+        if(Relay_present)
+        {  int r = 0;
+        if(B_flags_toSet & 0x1000)
+                r = 1;
+            RelayOnOff(r);
+        }
+#endif
+
             vT = CHtempLimit(vT);
             TdhwSet_toSet = CHtempLimit(TdhwSet_toSet);
 
@@ -1179,8 +1374,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
                 need_write_f = 1;  //need write changes to FS
         } 
     } else if(len == 6+4*3+2) {
-        memcpy((void *)&tmp2,(void *)&bf[10],2);
-        if(tmp2 == 0x10)
+        if(remote_cmd == 0x10)
         {   float _It, _U0;
             start_sts = 0;  
             memcpy((void *)&_It, (void *)&bf[12],4);
@@ -1192,11 +1386,26 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
              mypid.InT = _It;
              InTstartset = 1;       
         }
+    } else if(len == 6+4*2+2) {
+#if OT_DEBUGLOG
+        if(remote_cmd == 0x02)
+        {
+            memcpy((void *)&tmp4,(void *)&bf[12],4);
+            if(tmp4 > 16) tmp4 = 16;
+            nOT_need_send = tmp4; 
+            if(nOT_need_send > 0)          
+            {    TCPserver_rc = CCMD_SEND_OTLOG_S;
+                TCPserver_close_on_send = 0; // wait answer
+                rc = 1;
+            }
+        }
+#endif    
 
     }
 
-    return 1;
+    return rc;
 }
+
 
 //SCMD_GET_STS answer  to remote server
 int SD_Termo::servercallback_Get_Sts( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
@@ -1327,7 +1536,7 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
 
     if(HotWater_present) 
     {   if(B_flags & 0x02)
-            flag = true;
+        flag = true;
         else
             flag = false;
 
@@ -1336,6 +1545,15 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
             isChange = 1;
         }
     }
+
+#if RELAY_USE
+    if(Relay_present)
+    {  int r = 0;
+       if(B_flags & 0x1000)
+            r = 1;
+        RelayOnOff(r);
+    }
+#endif    
 
 	memcpy((void *)&v,(void *)&bf[6+2],4); //Tset
     vT = CHtempLimit(v);
@@ -1376,14 +1594,14 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
     { TdhwSet = vT;
         need_set_dhwT = 1;
         isChange = 1;
-      } 
+    } 
 
 
     if(isChange)
         need_write_f = 1;  //need write changes to FS
 
+}
 
-};
 
 //MCMD_GETDATA
 void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
@@ -1435,15 +1653,13 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
 
 //  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
 
-
-
     ip.fromString(buf);
     if(tcp_remoteIP != ip)
     {   ischange |= 0x01;
         tcp_remoteIP = ip;
     }
 
-  Serial.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
+//  Serial.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
 
 #if SERIAL_DEBUG 
 //  Serial.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
@@ -1473,8 +1689,8 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
     if(ischange)
         need_write_f = 1;
 
-  Serial.printf("need_write_f %d %x TCPserver_port %d sts=%d TCPserver_report_period =%d\n", 
-        need_write_f,  ischange, TCPserver_port, TCPserver_sts, TCPserver_report_period);
+  //Serial.printf("need_write_f %d %x TCPserver_port %d sts=%d TCPserver_report_period =%d\n", 
+  //      need_write_f,  ischange, TCPserver_port, TCPserver_sts, TCPserver_report_period);
 
 }
 

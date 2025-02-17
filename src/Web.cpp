@@ -1142,13 +1142,11 @@ if(SmOT.useMQTT)
         Info2.value +=  str0;
       }
 
-      if(SmOT.HotWater_present) 
-      { if(SmOT.enable_HotWater && ot.OTid_used(OpenThermMessageID::Tdhw))
-            Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
-      }
-
       if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
       {      Info2.value +=  " Бойлер " + String(SmOT.Tstorage);
+      } else  if(SmOT.HotWater_present) {
+         if(SmOT.enable_HotWater && ot.OTid_used(OpenThermMessageID::Tdhw))
+            Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
       }
 
       Info2.value += "<br>";

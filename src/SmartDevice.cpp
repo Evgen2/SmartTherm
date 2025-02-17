@@ -123,7 +123,10 @@ void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int 
   MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
   *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
-  *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
+//  *((PACKED int *) (&MsgOut[8]))  =  IDENTIFY_TYPE; 
+  *((unsigned short int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
+  *((unsigned short int *) (&MsgOut[10]))  =  IDENTIFY_SUBTYPE; 
+
   *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
   *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
   *((PACKED int *) (&MsgOut[20]))  =  Vers;	

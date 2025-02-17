@@ -10,7 +10,7 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
-#define MASTER_SUBVERSION1 3
+#define MASTER_SUBVERSION1 4
 /***************/
 
 #define U8   unsigned char
@@ -166,8 +166,11 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
 
 
 #if OT_DEBUGLOG
-  virtual void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-  { };
+virtual void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
+{ };
+virtual int  server_answerOTLog( U8 *bf, int len)
+{  return 0; };
+
 #endif
 
 };

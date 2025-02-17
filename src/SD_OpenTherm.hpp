@@ -181,8 +181,12 @@ public:
   BoilerStatisic Bstat;
 #if OT_DEBUGLOG
   bool enable_OTlog; //Включаем лог OT
+  int nOTlog; //пакетов в логе
+  short int nOT_need_send;//
+  int nOTsend;//
   myBuffer2 OTlogBuf;
 #endif // OT_DEBUGLOG
+  
   
 #if MQTT_USE
   byte useMQTT;  //0 = not use, 1 use but not setup, 0x3 - use & setup
@@ -309,6 +313,8 @@ public:
       RespMillis = 0;
 #if OT_DEBUGLOG
     	enable_OTlog = false;
+      nOTlog = nOTsend = 0;
+      nOT_need_send = 0;
 #endif            
 #if MQTT_USE
       useMQTT = 0;
@@ -360,6 +366,9 @@ public:
   void Send_to_server_IdentifySelf(void);
   void Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
   void Send_to_server_Sts(void); // PACKED unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
+  void Send_to_server_OTlog(void); 
+  int server_answerOTLog( U8 *bf, int len);
+  
   int servercallback_send_Sts_answ( U8 *bf, int len);
   int server_answer_IdentifySelf( U8 *bf, int len);
   void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

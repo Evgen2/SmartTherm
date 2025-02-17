@@ -33,6 +33,10 @@ extern void setup_tcpudp(SmartDevice *psd);
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
+
+void OTlog( unsigned int reqresp);
+void loop_time(void);
+
 #if MQTT_USE 
  #if RELAY_USE
   extern void MQTT_pub_relay(void);
@@ -41,7 +45,6 @@ extern void loop_servertcp(void);
  extern void MQTT_pub_Eff_Mod_h(void);
 #endif
 
-void loop_time(void);
 
 /************************************/
 class SD_Termo SmOT;
@@ -483,7 +486,8 @@ static int timeOutcounter = 0;
     u88 = (response & 0xffff);
     t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
     ot.update_OTid(id, 1);
-    
+    OTlog(response);
+
     switch (id)
     {
     case OpenThermMessageID::Status:  //0
@@ -599,7 +603,7 @@ bit: description [ clear/0, set/1]
 1: Lockout-reset [remoteresetdisabled,rrenabled]
 2: Lowwaterpress[noWPfault,waterpressurefault]
 3: Gas/flamefault [noG/Ffault,gas/flamefault]
-4: Airpressfault [noAPfault,airpressurefault]
+4: Air press fault [noAPfault,airpressurefault]
 5: Waterover-temp[noOvTfault,over-temperat.Fault]
 6: reserved
 7: reserved
@@ -1209,7 +1213,10 @@ int OTloop(void)
            Serial.printf("Request:  %d\n",  id);
  */           
          if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
-              st++;
+         {    st++;
+              OTlog(request);
+         }
+
 #if SERIAL_DEBUG 
          else
            Serial.println(F("sendRequestAync:  return false"));
@@ -1349,7 +1356,7 @@ void loop2(void)
 #if defined(ARDUINO_ARCH_ESP8266)
       needrep = 1;
 #elif defined(ARDUINO_ARCH_ESP32)
-  if( minRamFree - free  > 5000)
+  if( minRamFree - free  > 10000)
       needrep = 1;
 #endif
       minRamFree = free;   
@@ -1522,6 +1529,29 @@ void SD_Termo::RelayOnOff(bool onoff)
 #endif  
 }
 
+#if OT_DEBUGLOG
+//пишем в кольцервой буфер не более 1024 пакетов
+void OTlog( unsigned int reqresp)
+{ unsigned int b[2];
+  unsigned long t = millis();
+  int lb;
+  if(!SmOT.Use_remoteTCPserver)
+    return;
+
+  lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
+
+  if(SmOT.nOTlog < 1024 && lb > 1)
+  { b[0] = ((SmOT.nOTlog & 0xff) << 24 | (t & 0xffffff));
+    b[1] =  reqresp;
+
+    SmOT.OTlogBuf.Add( b);
+    SmOT.nOTlog++;
+  } else if(lb <= 1) { //нет места в буфере
+    SmOT.nOTlog  = 1024;
+  }
+}
+#endif  
+	
     
 #if OT_DEBUG
 //code = 0  responce
