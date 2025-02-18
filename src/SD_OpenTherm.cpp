@@ -1244,8 +1244,10 @@ void SD_Termo::Send_to_server_OTlog(void)
     tmp2 = nOT_need_send | (lb<<8);
 
     memcpy((void *)&msg->Buf[4],(void *) &tmp2,2); 
+    OTlogBuf.StartRead();
     for(i=0;i<nOT_need_send;i++)
-    {   OTlogBuf.Get(buf);
+    {  // OTlogBuf.Get(buf);
+        OTlogBuf.Read(buf);
         memcpy((void *)&msg->Buf[6+i*OTlogBuf.Litem],(void *)buf,OTlogBuf.Litem); 
 //        Serial.printf("buf %02x %02x %02x %02x %02x %02x %02x %02x %02x \n",
 //                buf[0],buf[1],buf[2],buf[3], buf[4],buf[5],buf[6],buf[7]);
@@ -1264,6 +1266,7 @@ int SD_Termo::server_answerOTLog( U8 *bf, int len)
     {   memcpy((void *)&tmp2,(void *)&bf[6],2);
         if(tmp2 > 16) tmp2 = 16;
         nOT_need_send = tmp2; 
+        OTlogBuf.EndRead(); //Освобождаем буфер
 //        Serial.printf(" get answer SCMD_SEND_OTLOG_C len=%d, nOT_need_send =%d\n", tmp2, nOT_need_send);
         if(nOT_need_send > 0)          
         {   TCPserver_rc = CCMD_SEND_OTLOG_S;

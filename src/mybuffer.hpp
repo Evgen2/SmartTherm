@@ -20,17 +20,17 @@ class myBuffer
       ibuf = ibuf2 = ifree = 0;
 //      Litem = 0;
    };
-    void Init(char *pb, int Lb);
-	  int Add(char byte);
-    int Add(char *pb, int Lb);
+   void Init(char *pb, int Lb);
+   int Add(char byte);
+   int Add(char *pb, int Lb);
 //    int Add2(int *pb, int Lb);
-    int Get(void);
-    void StartRead(void);
-    int GetUnread(void);
-    int Read(char *el);
-    void EndRead(void);
-    int GetFree(void);
-    int GetLbuf(void);
+   int Get(void);
+   void StartRead(void);
+   int GetUnread(void);
+   int Read(char *el);
+   void EndRead(void);
+   int GetFree(void);
+   int GetLbuf(void);
 };
 
 class myBuffer2:public myBuffer
@@ -42,9 +42,10 @@ class myBuffer2:public myBuffer
    {  Litem = 0;
    };
    void Init(void *pb, int Lb, int _Litem);
-	 int Add(void *prt);
+	int Add(void *prt);
    int Get(void *prt);
    int GetLbuf(void);
+   void Read(void *prt);
 };
 
 #endif //OT_DEBUGLOG
