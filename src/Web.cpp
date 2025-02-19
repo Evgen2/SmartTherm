@@ -520,6 +520,16 @@ extern int minRamFree;
    //Serial.printf("4 l=%d\n", l);
 
    Info4.value = str;
+#if ST_VERS == 2
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1))
+    { extern int OTslaveDebugInfo[12];      
+      sprintf(str,(PGM_P)F("<br>OT2: %d %d  %d %d  %d "), 
+      OTslaveDebugInfo[0], OTslaveDebugInfo[1], OTslaveDebugInfo[2], OTslaveDebugInfo[3], OTslaveDebugInfo[4]);
+      Info4.value += str;
+    }
+
+#endif      
+
    sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
    Info5.value = str;
   

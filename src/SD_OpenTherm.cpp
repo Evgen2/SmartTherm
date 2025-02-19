@@ -726,18 +726,21 @@ void SD_Termo::loop(void)
                     if(millis() - ts0 > 5000) //todo
                     {   TCPserver_sts2 = 0; 
                         ts0 = millis();
+                        #if OT_DEBUGLOG
                     } else if(TCPserver_rc == CCMD_SEND_STS_S) {
                         TCPserver_sts2 = 5; 
                         ts0 = millis();
                     } else if(TCPserver_rc == CCMD_SEND_OTLOG_S) {
                         TCPserver_sts2 = 7; 
                         ts0 = millis();
+#endif                        
                     } else if(TCPserver_rc == SCMD_GET_HAND_SHAKE) {
                      //   Serial.printf(">>>>>>>>>>>>>>>>>>>>  Сервер хочет HAND_SHAKE\n" );
                         TCPserver_sts2 = 1; //HandShake
                     }
                     break;
-                    
+#if OT_DEBUGLOG
+                                                                    
                     case 7: //send CCMD_SEND_OTLOG_S
                         Send_to_server_OTlog();
                         ts0 = millis();
@@ -757,6 +760,7 @@ void SD_Termo::loop(void)
                         ts0 = millis();
                     }
                     break;
+#endif // OT_DEBUGLOG
                     
                 }
         }
@@ -1213,6 +1217,8 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
      //78
 }
 
+#if OT_DEBUGLOG
+
 //CCMD_SEND_OTLOG_S 
 void SD_Termo::Send_to_server_OTlog(void)
 {   unsigned char * MsgOut;
@@ -1280,6 +1286,7 @@ int SD_Termo::server_answerOTLog( U8 *bf, int len)
     }
     return rc;
 }
+#endif //OT_DEBUGLOG
 
 //MCMD_INTRODUCESELF answer
 int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)

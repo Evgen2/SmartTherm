@@ -34,7 +34,9 @@ extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
 
-void OTlog( unsigned int reqresp);
+#if OT_DEBUGLOG
+void OTlog(unsigned int reqresp, int sts);
+#endif
 void loop_time(void);
 
 #if MQTT_USE 
@@ -406,6 +408,10 @@ static int timeOutcounter = 0;
   } 
 #endif         
 
+#if OT_DEBUGLOG
+    OTlog(response,1);
+#endif
+
 #if ST_VERS == 2
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
     { if(ot_SlaveSts == 2)
@@ -486,8 +492,6 @@ static int timeOutcounter = 0;
     u88 = (response & 0xffff);
     t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
     ot.update_OTid(id, 1);
-    OTlog(response);
-
     switch (id)
     {
     case OpenThermMessageID::Status:  //0
@@ -1071,7 +1075,7 @@ M0:
       case 9:
         st++; 
         if(ot.OTid_used(OpenThermMessageID::Texhaust))
-        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Texhaust, 0); //27
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Texhaust, 0); //33
         }  else {
             goto M0;
         }
@@ -1082,7 +1086,7 @@ M0:
         if(SmOT.Use_ID29_DHW_flag)
         {
           if(ot.OTid_used(OpenThermMessageID::Tstorage))
-          {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tstorage, 0); //27
+          {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Tstorage, 0); //29
           }  else {
               goto M0;
           }
@@ -1168,7 +1172,9 @@ int OTloop(void)
     int rc = 0;
 
 #if ST_VERS == 2
-  OT_slaveloop();
+  if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
+  { OT_slaveloop();
+  }
 #endif
 
     switch(st)
@@ -1182,29 +1188,45 @@ int OTloop(void)
 #endif
 
 #if ST_VERS == 2
-    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
-    { if(ot_SlaveSts == 1)
-      { int ids; 
-        request = ot_SlaveRequest;
-        ids = (request & 0xff0000) >>16;
-        if(ids ==0)
-             SmOT.BoilerStatusRequest = request;
-        ot.LastRequestId = ids;
-        ot_SlaveSts = 2;
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1)) 
+    { if(SmOT.ot_slave_stsOT == 0)
+      { if(ot_SlaveSts == 1)
+        { int ids; 
+          request = ot_SlaveRequest;
+          ids = (request & 0xff0000) >>16;
+          if(ids ==0)
+              SmOT.BoilerStatusRequest = request;
+          ot.LastRequestId = ids;
+          ot_SlaveSts = 2;
+          OTlog(request,2);
+        } else {
+          break; // do nothing - no reqest from slave
+        }
       } else {
-        break;
+        extern unsigned long ot_SlaveRequest_ms;
+
+         if(millis() - ot_SlaveRequest_ms > 2000) //wait 3 sek than work as master
+            goto M00;
+  
       }
     } else {
-         if(OTstartSts < OTstartSts_MAX)
+M00:
+        if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
             request = buildRequest(0);
-    }
+            #if OT_DEBUGLOG
+            OTlog(request,0);
+#endif          
+      }
 #else
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
             request = buildRequest(0);
+  #if OT_DEBUGLOG
+            OTlog(request,0);
+  #endif          
 #endif
 
 /*     
@@ -1214,7 +1236,6 @@ int OTloop(void)
  */           
          if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
          {    st++;
-              OTlog(request);
          }
 
 #if SERIAL_DEBUG 
@@ -1268,9 +1289,25 @@ void loop(void)
 #endif
 
 
-#if 1   
    t = millis();
    dt = t - t0;
+
+#if ST_VERS == 2
+  { int dtm = OT_CICLE_TIME;
+
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+        dtm -= 80;
+
+    if(dt < dtm)
+    {  loop2();
+    } else  if( OTloop() ) {
+        t0 = millis();
+    }  else {
+        loop2();
+    }      
+  }
+#else
+
   if(dt < OT_CICLE_TIME)
   {  loop2();
   } else  if( OTloop() ) {
@@ -1279,10 +1316,7 @@ void loop(void)
   }  else {
      loop2();
   }
-#else  //debug without OT   
-       loop_web();
-#endif // 0
-
+#endif //st_VERS  
 }
 
 int minRamFree=-1;
@@ -1530,8 +1564,9 @@ void SD_Termo::RelayOnOff(bool onoff)
 }
 
 #if OT_DEBUGLOG
-//пишем в кольцервой буфер не более 1024 пакетов
-void OTlog( unsigned int reqresp)
+//пишем в кольцевой буфер не более 1024 пакетов
+//sts: 0 - request, 1 - response, 2 - response from slave interface
+void OTlog(unsigned int reqresp, int sts)
 { unsigned int b[2];
   unsigned long t = millis();
   int lb;
@@ -1541,7 +1576,8 @@ void OTlog( unsigned int reqresp)
   lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
 
   if(SmOT.nOTlog < 1024 && lb > 1)
-  { b[0] = ((SmOT.nOTlog & 0xff) << 24 | (t & 0xffffff));
+  { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff));
+
     b[1] =  reqresp;
 
     SmOT.OTlogBuf.Add( b);

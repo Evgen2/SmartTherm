@@ -16,21 +16,33 @@ extern OpenTherm ot_slave;
 extern SD_Termo SmOT;
 
 
-int OTslave_sts = -1;
-int OTslaveDebugInfo[10];
+int OTslaveDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 
 #if OTSLAVE_DEBUG
 void LogOT(int code, byte id, int messagetype, unsigned int u88);
 #else 
 #define  LogOT
 #endif
-
+/* 
+0 get request SUCCESS
+1 get request ok,  ot_SlaveRequest = request;
+2 request from panel go to reqest to boiler
+3 get response from slave (boiler), can send response to master (panel)
+4  sendResponse to master (panel)
+-1 request TIMEOUT
+-2 request NONE
+-3 request INVALID
+-4 request parity ERR
+*/
 volatile int ot_SlaveSts = 0;
 volatile unsigned long ot_SlaveResponse = 0; 
 volatile unsigned long ot_SlaveRequest = 0; 
+unsigned long ot_SlaveRequest_ms = 0;
 int OT_slaveloop(void);
 int setup_ot_slave(void);
 void sendResponse_ot_slave(void);
+
+void OTlog(unsigned int reqresp, int sts);
 
 
 void IRAM_ATTR handleInterruptslave() {
@@ -51,11 +63,13 @@ static int timeOutcounter = 0;
         OTslaveDebugInfo[0]++;
     } else if (status == OpenThermResponseStatus::NONE) {
       // SmOT.stsOT = -1;  // ??
+      ot_SlaveSts = -2;
 #if OT_DEBUG
       LogOT(-3, 0,  0,  0);
 #endif         
         OTslaveDebugInfo[2]++;
     } else if (status == OpenThermResponseStatus::INVALID) {
+      ot_SlaveSts = -3;
        //SmOT.stsOT = 1;
 #if OT_DEBUG
       LogOT(-2, 0,  0,  0);
@@ -98,6 +112,8 @@ static int timeOutcounter = 0;
     parity = ot_slave.parity(request);
     if(parity)
     { OTslaveDebugInfo[1]++;
+      ot_SlaveSts = -4;
+
 #if SERIAL_DEBUG 
         Serial.println(F("Parity error"));
 #endif        
@@ -127,38 +143,8 @@ static int timeOutcounter = 0;
 
 //      Serial.printf("Message id %d\n", id); 
 /*************************************************/
-#if 0
-if(0) //todo
-     { extern OpenThermID OT_ids[N_OT_NIDS];
-          int i, is=0;
-          for(i=0; i< N_OT_NIDS; i++)
-          { if(OT_ids[i].id == id)
-            {   is = 1;
-                break;
-            }
-          }
-
-          if(is == 0)
-          {   Serial.printf("response: UNKNOWN-DATAID %d\n", id); 
-              //delay(2000);
-          } else {
-              if(OT_ids[i].used == 0)
-              {    Serial.printf("id %d not used in emulator\n", id); 
-                   is = 0;
-              }
-          }
-        if(is == 0)    //build UNKNOWN-DATAID response
-        {   response = ot_slave.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, id, 0);   
-            //send response
-            goto SR;
-//            delay(20); //20..400ms, usually 100ms
-//            ot.sendResponse(response);
-//            return;
-        }
-      }
-#endif //0      
-/*************************************************/
     SmOT.ot_slave_t_lastwork  = time(nullptr);
+    ot_SlaveRequest_ms = millis();
     ot_SlaveRequest = request;
     ot_SlaveSts = 1;
     SmOT.ot_slave_stsOT = timeOutcounter = 0;
@@ -180,13 +166,20 @@ SR:
 
     SmOT.ot_slave_stsOT = 0;
     //send response
-    delay(21); //20..400ms, usually 100ms
-    ot_slave.sendResponse(response);
+    ot_SlaveResponse = response;
+#if OT_DEBUGLOG
+    OTlog(response, 3);
+#endif    
+    ot_SlaveSts = 3;
+// мы тут в прерывании.
+// напрямую из прерывания посылать ответ - плохо    
+//    delay(21); //20..400ms, usually 100ms
+//    ot_slave.sendResponse(response);
 }
 
 int setup_ot_slave(void)
 {
-    Serial.printf("setup_slave\n");
+ //   Serial.printf("setup_slave\n");
 
   ot_slave.begin(handleInterruptslave, processRequest);
 
@@ -199,7 +192,7 @@ void sendResponse_ot_slave(void)
     id = (ot_SlaveResponse >> 16 & 0xFF);
 
     ot_slave.sendResponse(ot_SlaveResponse);
-    ot_SlaveSts = 0;
+    ot_SlaveSts = 4;
 }
 
 
@@ -207,7 +200,10 @@ int OT_slaveloop(void)
 {
   ot_slave.process();
   if(ot_SlaveSts == 3 && ot_slave.isReady())
-      sendResponse_ot_slave();
+  {
+    if(millis() - ot_SlaveRequest_ms > 21) //send response after 21 ms
+        sendResponse_ot_slave();
+  }
 
   {  time_t now = time(nullptr);
       double dt;

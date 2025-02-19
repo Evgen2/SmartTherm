@@ -713,11 +713,11 @@ static unsigned int jj=0xffff, Nlost=0;
 	  	    rc = p_sd->server_answer_IdentifySelf( bf, len);
 
 			  break;
-
+ #if OT_DEBUGLOG
 		case SCMD_SEND_OTLOG_C:
 			rc = p_sd->server_answerOTLog(bf,len);
-
 			break;
+#endif
 
 //		case MCMD_SET_TCPSERVER:
 //  	    p_sd->callback_Get_OpenThermInfo(bf, MsgOut, Lsend, get_buf);
