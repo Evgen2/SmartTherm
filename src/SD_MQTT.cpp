@@ -413,8 +413,8 @@ extern unsigned int OTcount;
     // configure HVAC (optional)
     hvac.setNameUniqueIdStr(SmOT.MQTT_topic,"Котёл", "Boiler");
 
-    hvac.setMinTemp(10);
-    hvac.setMaxTemp(80);
+    hvac.setMinTemp(SmOT.umin);
+    hvac.setMaxTemp(SmOT.umax);
     hvac.setTempStep(1.);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
     #if  PID_USE

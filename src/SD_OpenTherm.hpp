@@ -144,6 +144,7 @@ public:
   float Tset_r;  // Temp set from responce
   float Tset2;   // Control setpoint for 2e CH circuit (°C)
   float Tset2_r; // Temp2 set from responce
+	float MaxTSet; // f8.8  Max CH water setpoint (°C) (Remote parameters 2) ID57
 
   float BoilerT; // Boiler flow water temperature (°C) CH
   float BoilerT2; // Boiler CH2 water temperature (°C) CH
@@ -170,6 +171,7 @@ public:
   byte need_set_RemoteRequest;
   byte need_send_Blor;
   byte need_write_f; 
+  byte need_set_MaxTSet;
 
   int TestCmd;
   int TestId;
@@ -241,6 +243,8 @@ public:
   time_t t_lastSetPointChange;
   int  src_lastSetPointChange;
   float oldTroomSetpoint; 
+  float umin; //минимальная температура теплоносителя
+  float umax; //максимальная температура теплоносителя
 
   SD_Termo(void)
   {	  
@@ -292,6 +296,7 @@ public:
       need_set_MaxRelModLevel = 9;
       need_set_RemoteRequest = 3;
       need_send_Blor = 0;
+      need_set_MaxTSet = 1;
 /********************************/      
       need_write_f = 0;
       RetT = 0.;
@@ -343,7 +348,9 @@ public:
       Immergas_fix_flag = 0;
       CH_StartGist = 10.f;
       Use_MaxRelModLevel = 0;
-
+      umin = 40;
+      umax = 80;
+      MaxTSet = umax;
     start_sts = 1;
     _U0start = 0;
     InTstartset = 0;

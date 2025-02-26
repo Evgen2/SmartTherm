@@ -115,6 +115,8 @@ ACInput(SetMQTT_topic,"", "топик");
 ACInput(SetMQTT_devname,"", "имя устройства"); 
 ACInput(SetMQTT_interval,"", "интервал, сек", "",  "Введи интервал",AC_Tag_BR, AC_Input_Number, STYLE_WIDTH); 
 #endif // MQTT_USE
+ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить удаленное управление", false, AC_Behind , AC_Tag_DIV);
   
 //AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
@@ -155,8 +157,6 @@ ACInput(SetKdPID,  "", "Kd:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH);
 ACInput(SetKiPID,  "", "Ki:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
 ACInput(SetIdissPID,"","Idiss:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); 
 
-ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
-ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u0_PID,"", "u0:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_t0_PID,"", "t0:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u1_PID,"", "u1:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
@@ -167,7 +167,7 @@ ACInput(Set_CH_GIST,"", "Гистерезис включения горелки,
 
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
-                      SetKpPID, SetKdPID, SetKiPID,SetIdissPID, SetTmaxPID, SetTminPID, Info2,
+                      SetKpPID, SetKdPID, SetKiPID,SetIdissPID, 
                       Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });  // onSetupPID()
 #endif
 /************* SetPID end ***************/
@@ -196,13 +196,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 #endif 
 
 #if MQTT_USE
-  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3, SetMaxMod, CtrlChBMmod, 
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3, SetMaxMod, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
      CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod,
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
  CtrlChBUseRelay,
   #endif
@@ -693,6 +693,20 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SmOT.init(2);
   }
 
+  v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
+  if(v != SmOT.umax)
+  { SmOT.umax = v;
+    SmOT.need_set_MaxTSet = 2;    
+    isChange = 1;
+  }
+
+  v = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
+  if( v > SmOT.umax - 1.)  v = SmOT.umax -1.;
+  if(v != SmOT.umin)
+  { SmOT.umin = v;
+    isChange = 1;
+  }
+
 #if MQTT_USE
   int isChangeMQTT = 0;
   if( CtrlChbUseMQTT.checked) check = true;
@@ -1026,6 +1040,24 @@ extern OpenTherm ot;
         if(SmOT.BoilerStatus & 0x40)
           Info1.value += "<br>Diag";
 
+          if(SmOT.BoilerStatus & 0xff00)
+          { Info1.value += "<br><small>Уставки:";
+            if(SmOT.BoilerStatus & 0x0100)
+              Info1.value += " CH";
+            if(SmOT.BoilerStatus & 0x0200)
+              Info1.value += " DHW";
+            if(SmOT.BoilerStatus & 0x0400)
+              Info1.value += " Cool";
+            if(SmOT.BoilerStatus & 0x0800)
+              Info1.value += " OTC";
+            if(SmOT.BoilerStatus & 0x1000)
+              Info1.value += " CH2";
+            if(SmOT.BoilerStatus & 0x2000)
+              Info1.value += " Summer";
+            if(SmOT.BoilerStatus & 0x4000)
+              Info1.value += " DHWblocking";
+              Info1.value += "</small>";
+          }
       }
         break;
       case 1:
@@ -1384,6 +1416,13 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   else
      CtrlChB3.enable  = false;
 
+     Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+
+     sprintf(str,"%.2f",SmOT.umax);
+     SetTmaxPID.value = str;
+     sprintf(str,"%.2f",SmOT.umin);
+     SetTminPID.value = str;
+         
   if(SmOT.Use_remoteTCPserver)
     CtrlChB_UseRemoteControl.checked = true;
   else
@@ -1558,19 +1597,6 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
 
-    v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
-    if(v != SmOT.mypid.umax)
-    { SmOT.mypid.umax = v;
-      isChange = 1;
-    }
-
-    v = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
-    if( v > SmOT.mypid.umax - 1.)  v = SmOT.mypid.umax -1.;
-    if(v != SmOT.mypid.umin)
-    { SmOT.mypid.umin = v;
-      isChange = 1;
-    }
-
     v = SmOT.CHtempLimit(Set_u0_PID.value.toFloat());    
     if(v != SmOT.mypid.u0)
     { SmOT.mypid.u0 = v;
@@ -1661,16 +1687,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   sprintf(str0,"%.2f",SmOT.mypid.xTag);
   SetXtagPID.value = str0;
 
-  //Serial.printf("**** WWW TroomTarget = %f  mypid.xTag= %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
-
-  Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
-
-  sprintf(str0,"%.2f",SmOT.mypid.umax);
-  SetTmaxPID.value = str0;
-  sprintf(str0,"%.2f",SmOT.mypid.umin);
-  SetTminPID.value = str0;
- 
-  Info3.value = "ПЗА: темп.отопления | наружная";
+   Info3.value = "ПЗА: темп.отопления | наружная";
 
   sprintf(str0,"%.2f",SmOT.mypid.u0);
   Set_u0_PID.value = str0;

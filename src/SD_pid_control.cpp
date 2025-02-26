@@ -100,12 +100,12 @@ void SD_Termo::loop_PID(void)
     }
 
     _u = mypid.u;
-    if(_u > mypid.umax)
-        _u =  mypid.umax;
+    if(_u > umax)
+        _u = umax;
 
-    if(_u <= mypid.xTag || (_u <= mypid.umin - 0.5f) )
+    if(_u <= mypid.xTag || (_u <= umin - 0.5f) )
     {   need_heat = 0;
-    }  else if(_u >= mypid.umin + 0.5f) {
+    }  else if(_u >= umin + 0.5f) {
         need_heat = 1;
     }
 
@@ -125,7 +125,7 @@ void SD_Termo::loop_PID(void)
         if(dt > 180) //3 минуты - защита от кратковременного включения
         {
             enable_CentralHeating_real = false;
-            _u = mypid.umin;
+            _u = umin;
             start_heat = 0;
             t_stop_heat = now; //время выключения отопления
         }
@@ -151,8 +151,8 @@ void SD_Termo::loop_PID(void)
 /* пытаемся предотвратить тактование */
                 if(_uu - _u > 4.f)  /* допускаем повышение температуры бойлера не более чем на 4 градуса выше PID  */
                     _uu = _u + 4.f;
-                if(_uu >  mypid.umax)  // ограничиваем max
-                    _uu =  mypid.umax;
+                if(_uu >  umax)  // ограничиваем max
+                    _uu =  umax;
             }
 
            _u = _uu;
@@ -160,8 +160,8 @@ void SD_Termo::loop_PID(void)
         } else {   //если горелка еще выключена
             if(_u - BoilerT > CH_StartGist)  //10.f
             {   _uu = BoilerT + CH_StartGist; //ограничиваем  температуру теплоносителя при включении
-                if(_uu < mypid.umin)
-                {   _uu =  mypid.umin;
+                if(_uu < umin)
+                {   _uu =  umin;
                     _ustart  = _u;
                 }
                 _u = _uu;

@@ -102,8 +102,6 @@ class pid
    float Kp;
    float Kd;
    float Ki;
-   float umin;
-   float umax;
    float Kidiss; // коэффициент диссипации интеграла
 
    float u0; //базовый управляющий сигнал при y = y0;
@@ -127,8 +125,6 @@ class pid
       u1 = 80.;
       y1 = -30.;
 //      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  
-	umin = 40;
-	umax = 80;
       x = xerr = 0.;
       dP = dD = dI = 0.;
       InT = 0;

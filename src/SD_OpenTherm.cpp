@@ -52,7 +52,7 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
 
 #if PID_USE
             sizeof(SD_Termo::usePID) + sizeof(SD_Termo::srcTroom) + sizeof(SD_Termo::srcText) + sizeof(SD_Termo::mypid.Kp) + sizeof(SD_Termo::mypid.Kd) +
-            sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::mypid.umax) + sizeof(SD_Termo::mypid.umin) + sizeof(SD_Termo::mypid.u0) +
+            sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::umax) + sizeof(SD_Termo::umin) + sizeof(SD_Termo::mypid.u0) +
             sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss)
 #endif
     ;
@@ -167,11 +167,11 @@ int SD_Termo::Read_ot_fs(void)
     TroomTarget = mypid.xTag;
     n += sizeof(mypid.xTag);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.umax, &Buff[n], sizeof(mypid.umax));
-    n += sizeof(mypid.umax);
+    memcpy((void *) &umax, &Buff[n], sizeof(umax));
+    n += sizeof(umax);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.umin, &Buff[n], sizeof(mypid.umin));
-    n += sizeof(mypid.umin);
+    memcpy((void *) &umin, &Buff[n], sizeof(umin));
+    n += sizeof(umin);
     if(n >= nw) goto END;
     memcpy((void *) &mypid.u0, &Buff[n], sizeof(mypid.u0));
     n += sizeof(mypid.u0);
@@ -432,10 +432,10 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(mypid.Ki);
     memcpy(&Buff[n],(void *) &mypid.xTag , sizeof(mypid.xTag));
     n += sizeof(mypid.xTag);
-    memcpy(&Buff[n],(void *) &mypid.umax , sizeof(mypid.umax));
-    n += sizeof(mypid.umax);
-    memcpy(&Buff[n],(void *) &mypid.umin , sizeof(mypid.umin));
-    n += sizeof(mypid.umin);
+    memcpy(&Buff[n],(void *) &umax , sizeof(umax));
+    n += sizeof(umax);
+    memcpy(&Buff[n],(void *) &umin , sizeof(umin));
+    n += sizeof(umin);
     memcpy(&Buff[n],(void *) &mypid.u0 , sizeof(mypid.u0));
     n += sizeof(mypid.u0);
     memcpy(&Buff[n],(void *) &mypid.y0 , sizeof(mypid.y0));
@@ -806,7 +806,7 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
 
     *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
     *((unsigned short int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
-    *((unsigned short int *) (&MsgOut[10]))  =  IDENTIFY_SUBTYPE; 
+    *((unsigned short int *) (&MsgOut[10]))  =  IDENTIFY_SUBTYPE; // = ST_VERS
     *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
     *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
     *((PACKED int *) (&MsgOut[20]))  =  Vers;	

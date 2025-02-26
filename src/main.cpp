@@ -36,7 +36,9 @@ extern void loop_servertcp(void);
 
 #if OT_DEBUGLOG
 void OTlog(unsigned int reqresp, int sts);
+void OTlogDelLast(void);
 #endif
+
 void loop_time(void);
 
 #if MQTT_USE 
@@ -387,6 +389,15 @@ static int timeOutcounter = 0;
 		    } else {
 			    timeOutcounter++;
 		    }	
+#if OT_DEBUGLOG
+        if(SmOT.stsOT == 2)
+          OTlogDelLast();
+#endif
+
+      } else {
+#if OT_DEBUGLOG
+        OTlogDelLast();
+#endif
       }
       OTDebugInfo[4]++;
 #if OT_DEBUG
@@ -409,7 +420,14 @@ static int timeOutcounter = 0;
 #endif         
 
 #if OT_DEBUGLOG
+ #if ST_VERS == 2
+    if(SmOT.OT_slave_present == 0 || SmOT.OT_slave_mode == 0)
+      OTlog(response,1);
+    else if(SmOT.ot_slave_stsOT == 0)
+      OTlog(response,1);
+    #else
     OTlog(response,1);
+ #endif
 #endif
 
 #if ST_VERS == 2
@@ -418,10 +436,10 @@ static int timeOutcounter = 0;
       { static int slraz =0;
          ot_SlaveSts = 3;
          ot_SlaveResponse = response;
-
+     
         slraz++;
 //Serial.printf("buildRequestIfNeed raz %d\n", raz);
-        if(SmOT.CapabilitiesDetected == 0)
+if(SmOT.CapabilitiesDetected == 0)
         {  if(slraz++ > 30)
            {  SmOT.CapabilitiesDetected = 1;
               SmOT.DetectCapabilities();
@@ -452,7 +470,7 @@ static int timeOutcounter = 0;
     if(messagetype == DATA_INVALID)
     { OTDebugInfo[7]++;
 #if SERIAL_DEBUG 
-        Serial.println(F("DATA_INVALID"));
+      Serial.println(F("DATA_INVALID"));
 #endif        
       return;
     }
@@ -780,6 +798,8 @@ int buildRequestIfNeed(unsigned int &request)
                   { need++, flag |= 0x08; s = 4; }
   if(ot.OTid_used(OpenThermMessageID::RemoteRequest) && SmOT.need_set_RemoteRequest) 
                   { need++, flag |= 0x10; s = 5; } //s = Nneed
+  if(ot.OTid_used(OpenThermMessageID::MaxTSet) && SmOT.need_set_MaxTSet) 
+                  { need++, flag |= 0x20; s = 6; } //s = Nneed
                   
   if(need == 1)
   { sts = s;
@@ -859,7 +879,7 @@ int buildRequestIfNeed(unsigned int &request)
       break;
 
     case 4:
-        if(SmOT.need_set_MaxRelModLevel > 0)
+        if(SmOT.need_set_MaxRelModLevel > 0) //14
         { 	unsigned int data = ot.temperatureToData(SmOT.MaxRelModLevelSetting);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxRelModLevelSetting, data);
             SmOT.need_set_MaxRelModLevel--;
@@ -867,7 +887,7 @@ int buildRequestIfNeed(unsigned int &request)
       break;
 
     case 5:
-        { 	unsigned int data = 0;
+        { 	unsigned int data = 0; //4
         if(SmOT.need_send_Blor)
         {   data = (0x01<<8);  //BLOR        
             SmOT.need_send_Blor = 0;
@@ -878,6 +898,15 @@ int buildRequestIfNeed(unsigned int &request)
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::RemoteRequest, data);
             SmOT.need_set_RemoteRequest--;
         }
+      break;
+
+    case 6: //MaxTSet 
+        if(SmOT.MaxTSet >= MIN_CH_TEMP && SmOT.MaxTSet <= MAX_CH_TEMP)
+        { 	unsigned int data = ot.temperatureToData(SmOT.MaxTSet);
+            request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxTSet, data);
+            SmOT.need_set_MaxTSet--;
+        }
+
       break;
   }
 
@@ -900,7 +929,7 @@ int buildRequestIfNeed(unsigned int &request)
 }
 
 unsigned int buildRequest(int mode)
-{   static int st = 0;
+{   static int st = 0, raz = 0;
     unsigned int request = 0;
     int rc;
     if(mode == 1)
@@ -928,18 +957,21 @@ M0:
       } else {
         request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating_real, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, SmOT.enable_CentralHeating2, SmOT.UseWinterMode);
       }   
-#if MQTT_USE 
 {  static int old_CH = -1;
     if(old_CH != SmOT.enable_CentralHeating_real)
     {
-// Serial.printf("SmOT.enable_CentralHeating_real  %d %d\n",SmOT.enable_CentralHeating_real, old_CH );
-       if(MQTT_pub_cmdCH(SmOT.enable_CentralHeating_real))
-       {    old_CH = SmOT.enable_CentralHeating_real;
+      if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && SmOT.enable_CentralHeating_real)
+         SmOT.need_set_MaxRelModLevel = 2; 
 
-       }
-    }
-}
+// Serial.printf("SmOT.enable_CentralHeating_real  %d %d\n",SmOT.enable_CentralHeating_real, old_CH );
+#if MQTT_USE 
+       MQTT_pub_cmdCH(SmOT.enable_CentralHeating_real);
+       
 #endif      
+         old_CH = SmOT.enable_CentralHeating_real;
+      }
+
+}
 #else
       if(SmOT.CH2_DHW_flag && SmOT.enable_HotWater)
       {  request = ot.buildSetBoilerStatusRequest(SmOT.enable_CentralHeating, SmOT.enable_HotWater, SmOT.enable_Cooling, SmOT.Use_OTC, 1, SmOT.UseWinterMode);
@@ -950,39 +982,50 @@ M0:
       SmOT.BoilerStatusRequest = request;
         st++;
       break;
+
       case 1: 
+        st++;
         rc = buildRequestIfNeed(request);
-        if(rc == 0)
-        {  st++;
-        } else if(rc == 1)  {
-            break;
-        } else {
-            st++;
-            break;
+        if(rc > 0)
+        { if(rc == 1) //при старте запрашиваем всё, но не более 4 id за раз
+          { int count, countok;
+            static int raz0 = 0;
+            ot.Get_OTid_count(OpenThermMessageID::Status, count, countok);
+            if(count < 4)
+            { raz0++;
+              if(raz0 > 4) raz0 = 0;
+              else         st--;
+            }
+          }
+          break;
+        }
+        raz++;
+
+        if(SmOT.CapabilitiesDetected == 0)
+        {  if(raz > 2)
+             SmOT.CapabilitiesDetected = 1;
+        } else if(SmOT.CapabilitiesDetected == 1) {
+           if(raz > 16)
+           {   SmOT.CapabilitiesDetected = 2;
+              SmOT.DetectCapabilities();
+           }
+        }
+
+        if(raz > 100)
+        {   if(SmOT.enable_CentralHeating)
+                SmOT.need_set_T  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+            if(SmOT.enable_HotWater) 
+                SmOT.need_set_dhwT = 1;                   
+            if(SmOT.enable_CentralHeating2)
+                SmOT.need_set_T2  = 10; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+            if(SmOT.Use_MaxRelModLevel)
+              SmOT.need_set_MaxRelModLevel = 1; 
+            SmOT.need_set_MaxTSet = 1;
+
+            raz = 0;
         }
 
 #if 0
-          if(SmOT.need_set_T)
-          {    //Set Boiler Temperature to 
-// Serial.printf("1 Request: %d\n",OpenThermMessageID::TSet);
-              request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset); //1
-              if(SmOT.need_set_T > 0)  //test
-                  SmOT.need_set_T--;
-               break;
-          } else if(SmOT.need_set_dhwT) {
- //Serial.printf("1a Request: %d\n",OpenThermMessageID::TdhwSet);
-#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
-              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.tempoutdoor); //56
-#else              
-              request = ot.buildSetDHWSetpointTemperatureRequest(SmOT.TdhwSet); //56
-#endif              
-              SmOT.need_set_dhwT = 0;
-               break;
-          } else if(SmOT.need_set_T2) {
-              request = ot.buildSetBoilerCH2TemperatureRequest(SmOT.Tset2); //8
-               SmOT.need_set_T2 = 0;
-               break;
-          } else {
             raz++;
 
             if(SmOT.CapabilitiesDetected == 0)
@@ -1004,10 +1047,11 @@ M0:
                 raz = 0;
             }
           }
-     // break; especially omitted = специально пропущен !!!! 
 #endif //0
 
-      case 2: //getBoilerTemperature
+     // break; especially omitted = специально пропущен !!!! 
+
+     case 2: //getBoilerTemperature
 // Serial.printf("2 Request: %d\n",OpenThermMessageID::Tboiler);
           request = ot.buildGetBoilerTemperatureRequest();
           st++;
@@ -1103,8 +1147,9 @@ M0:
           if(ot.OTid_used(OpenThermMessageID::TrSet)) // 16  Room Setpoint (°C)
           { 
 //          unsigned int data = ot.temperatureToData(SmOT.TroomTarget);
-            unsigned int data = ot.temperatureToData(22.f);
-	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TrSet, data);
+            //unsigned int data = ot.temperatureToData(22.f);
+            unsigned int data = ot.temperatureToData(24.f);
+            request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::TrSet, data);
           }  else {
               goto M0;
           }
@@ -1117,7 +1162,8 @@ M0:
         {
           if(ot.OTid_used(OpenThermMessageID::Tr)) //  24 Room temperature (°C)
           { //unsigned int data = ot.temperatureToData(SmOT.tempindoor);
-             unsigned int data = ot.temperatureToData(24.f);
+//          unsigned int data = ot.temperatureToData(24.f);
+            unsigned int data = ot.temperatureToData(22.f);
 	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::Tr, data);
           }  else {
               goto M0;
@@ -1215,11 +1261,12 @@ M00:
             request = buildRequestOnStart();
          else
             request = buildRequest(0);
-            #if OT_DEBUGLOG
+#if OT_DEBUGLOG
+        if(SmOT.OT_slave_mode == 0)
             OTlog(request,0);
 #endif          
       }
-#else
+#else //ST_VERS == 2
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
          else
@@ -1565,27 +1612,42 @@ void SD_Termo::RelayOnOff(bool onoff)
 
 #if OT_DEBUGLOG
 //пишем в кольцевой буфер не более 1024 пакетов
-//sts: 0 - request, 1 - response, 2 - response from slave interface
+//sts: 0 - request, 1 - response, 
+//2 - request from slave interface
+//3 - response from slave interface in case of invalid request
 void OTlog(unsigned int reqresp, int sts)
 { unsigned int b[2];
   unsigned long t = millis();
   int lb;
   if(!SmOT.Use_remoteTCPserver)
     return;
-
+    
   lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
 
   if(SmOT.nOTlog < 1024 && lb > 1)
   { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff));
+//    Serial.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
+//        SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
 
     b[1] =  reqresp;
 
     SmOT.OTlogBuf.Add( b);
     SmOT.nOTlog++;
+    
   } else if(lb <= 1) { //нет места в буфере
     SmOT.nOTlog  = 1024;
   }
 }
+
+/*  удаляем последнюю запись в логе, если она есть */
+void OTlogDelLast(void)
+{ int tmp[2];
+  if(SmOT.nOTlog > 0)
+  { SmOT.OTlogBuf.Get(&tmp);
+    SmOT.nOTlog--;
+  }
+}
+
 #endif  
 	
     
@@ -1602,31 +1664,6 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
   dms = ms - ms_old;
   ms_old = ms;
 
-#if OT_DEBUGLOG
-SmOT.enable_OTlog = 0; //test
-	if(SmOT.enable_OTlog)
-	{ short int tmp;
-    static unsigned char buf[8];
-    static int nm=0;
-    buf[0] = (unsigned char) (nm&0xff);
-    tmp = dms&0xffff;
-    memcpy(&buf[1], &tmp, 2);
-    //dms // 2b
-    buf[3]  = (unsigned char) (code&0xff);
-	   //code  1b
-    buf[4]  = (unsigned char) (id&0xff);
-	   //id 1b
-    buf[5]  = (unsigned char) (messagetype&0xff);
-	   // messagetype 1b
-	   // u88 2b
-    tmp = u88&0xffff;
-    memcpy(&buf[6], &tmp, 2);
-    SmOT.OTlogBuf.Add(buf);
-//  Serial.printf("LogOT: Lbuf %d \n", SmOT.OTlogBuf.Lbuf);
-//  Serial.printf("LogOT: Lbuf %d ibuf %d ifree %d\n", SmOT.OTlogBuf.GetLbuf(), SmOT.OTlogBuf.ibuf, SmOT.OTlogBuf.ifree);
-
-	} else {
-#endif //OT_DEBUGLOG
 //if(dms < 500)
 //    return;
   if(raz > 1000)
@@ -1756,9 +1793,6 @@ SmOT.enable_OTlog = 0; //test
         Serial.printf((PGM_P)F(" %04x\n"),  u88);
   }
 
-#if OT_DEBUGLOG  
-}
-#endif
  }   
 
 #endif

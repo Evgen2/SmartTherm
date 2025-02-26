@@ -181,7 +181,7 @@ int setup_ot_slave(void)
 {
  //   Serial.printf("setup_slave\n");
 
-  ot_slave.begin(handleInterruptslave, processRequest);
+ ot_slave.begin(handleInterruptslave, processRequest);
 
     return 0;
 }
@@ -190,6 +190,9 @@ void sendResponse_ot_slave(void)
 { 
   int id;
     id = (ot_SlaveResponse >> 16 & 0xFF);
+
+//    if(ot_slave.getMessageType(ot_SlaveResponse) == DATA_INVALID)
+//       Serial.printf("DATA_INVALID SlaveResponse 2\n");
 
     ot_slave.sendResponse(ot_SlaveResponse);
     ot_SlaveSts = 4;
