@@ -682,7 +682,12 @@ An OEM-specific fault/error code
         break;
 
     case OpenThermMessageID::Texhaust: //33
-        SmOT.Texhaust = (float)u88;
+      { float tmp;
+        tmp = (float)u88;
+        if(tmp < -40. || tmp > 500)
+          tmp = t;
+        SmOT.Texhaust = tmp;
+      }
         break;
 
     case OpenThermMessageID::RelModLevel: //17 Relative Modulation Level 
