@@ -1533,8 +1533,14 @@ static int mday_prev = 0;
         SmOT.loop_PID();
 #endif
 
-//  Serial.printf("%s", ctime(&now));
- 
+#if ST_VERS == 2
+ #if OT_SLAVE_DEBUG 
+  { extern int nslaveint;
+    Serial.printf("v = %d", nslaveint);
+  }
+ #endif 
+#endif 
+
 #if SERIAL_DEBUG 
 
 /*

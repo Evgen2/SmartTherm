@@ -34,6 +34,7 @@
   #define MQTT_USE  1
   #define RELAY_USE 1
   #define CONFIG_VERSION (CONFIG_VERSIONBASE|0x8000)
+  #define OT_SLAVE_DEBUG 0
 #else 
   error
 #endif

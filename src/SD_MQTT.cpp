@@ -114,7 +114,7 @@ HAHVAC hvacDHW(
 HAHVAC hvacPID(
   NULL,
   HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature | HAHVAC::ActionFeature,
-  HANumber::PrecisionP2
+  HANumber::PrecisionP3
 );
 #endif
 unsigned long lastReadAt = millis();
@@ -530,8 +530,8 @@ extern unsigned int OTcount;
     numT_outdoor.setAvailability(true);
     numT_outdoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T outdoor", "Toutdoor");
     numT_outdoor.setMode(HANumber::ModeBox);
-    numT_outdoor.setState(10.f, true);
-    numT_outdoor.setCurrentState(10.f);
+    numT_outdoor.setState(10.f, false);
+//    numT_outdoor.setCurrentState(10.f);
     numT_outdoor.setStep(0.1);
     numT_outdoor.setMin(-50.);
     numT_outdoor.setMax( 50.);
@@ -540,7 +540,7 @@ extern unsigned int OTcount;
     numT_indoor.setAvailability(true);
     numT_indoor.setNameUniqueIdStr(SmOT.MQTT_topic,"T indoor", "Tindoor");
     numT_indoor.setMode(HANumber::ModeBox);
-    numT_indoor.setState(20.f, true);
+    numT_indoor.setState(10.f, true);
     numT_indoor.setStep(0.1);
     numT_indoor.setMin(-50.);
     numT_indoor.setMax( 50.);
@@ -724,8 +724,9 @@ if(SmOT.stsMQTT == 0)
           hvac.setMode(HAHVAC::OffMode);
 
     #if  PID_USE
-        hvacPID.setCurrentTemperature(SmOT.tempindoor);
-        hvacPID.setTargetTemperature(SmOT.TroomTarget);
+          if(SmOT.IsSetTemp & 0x01)
+            hvacPID.setCurrentTemperature(SmOT.tempindoor);
+          hvacPID.setTargetTemperature(SmOT.TroomTarget);
 
     #endif
 
@@ -789,12 +790,13 @@ if(SmOT.stsMQTT == 0)
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
             
-//Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
-            if(SmOT.srcText >= 0 && SmOT.srcText < 3)
-            {   numT_outdoor.setState(SmOT.tempoutdoor, true);
-            }
-            if(SmOT.srcTroom >= 0 && SmOT.srcTroom < 3)
+//            Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
+
+            if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
             {  numT_indoor.setState(SmOT.tempindoor, true);
+            }
+            if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
+            {   numT_outdoor.setState(SmOT.tempoutdoor, true);
             }
 
 //            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);

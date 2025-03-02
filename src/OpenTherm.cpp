@@ -26,9 +26,19 @@ OpenTherm::OpenTherm(int inPin, int outPin, bool isSlave):
 	Immergas_fix = false;
 }
 
+//#define PULLUP            0x04
+//#define INPUT_PULLUP      0x05
+//#define PULLDOWN          0x08
+//#define INPUT_PULLDOWN    0x09
+
 void OpenTherm::begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus))
 {	init_OTids();
-	pinMode(inPin, INPUT);
+	if(isSlave)
+//		pinMode(inPin, INPUT);
+//		pinMode(inPin, INPUT_PULLDOWN);
+		pinMode(inPin, INPUT_PULLUP);
+	else
+		pinMode(inPin, INPUT);
 	pinMode(outPin, OUTPUT);
 	if (handleInterruptCallback != NULL) {
 		this->handleInterruptCallback = handleInterruptCallback;

@@ -1266,8 +1266,8 @@ if(SmOT.useMQTT)
     if(SmOT.CH2_present && SmOT.enable_CentralHeating2)
         SetBoilerTemp2.enable = true;
     else 
-        SetBoilerTemp2.enable = false;
-
+      SetBoilerTemp2.enable = false;
+    
     if( SmOT.enable_HotWater)
       SetDHWTemp.enable = true;
     else
@@ -1298,12 +1298,11 @@ if(SmOT.useMQTT)
         Info7.value = "";
   }
  
- #if ST_VERS == 2
+#if ST_VERS == 2
 
   Info7.value = "OT2: ";
-   if(SmOT.OT_slave_present)
-   {
-
+  if(SmOT.OT_slave_present)
+  {
     switch(SmOT.ot_slave_stsOT)
     {  case -1:
           Info7.value += "<b>Ошибка:</b> не инициализирован";
@@ -1325,15 +1324,22 @@ if(SmOT.useMQTT)
         }
           break;
     }
+
     if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
           Info7.value +=  ", управление от панели";
     else
           Info7.value +=  ", управление от контроллера";
 
-   }
- #endif
+    if(SmOT.OT_slave_mode == 1)
+    {   SetDHWTemp.enable = false;
+        SetBoilerTemp2.enable = false;
+        SetBoilerTemp.enable = false;
+    }
+  }
 
- #if  RELAY_USE
+#endif
+
+#if  RELAY_USE
   if(SmOT.Relay_present)
   {
       RelayOmFf.enable = true;
@@ -1349,7 +1355,7 @@ if(SmOT.useMQTT)
       RelayOmFf.enable = false;
   }
  
- #endif
+#endif
 
 /********************/
   return String();
@@ -1651,7 +1657,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 
   Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2";
   if(SmOT.Toutside_present)
-      Info1.value += " 2=Text";
+      Info1.value += ", 2=Text";
 
 #if  MQTT_USE 
   if(SmOT.useMQTT)

@@ -44,9 +44,11 @@ void sendResponse_ot_slave(void);
 
 void OTlog(unsigned int reqresp, int sts);
 
+int nslaveint = 0;
 
 void IRAM_ATTR handleInterruptslave() {
     ot_slave.handleInterrupt();
+    nslaveint++;
 }
 
 void processRequest(unsigned long request, OpenThermResponseStatus status) {
@@ -55,8 +57,9 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
     int parity, messagetype;
 static int timeOutcounter = 0;
 
-//    Serial.printf("Slave processRequest: request %x status %x\n", request, status); 
-
+#if  OT_SLAVE_DEBUG
+    Serial.printf("Slave processRequest: request %x status %x\n", request, status); 
+#endif
     if (status == OpenThermResponseStatus::SUCCESS) {
         ot_SlaveSts = 0;
 //        SmOT.response = response; 
@@ -194,7 +197,7 @@ void sendResponse_ot_slave(void)
 //    if(ot_slave.getMessageType(ot_SlaveResponse) == DATA_INVALID)
 //       Serial.printf("DATA_INVALID SlaveResponse 2\n");
 
-    ot_slave.sendResponse(ot_SlaveResponse);
+ot_slave.sendResponse(ot_SlaveResponse);
     ot_SlaveSts = 4;
 }
 
@@ -202,11 +205,25 @@ void sendResponse_ot_slave(void)
 int OT_slaveloop(void)
 {
   ot_slave.process();
+#if  OT_SLAVE_DEBUG
+  static unsigned long int t0=0;
+  unsigned long int t;
+  t = millis();
+  if(t-t0>500)
+  {
+    ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Status, 0xffff);
+    Serial.printf("Slave test send Response:  %x\n", ot_SlaveResponse); 
+    sendResponse_ot_slave();
+
+    t0 = t;
+  }
+#else
   if(ot_SlaveSts == 3 && ot_slave.isReady())
   {
     if(millis() - ot_SlaveRequest_ms > 21) //send response after 21 ms
         sendResponse_ot_slave();
   }
+#endif
 
   {  time_t now = time(nullptr);
       double dt;

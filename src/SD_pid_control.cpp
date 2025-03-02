@@ -17,7 +17,7 @@ int wait_if_takt = 60*3;
 void SD_Termo::loop_PID(void)
 {   static int start = 2;
     static int start_heat = 2;
-    static  unsigned long int  t0=0, t_start_heat=0, t_stop_heat = 0;
+    static  unsigned long int  t0=0, t0_mean=0, t_start_heat=0, t_stop_heat = 0;
     static float _ustart = 0.f;
     static int OldBoilerStatus=0, issF = 0;
     unsigned long int t;
@@ -32,6 +32,10 @@ void SD_Termo::loop_PID(void)
         return;
 
     t = millis();
+    if(t - t0_mean >= (unsigned long int)(mypid.t_interval*1000)) 
+    {   loop_mean(); //получаем средние значения для используемых температур
+        t0_mean = t;
+    }
 
     if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) ) //Flame status changed
         issF = 4;
@@ -57,7 +61,6 @@ void SD_Termo::loop_PID(void)
        raz = (raz + 1)&0x01;
     }
 
-    loop_mean(); //получаем средние значения для используемых температур
 /************** считаем u0 ********************/
     is = loop_pid_gettemp(start);
 
@@ -199,7 +202,6 @@ void SD_Termo::set_new_PID_setpoint(float Tsetpoint, int src)
 //получаем средние значения для используемых температур
 void SD_Termo::loop_mean(void) 
 { 
-
     for(int i=0; i < 8; i++)
     {
          if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
@@ -228,30 +230,19 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
         } else {
 //  Serial.printf("0 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
 //         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
-            if(t_mean[srcTroom].isset == -1)
-            {   if(t_mean[srcTroom].nx > 1)
-                {    tempindoor = t_mean[srcTroom].xmean / float(t_mean[srcTroom].nx) ; 
-                    is |= 1;
-                    _start = 0; 
-                }
-            } else {
-                tempindoor = t_mean[srcTroom].x;
-                    is |= 1;
+            if(t_mean[srcTroom].isset != -1)
+            {   tempindoor = t_mean[srcTroom].x;
+                is |= 1;
+                IsSetTemp |= 0x01;
                 _start = 0; 
             }
 
             if(srcText < 0 || srcText > MAX_PID_SRC) 
-            {
-                is &= ~2;
-
-            } else if(t_mean[srcText].isset == -1) {
-                if(t_mean[srcText].nx > 1)
-                {    tempoutdoor = t_mean[srcText].xmean / float(t_mean[srcText].nx) ; 
-                    is |= 2;
-                }
-            } else {
+            { is &= ~2;
+            } else if(t_mean[srcText].isset != -1) {
                 tempoutdoor = t_mean[srcText].x;
                 is |= 2;
+                IsSetTemp |= 0x02;
             }
 
             if(is & 0x01 && InTstartset == 0) 
@@ -264,7 +255,8 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
         {
             if(t_mean[srcTroom].isset >= 0)
             {   tempindoor = t_mean[srcTroom].x;
-            is |= 1;
+                is |= 1;
+                IsSetTemp |= 0x01;
             }
         }
         if((srcText >= 0 && srcText <= 2) || (srcText >= 4 && srcText <= MAX_PID_SRC)) // !3 MAX_PID_SRC!!
@@ -275,6 +267,7 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 need_set_dhwT = 1;
 #endif
                 is |= 2;
+                IsSetTemp |= 0x02;
             }
         }
     }

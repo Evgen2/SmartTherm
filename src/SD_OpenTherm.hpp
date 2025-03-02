@@ -50,8 +50,9 @@ class x_mean
         } 
         
         if(canfilter)
-        {
-            x = (x0 + xold) * 0.5;
+        { x = (x0 + xold) * 0.5;
+        } else {
+          x = x0;
         }
       }
       return x;
@@ -224,6 +225,7 @@ public:
   float tempoutdoor;
   float _U0start;
   int InTstartset;
+  int IsSetTemp; //01 tempIndoor set | 0x02 tempOutdoor set
 #endif
   int start_sts; //1 - start state, need ask server for last I and U0(?),  &0x02 - OT start log, 0 - not start
   unsigned short int UseID2;
@@ -338,6 +340,7 @@ public:
       srcTroom =  srcText = 0;
       tempindoor =  tempoutdoor = 0.;
       TroomTarget = 18.f;
+      IsSetTemp = 0;
 #endif
       UseID2 = 0;
       ID2masterID = 0;
