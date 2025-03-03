@@ -135,7 +135,7 @@ public:
 #if ST_VERS == 2
   bool OT_slave_present; //OT_slave  present and use
   short int OT_slave_mode; /* 0 slave readonly, 1 master readonly */
-  short int ot_slave_stsOT; // -1 not init, 0 - normal work, 2 - timeout
+  short int ot_slave_stsOT; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
   time_t ot_slave_t_lastwork; // time of last ot_slave_stsOT = 0
 #endif
 
@@ -362,7 +362,7 @@ public:
 #if ST_VERS == 2
     OT_slave_present = true;
     OT_slave_mode = 0; /* 0 slave readonly, 1 master readonly */
-    ot_slave_stsOT = -1; // -1 not init, 0 - normal work, 2 - timeout
+    ot_slave_stsOT = -2; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
     ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
 #endif
 

@@ -1191,6 +1191,7 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 
 #if OT_DEBUGLOG
     statDS = OTlogBuf.GetLbuf();
+    if(nOTlog < 16) statDS  = 0;
     memcpy((void *)&msg->Buf[52],(void *) &statDS,2); 
 #endif    
 

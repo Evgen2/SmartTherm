@@ -211,7 +211,7 @@ void SD_Termo::loop_mean(void)
 //if(i < 2)
 //    Serial.printf("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
 
-        if(t_mean[i].nx > 8 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
+        if(t_mean[i].nx > 2 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
                 t_mean[i].init(1);
     }
 }

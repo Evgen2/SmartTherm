@@ -95,6 +95,7 @@ OpenTherm ot(inPin, outPin);
   extern int OT_slaveloop(void);
   extern int setup_ot_slave(void);
   extern void sendResponse_ot_slave(void);
+  void init_ot_slave(void);  
 #endif
   
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
@@ -124,6 +125,21 @@ void IRAM_ATTR handleInterrupt() {
     ot.handleInterrupt();
 }
 
+void init_ot_slave(void)
+{
+#if 0
+    Serial.printf("init_ot_slave\n");
+    pinMode(inPinSlave,  INPUT_PULLUP ); //OUTPUT
+    pinMode(outPinSlave, INPUT_PULLUP );
+    digitalWrite(inPinSlave, 1);   
+    digitalWrite(outPinSlave, 1);
+    delay(3000);   
+    digitalWrite(inPinSlave, 0);   
+    digitalWrite(outPinSlave, 0);
+#endif    
+
+}
+
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
 
@@ -148,7 +164,14 @@ void setup() {
 
   ot.begin(handleInterrupt, OTprocessResponse);
 #if ST_VERS == 2
-     setup_ot_slave();
+    if(SmOT.OT_slave_present)
+    { if(SmOT.OT_slave_mode == 0)
+      {    Serial.printf("setup_slave 1\n");
+           setup_ot_slave();
+      } else {
+        init_ot_slave();    
+      }
+    }
 #endif
 
   setupDS1820();
@@ -1224,7 +1247,14 @@ int OTloop(void)
 
 #if ST_VERS == 2
   if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
-  { OT_slaveloop();
+  { if(SmOT.ot_slave_stsOT == -2)
+    { if(SmOT.stsOT == 0)
+      {   Serial.printf("setup_slave 2\n");
+              setup_ot_slave();
+      }
+    }
+    else
+      OT_slaveloop();
   }
 #endif
 
@@ -1637,6 +1667,7 @@ void OTlog(unsigned int reqresp, int sts)
 
   if(SmOT.nOTlog < 1024 && lb > 1)
   { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff));
+    
 //    Serial.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
 //        SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
 
@@ -1650,10 +1681,11 @@ void OTlog(unsigned int reqresp, int sts)
   }
 }
 
-/*  удаляем последнюю запись в логе, если она есть */
+/*  если лог небольшой (<16), то удаляем последнюю запись в логе
+ */
 void OTlogDelLast(void)
 { int tmp[2];
-  if(SmOT.nOTlog > 0)
+  if(SmOT.nOTlog > 0 && SmOT.nOTlog < 16)
   { SmOT.OTlogBuf.Get(&tmp);
     SmOT.nOTlog--;
   }

@@ -182,10 +182,10 @@ SR:
 
 int setup_ot_slave(void)
 {
- //   Serial.printf("setup_slave\n");
+    Serial.printf("setup_slave\n");
 
  ot_slave.begin(handleInterruptslave, processRequest);
-
+    SmOT.ot_slave_stsOT = -1;
     return 0;
 }
 
