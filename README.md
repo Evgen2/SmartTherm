@@ -22,6 +22,7 @@ Features:
 
 0.8.4
 * Add remote OT log
+* Close AP after conection to WiFi router after timeout
 
 0.8.3
 * Add support for slave OpenTherm interface

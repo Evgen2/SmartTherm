@@ -408,7 +408,7 @@ int setup_web_common_onconnect(void)
   Serial.print(F("WiFi connected, IP address: "));
   Serial.println(WiFi.localIP());
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
-
+  Serial.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
     return 1;
 
@@ -1304,7 +1304,8 @@ if(SmOT.useMQTT)
   if(SmOT.OT_slave_present)
   {
     switch(SmOT.ot_slave_stsOT)
-    {  case -1:
+    {   case -2:
+        case -1:
           Info7.value += "<b>Ошибка:</b> не инициализирован";
           break;
         case 0:
@@ -1327,7 +1328,7 @@ if(SmOT.useMQTT)
 
     if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
           Info7.value +=  ", управление от панели";
-    else
+    else 
           Info7.value +=  ", управление от контроллера";
 
     if(SmOT.OT_slave_mode == 1)
@@ -1763,8 +1764,11 @@ String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
 
    Info1.value = "Интерфейс slave OpenTherm:<br>";
    switch(SmOT.ot_slave_stsOT)
-   {  case -1:
-        Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован";
+   {  case -2:
+      Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован без OT";
+        break;
+      case -1:
+      Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован";
         break;
       case 0:
         Info1.value +=  String(SmOT.ot_slave_stsOT) + ": работает";
@@ -1840,11 +1844,12 @@ extern int LedSts;
 
 void loop_web()
 {  int rc,  dt;
-static unsigned long t0=0; // t1=0;
+static unsigned long t0=0, raz = 0; // t1=0;
 
   portal.handleClient();
 
-  /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте
+  /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте 
+     3->5->1->0->3
   typedef enum {
     WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
     WL_IDLE_STATUS      = 0,
@@ -1853,13 +1858,44 @@ static unsigned long t0=0; // t1=0;
     WL_CONNECTED        = 3,
     WL_CONNECT_FAILED   = 4,
     WL_CONNECTION_LOST  = 5,
-    WL_WRONG_PASSWORD   = 6,
-    WL_DISCONNECTED     = 7
+    WL_CONNECTION_LOST  = 5,
+    WL_DISCONNECTED     = 6
+//esp8266 
+//    WL_WRONG_PASSWORD   = 6, 
+//    WL_DISCONNECTED     = 7
 } wl_status_t; 
   */
   rc = WiFi.status();
-//    Serial.printf("WiFi.status=%i %d\n", rc, raz++);
-  if(rc != WiFists)
+  { static int oldstatus=-1, oldmode=-1, needStopAP=0 ;
+    static long t0 = 0;
+    int mode = WiFi.getMode();
+    int ch = WiFi.channel();
+
+    if((rc != oldstatus) || mode != oldmode)
+    {
+   Serial.printf("WiFi.status=%i %d ", rc, raz++);
+   Serial.printf("WiFi mode = %d chanel=%d\n", mode, ch);
+        if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
+        {   Serial.printf("WiFi status chage to connected");
+          needStopAP = 1;
+            t0 = millis();
+
+        }
+        oldmode = mode;
+        oldstatus = rc;
+    } else if(needStopAP) {
+      if(millis()-t0 > 1000)
+      {
+          Serial.printf("WiFi stop AP todo\n");
+          needStopAP = 0;
+          if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
+          {  WiFi.softAPdisconnect(true);
+            WiFi.enableAP(false);
+          }
+      }
+    }
+  }
+   if(rc != WiFists)
   { 
 #if SERIAL_DEBUG      
     Serial.printf("WiFi.status=%i\n", rc);
@@ -1905,12 +1941,6 @@ static unsigned long t0=0; // t1=0;
          mqtt_loop();
 #endif
 
-//  time_t now = time(nullptr);
-//  Serial.println(ctime(&now));
-//  ba = Serial.available();
-//  Serial.printf("a=%i ", ba);
-
-//  Serial.printf("water_count=%i\n", water_count);
 }
 
 /**
