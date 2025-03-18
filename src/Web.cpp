@@ -1,4 +1,4 @@
-/* Web.cpp  UTF-8  */
+﻿/* Web.cpp  UTF-8  */
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -1512,7 +1512,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 String onSetPID(AutoConnectAux& aux, PageArgument& args)
 {  int isChange=0;
    unsigned short int icheck, icheck2=0;
-   unsigned short int iv;
+   short int iv;
    float v;
 
 //   Serial.printf((PGM_P)F("onSetPID\n"));
@@ -1537,8 +1537,10 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
   if(SmOT.usePID)
   { 
     iv = SetTempSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC && iv != 255)
+    if(iv > MAX_PID_SRC)
       iv = MAX_PID_SRC;
+        else if (iv < -1)
+        iv = -1;
 
 //    Serial.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
 //    Serial.printf("SetTempSrcPID.value =%d\n", iv);
@@ -1549,9 +1551,13 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
         isChange = 1;
       }
     }
+    
     iv = SetTempExtSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC && iv != 255)
+    if(iv > MAX_PID_SRC)
       iv = MAX_PID_SRC;
+    else if (iv < -1)
+      iv = -1;
+  
     if(iv != SmOT.srcText)
     { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
       { SmOT.srcText = iv;
@@ -1676,6 +1682,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   SetTempSrcPID.value = str0;
   sprintf(str0,"%d",SmOT.srcText);
   SetTempExtSrcPID.value = str0;
+
   sprintf(str0,"%.4f",SmOT.mypid.Kp);
   SetKpPID.value = str0;
 
@@ -1873,21 +1880,17 @@ static unsigned long t0=0, raz = 0; // t1=0;
 
     if((rc != oldstatus) || mode != oldmode)
     {
-   Serial.printf("WiFi.status=%i %d ", rc, raz++);
-   Serial.printf("WiFi mode = %d chanel=%d\n", mode, ch);
+        Serial.printf("WiFi: status=%i mode = %d chanel=%d\n", rc,  mode, ch);
         if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
         {   Serial.printf("WiFi status chage to connected");
           needStopAP = 1;
             t0 = millis();
-
         }
         oldmode = mode;
         oldstatus = rc;
     } else if(needStopAP) {
-      if(millis()-t0 > 1000)
-      {
-          Serial.printf("WiFi stop AP todo\n");
-          needStopAP = 0;
+      if(millis()-t0 > 10000)
+      {   needStopAP = 0;
           if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
           {  WiFi.softAPdisconnect(true);
             WiFi.enableAP(false);

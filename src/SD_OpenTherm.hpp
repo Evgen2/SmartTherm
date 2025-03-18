@@ -216,8 +216,8 @@ public:
 #endif //MQTT_USE
 #if PID_USE
   byte usePID; // 1/0 использовать PID да/нет
-  byte srcTroom; // источник температуры в комнате 0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT0 
-  byte srcText;  // источник температуры на улице  0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT1 
+  signed char srcTroom; // источник температуры в комнате -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT t_indoor/t_outdoor
+  signed char srcText;  // источник температуры на улице  -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT  t_indoor/t_outdoor 
   class pid mypid;
   x_mean t_mean[8];
   float tempindoor;
