@@ -141,8 +141,8 @@ void SD_Termo::loop_PID(void)
     {   if(BoilerStatus& 0x08) //если горелка включена
         {   dt = now - Bstat.t_flame_on;
             _uu = _u;
-            if(issF == 3)
-                _ustart = _u;
+//            if(issF == 3)
+//                _ustart = _u;
 
             if(dt < 15*60) //пытаемся плавно повышать температуру
             {   float r, du;
@@ -164,9 +164,7 @@ void SD_Termo::loop_PID(void)
             if(_u - BoilerT > CH_StartGist)  //10.f
             {   _uu = BoilerT + CH_StartGist; //ограничиваем  температуру теплоносителя при включении
                 if(_uu < umin)
-                {   _uu =  umin;
-                    _ustart  = _u;
-                }
+                   _uu =  umin;
                 _u = _uu;
                 _ustart  = _u;
             }
