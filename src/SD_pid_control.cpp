@@ -1,4 +1,4 @@
-/* SD_pid_control.cpp */
+﻿/* SD_pid_control.cpp */
 #include <time.h>
 #include <Arduino.h>
 
@@ -141,13 +141,13 @@ void SD_Termo::loop_PID(void)
     {   if(BoilerStatus& 0x08) //если горелка включена
         {   dt = now - Bstat.t_flame_on;
             _uu = _u;
-            if(issF == 3)
-                _ustart = _u;
+//            if(issF == 3)
+//                _ustart = _u;
 
             if(dt < 15*60) //пытаемся плавно повышать температуру
             {   float r, du;
                 r = dt/(60.*15.);
-                _uu = _u * r +  _ustart  * (1-r); //то корректируем уставку температуры
+                _uu = _u * r +  _ustart  * (1-r); // корректируем уставку температуры
             }
             if(BoilerT > _uu) //однако, если температура  теплоносителя уже достигла заданного значения
             {   _uu = BoilerT;  
@@ -164,9 +164,7 @@ void SD_Termo::loop_PID(void)
             if(_u - BoilerT > CH_StartGist)  //10.f
             {   _uu = BoilerT + CH_StartGist; //ограничиваем  температуру теплоносителя при включении
                 if(_uu < umin)
-                {   _uu =  umin;
-                    _ustart  = _u;
-                }
+                   _uu =  umin;
                 _u = _uu;
                 _ustart  = _u;
             }
@@ -177,7 +175,7 @@ void SD_Termo::loop_PID(void)
 
 //    Serial.printf("==>PID Tset %f_u %f need_heat %d enable_CentralHeating_real %d\n",
 //             Tset, _u, need_heat, enable_CentralHeating_real); 
-    need_set_T = 1;  // for OpenTherm
+    need_set_T(1);  // for OpenTherm
 #if MQTT_USE
     MQTT_need_report = 1; // for MQTT
     MQTT_pub_cmd2(millis() - t);

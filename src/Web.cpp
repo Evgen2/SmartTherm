@@ -616,7 +616,8 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
         if(v != SmOT.Tset)
         { isChange = 1;
           SmOT.Tset = v;
-          SmOT.need_set_T = 1;
+          //SmOT.need_set_T = 1;
+          SmOT.need_set_T(1);
         } 
       }
     }
@@ -626,7 +627,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
       if(v != SmOT.TdhwSet)
       { isChange = 1;
         SmOT.TdhwSet = v;
-        SmOT.need_set_dhwT = 1;
+        SmOT.need_set_dhwT(1);
       }
     }
 
@@ -635,7 +636,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
       if(v != SmOT.Tset2) 
       {  isChange = 1;
          SmOT.Tset2 = v;
-         SmOT.need_set_T2 = 1;
+         SmOT.need_set_T_CH2(1);
       }
     }
 
@@ -696,7 +697,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
   if(v != SmOT.umax)
   { SmOT.umax = v;
-    SmOT.need_set_MaxTSet = 2;    
+    SmOT.need_set_MaxTSet(2);    
     isChange = 1;
   }
 
@@ -818,7 +819,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
             if(v != int(SmOT.MaxRelModLevelSetting+0.5))
             {   isChange++;
                 SmOT.MaxRelModLevelSetting = (float)v;
-                SmOT.need_set_MaxRelModLevel = 2;
+                SmOT.need_set_MaxRelModLevel(2);
             }
         }
       } else {
@@ -845,14 +846,15 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 #endif //MQTT_USE
 
     if(SmOT.enable_CentralHeating) //Отопление Вкл
-    {     SmOT.need_set_T = 1;
+    {  //   SmOT.need_set_T = 1;
+        SmOT.need_set_T(1);
     } else {
         //Отопление вЫкл
     }
 
     if(SmOT.HotWater_present)
     { if(SmOT.enable_HotWater) //Горячая вода Вкл
-      {   SmOT.need_set_dhwT = 1;
+      {   SmOT.need_set_dhwT(1);
       } else {
          //Горячая вода вЫкл
       }
@@ -860,7 +862,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
     if(SmOT.CH2_present)
     { if(SmOT.enable_CentralHeating2) //CentralHeating2 Вкл
-      { SmOT.need_set_T2 = 1;
+      { SmOT.need_set_T_CH2(1);
       } else {
         //CentralHeating2 вЫкл
       }
@@ -1187,8 +1189,16 @@ if(SmOT.useMQTT)
       if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
       {      Info2.value +=  " Бойлер " + String(SmOT.Tstorage);
       } else  if(SmOT.HotWater_present) {
-         if(SmOT.enable_HotWater && ot.OTid_used(OpenThermMessageID::Tdhw))
-            Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+         if(SmOT.enable_HotWater)
+         {  if(SmOT.Dhw_t_present)
+                Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+//DHW on or off less than 10 sec
+//todo??    if((SmOT.BoilerStatus & 0x0200)|| ((time(nullptr) - SmOT.Bstat.t_HW_off) < 10))
+            if(SmOT.DHWFlowRate_present)
+            {
+                Info1.value += " Расход "  + String(SmOT.DHWFlowRate);
+            }
+         }
       }
 
       Info2.value += "<br>";
@@ -1512,7 +1522,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 String onSetPID(AutoConnectAux& aux, PageArgument& args)
 {  int isChange=0;
    unsigned short int icheck, icheck2=0;
-   unsigned short int iv;
+   short int iv;
    float v;
 
 //   Serial.printf((PGM_P)F("onSetPID\n"));
@@ -1537,8 +1547,10 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
   if(SmOT.usePID)
   { 
     iv = SetTempSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC && iv != 255)
-      iv = MAX_PID_SRC;
+    if(iv > MAX_PID_SRC)
+        iv = MAX_PID_SRC;
+        else if (iv < -1)
+        iv = -1;
 
 //    Serial.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
 //    Serial.printf("SetTempSrcPID.value =%d\n", iv);
@@ -1549,9 +1561,13 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
         isChange = 1;
       }
     }
+    
     iv = SetTempExtSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC && iv != 255)
+    if(iv > MAX_PID_SRC)
       iv = MAX_PID_SRC;
+    else if (iv < -1)
+      iv = -1;
+  
     if(iv != SmOT.srcText)
     { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
       { SmOT.srcText = iv;
@@ -1676,6 +1692,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   SetTempSrcPID.value = str0;
   sprintf(str0,"%d",SmOT.srcText);
   SetTempExtSrcPID.value = str0;
+
   sprintf(str0,"%.4f",SmOT.mypid.Kp);
   SetKpPID.value = str0;
 
@@ -1811,8 +1828,7 @@ String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
 //SendBLORPage
 String onSendBlor(AutoConnectAux& aux, PageArgument& args)
 {
-    SmOT.need_set_RemoteRequest = 1;
-    SmOT.need_send_Blor = 1;
+    SmOT.need_set_blor();
 
   aux.redirect(INFO_URI);
   return String();
@@ -1825,7 +1841,7 @@ const char SM_OT_HomePage[]= "https://t.me/smartTherm";
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
   Info1.value = IDENTIFY_TEXT;
-  sprintf(str, (PGM_P)F("Vers %d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
+  sprintf(str, (PGM_P)F("Vers %d.%d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
   Info2.value = str;
   if (WiFi.status() == WL_CONNECTED)
@@ -1873,24 +1889,20 @@ static unsigned long t0=0, raz = 0; // t1=0;
 
     if((rc != oldstatus) || mode != oldmode)
     {
-   Serial.printf("WiFi.status=%i %d ", rc, raz++);
-   Serial.printf("WiFi mode = %d chanel=%d\n", mode, ch);
+        Serial.printf("WiFi: status=%i mode = %d chanel=%d\n", rc,  mode, ch);
         if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
         {   Serial.printf("WiFi status chage to connected");
-          needStopAP = 1;
+            needStopAP = 1;
             t0 = millis();
-
         }
         oldmode = mode;
         oldstatus = rc;
     } else if(needStopAP) {
-      if(millis()-t0 > 1000)
-      {
-          Serial.printf("WiFi stop AP todo\n");
-          needStopAP = 0;
+      if(millis()-t0 > 10000)
+      {   needStopAP = 0;
           if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
           {  WiFi.softAPdisconnect(true);
-            WiFi.enableAP(false);
+              WiFi.enableAP(false);
           }
       }
     }

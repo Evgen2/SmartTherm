@@ -1,6 +1,7 @@
 # SmartTherm
 
-Version 0.8.4
+Version 0.8.5
+
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -19,6 +20,14 @@ Features:
 * [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.8.5
+* The OpenTherm request cycle has been changed to request dynamic planner with two priority levels.
+* support for
+** DHWFlowRate (ID 19)
+** TdhwSetUBTdhwSetLB (ID 48)
+** MaxTSetUBMaxTSetLB (ID 49)
+** MaxCapacityMinModLevel (ID15)
 
 0.8.4
 * Add remote OT log

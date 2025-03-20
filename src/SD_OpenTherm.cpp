@@ -577,6 +577,10 @@ void SD_Termo::init(int src)
 // Serial.printf("src %d _U0start ->mypid.u0\n",  src, _U0start);
 
 #endif   
+//set planner
+    need_set_T(2);
+    need_set_dhwT(2);
+    need_set_MaxTSet(2);
     if(Use_remoteTCPserver)
         TCPserver_sts = 2;  /* статус сервера */
     if(TCPserver_port == 0) 
@@ -1364,7 +1368,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             } else {
                 if(vT != Tset)
                 { Tset = vT;
-                    need_set_T = 1;
+                    need_set_T(1);
                     isChange = 1;
                 } 
             }
@@ -1377,7 +1381,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 #endif
             if(TdhwSet_toSet != TdhwSet)
             {   TdhwSet = TdhwSet_toSet;
-                need_set_dhwT = 1;
+                need_set_dhwT(1);
                 isChange = 1;
             } 
 
@@ -1498,7 +1502,7 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
     } else {
       if(vT != Tset)
       { Tset = vT;
-        need_set_T = 1;
+        need_set_T(1);
         isChange = 1;
       } 
     }
@@ -1513,7 +1517,7 @@ void SD_Termo::callback_Set_OpenThermData( U8 *bf, PACKED unsigned char * &MsgOu
     vT = CHtempLimit(v);
     if(vT != TdhwSet)
     { TdhwSet = vT;
-        need_set_dhwT = 1;
+        need_set_dhwT(1);
         isChange = 1;
       } 
 
@@ -1587,14 +1591,14 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
     } else {
       if(vT != Tset)
       { Tset = vT;
-        need_set_T = 1;
+        need_set_T(1);
         isChange = 1;
       } 
     }
 #else
       if(vT != Tset)
       { Tset = vT;
-        need_set_T = 1;
+        _need_set_T = 1;
         isChange = 1;
       } 
 #endif
@@ -1603,7 +1607,7 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
  // Serial.printf("%s, v=%f vT=%f TdhwSet=%f\n", __FUNCTION__, v, vT, TdhwSet); 
     if(vT != TdhwSet)
     { TdhwSet = vT;
-        need_set_dhwT = 1;
+        need_set_dhwT(1);
         isChange = 1;
     } 
 
@@ -1873,6 +1877,12 @@ extern OpenTherm ot;
             else
                 RemoteRequest_present = false;
 
+            ot.Get_OTid_count(OpenThermMessageID::DHWFlowRate, count, countok); //ID 19
+            if(countok > 1)
+                DHWFlowRate_present = true;                 
+            else
+                DHWFlowRate_present = false;                            
+
     } else  if(CapabilitiesDetected  == 2) {
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
                 Pressure_present = true;
@@ -1903,10 +1913,15 @@ extern OpenTherm ot;
         else
                 MaxRelModLevel_present  = false;
 
-        if(ot.OTid_used(OpenThermMessageID::RemoteRequest))
+                if(ot.OTid_used(OpenThermMessageID::RemoteRequest))
                 RemoteRequest_present = true;
         else
                 RemoteRequest_present  = false;
+
+        if(ot.OTid_used(OpenThermMessageID::DHWFlowRate))
+                DHWFlowRate_present = true;                 
+        else
+                DHWFlowRate_present = false;                    
 
     }
 
@@ -1927,15 +1942,14 @@ extern OpenThermID OT_ids[N_OT_NIDS];
 #else 
     if(SmOT.enable_CentralHeating)
 #endif
-        need_set_T  = 4; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+        need_set_T(2); // if request fail, i.e. with errors in  sendind data we need to set T multiple times
     if(enable_HotWater) 
-            need_set_dhwT = 2;                   
+            need_set_dhwT(2);                   
     if(enable_CentralHeating2)
-            need_set_T2  = 2; // if request fail, i.e. with errors in  sendind data we need to set T multiple times
+            need_set_T_CH2(2);
 
-
-    if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting))
-    {   need_set_MaxRelModLevel = 2;
+    if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && Use_MaxRelModLevel)
+    {   need_set_MaxRelModLevel(2);
     }
 }
 

@@ -549,6 +549,15 @@ int OpenTherm::OTid_used(OpenThermMessageID id)
 	return OT_ids[ind].used;
 }
 
+void OpenTherm::SetUsed_OTid(int id, int used)
+{ 	int ind;
+	if(id < 0 || id > 127)
+		return;
+	ind = id_to_index[id];
+	if(ind == -1)
+		return;
+	OT_ids[ind].used = used;	
+}
 
 int OpenTherm::update_OTid(int id, int sts)
 { 	int ind;
@@ -578,6 +587,10 @@ int OpenTherm::update_OTid(int id, int sts)
 int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 {	int ind;
 	ind = id_to_index[id];
+	if(ind == -1)
+	{	countok = count = 0;
+		return 0;
+	}
 	count = OT_ids[ind].count;
 	countok= OT_ids[ind].countOk;
 	return OT_ids[ind].used;
@@ -595,7 +608,7 @@ OpenThermVendor OTvendorList[] =
 	11, "Remeha",
 	16, "Unical",
 	24, "Vaillant/Bulex",
-	27, "Baxi Eco4s/Luna Duo-Tec P67=0",
+	27, "Baxi Eco4s/Luna Duo-Tec P67=0", //Baxi Nuvola B40
 	29, "Itho Daalderop",
 	33, "Viessmann",
 	41, "Italtherm/Radiant",

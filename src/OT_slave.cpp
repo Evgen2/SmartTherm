@@ -156,6 +156,7 @@ static int timeOutcounter = 0;
 SR:
 //    Serial.println("B" + String(response, HEX)); //slave/boiler response
 #if OTSLAVE_DEBUG
+
   { unsigned int u88;
     byte iid;
     u88 = (response & 0xffff);
@@ -182,10 +183,13 @@ SR:
 
 int setup_ot_slave(void)
 {
-    Serial.printf("setup_slave\n");
+  if(SmOT.ot_slave_stsOT == -2)
+  {
+//    Serial.printf("setup_slave\n");
 
  ot_slave.begin(handleInterruptslave, processRequest);
     SmOT.ot_slave_stsOT = -1;
+  }
     return 0;
 }
 
@@ -193,7 +197,7 @@ void sendResponse_ot_slave(void)
 { 
   int id;
     id = (ot_SlaveResponse >> 16 & 0xFF);
-
+    nslaveint = 0;
 //    if(ot_slave.getMessageType(ot_SlaveResponse) == DATA_INVALID)
 //       Serial.printf("DATA_INVALID SlaveResponse 2\n");
 

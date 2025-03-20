@@ -206,6 +206,7 @@ public:
 	
 	void init_OTids(void);
 	int update_OTid(int id, int sts);
+    void SetUsed_OTid(int id, int used);
 	int OTid_used(OpenThermMessageID id);
 	int Get_OTid_count(OpenThermMessageID id, int &count, int &countok);
 

@@ -10,7 +10,9 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
-#define MASTER_SUBVERSION1 4
+#define MASTER_SUBVERSION1 5
+#define MASTER_REVISION    0
+
 /***************/
 
 #define U8   unsigned char
@@ -48,6 +50,7 @@ class SmartDevice
   const int Vers;         /* версия */
   const int SubVers;      /* подверсия */
   const int SubVers1;     /* версия подверсии */
+  const int Revision;     /* ревизия версии подверсии */
 #if defined(ARDUINO_ARCH_ESP8266)
   static char  BiosDate[12];     /* дата компиляции биоса */
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -99,6 +102,7 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
                BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), 
                SubVers(MASTER_SUBVERSION), 
                SubVers1(MASTER_SUBVERSION1), 
+               Revision(MASTER_REVISION),
                BiosDate(__DATE__),
 							 ReservParam()
 #endif

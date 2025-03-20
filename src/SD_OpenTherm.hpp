@@ -5,6 +5,7 @@
 #include "SmartDevice.hpp"
 #include "pid.hpp"
 #include "mybuffer.hpp"
+#include "Planner.hpp"
 
 class x_mean
 {
@@ -127,6 +128,7 @@ public:
   bool Tstorage_present; // ID29
   bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting 
   bool RemoteRequest_present; // ID4 present, can be used for BLOR = Boiler Lock-out Reset  
+  bool DHWFlowRate_present; // ID19 DHWFlowRate 
 #if RELAY_USE  
   bool Relay_present; //Relay present and use
   bool Relay_init_sts; //Relay state at start
@@ -141,23 +143,28 @@ public:
 
   unsigned int OTmemberCode;
   unsigned long response;
-  float Tset;    // Control setpoint  ie CH  water temperature setpoint (°C)
+  short int responseID;
+  float Tset;    // ID1 Control setpoint  ie CH  water temperature setpoint (°C)
   float Tset_r;  // Temp set from responce
-  float Tset2;   // Control setpoint for 2e CH circuit (°C)
+  float Tset2;   // ID8 TsetCH2: Control setpoint for 2e CH circuit (°C)
   float Tset2_r; // Temp2 set from responce
 	float MaxTSet; // f8.8  Max CH water setpoint (°C) (Remote parameters 2) ID57
-
-  float BoilerT; // Boiler flow water temperature (°C) CH
-  float BoilerT2; // Boiler CH2 water temperature (°C) CH
-  float RetT;    // Return water temperature (°C) CH
-	float TdhwSet; // f8.8  DHW setpoint (°C)    (Remote parameter 1)
-  float dhw_t;   // DHW temperature (°C)
+  float MaxTSetUB; // 49 MaxTSetUBMaxTSetLB:  Max CH water Setpoint upper & lower bounds for adjustment(°C)
+  float MaxTSetLB; // -- // --
+  float BoilerT;   // Boiler flow water temperature (°C) CH
+  float BoilerT2;  // Boiler CH2 water temperature (°C) CH
+  float RetT;      // 28 Return water temperature (°C) CH
+	float TdhwSet;   // 56 TdhwSet: f8.8  DHW setpoint (°C)    (Remote parameter 1)  
+  float dhw_t;     // 26 Tdhw DHW temperature (°C)
+  float TdhwSetUB; // 48 TdhwSetUBTdhwSetLBSetpoint DHW Setpoint upper & lower bounds for adjustment(°C)  
+  float TdhwSetLB; // -- // --
   float Toutside; 
   float Tstorage; // [Solar] storage temperature (°C)
-  float Texhaust;// s16  Boiler exhaust temperature (°C)
+  float Texhaust; // ID33 s16  Boiler exhaust temperature (°C)
   float FlameModulation; //Relative Modulation Level (%)
   float Pressure; // Water pressure in CH circuit  (bar)
   float MaxRelModLevelSetting; // if MaxRelModLevel_present + need_set_MaxRelModLevel
+  float DHWFlowRate; // ID19 Water flow rate in DHW circuit. (litres / minute)
   unsigned int MaxCapacity;
   unsigned int MinModLevel;
   unsigned int Fault;
@@ -165,14 +172,11 @@ public:
   unsigned int rcode[5];
   int BoilerStatus;
   int BoilerStatusRequest;
-  byte need_set_T; 
-  byte need_set_T2; 
-  byte need_set_dhwT;
-  byte need_set_MaxRelModLevel;
-  byte need_set_RemoteRequest;
+  //byte need_set_T2; 
+//  byte need_set_MaxRelModLevel;
   byte need_send_Blor;
   byte need_write_f; 
-  byte need_set_MaxTSet;
+//..  byte need_set_MaxTSet;
 
   int TestCmd;
   int TestId;
@@ -216,8 +220,8 @@ public:
 #endif //MQTT_USE
 #if PID_USE
   byte usePID; // 1/0 использовать PID да/нет
-  byte srcTroom; // источник температуры в комнате 0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT0 
-  byte srcText;  // источник температуры на улице  0 - n/a,  1/2 - T1/T2, 3 - Text, 4  MQTT1 
+  signed char srcTroom; // источник температуры в комнате -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT t_indoor/t_outdoor
+  signed char srcText;  // источник температуры на улице  -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT  t_indoor/t_outdoor 
   class pid mypid;
   x_mean t_mean[8];
   float tempindoor;
@@ -247,6 +251,7 @@ public:
   float oldTroomSetpoint; 
   float umin; //минимальная температура теплоносителя
   float umax; //максимальная температура теплоносителя
+  planner plan;
 
   SD_Termo(void)
   {	  
@@ -274,7 +279,8 @@ public:
     enable_CentralHeating2 = false;
     MaxRelModLevel_present = false;
     RemoteRequest_present  = false; 
-
+    DHWFlowRate_present = false; // ID19 DHWFlowRate 
+  
     CapabilitiesDetected = 0;
 
       stsOT = -1;
@@ -284,6 +290,7 @@ public:
 	    stsT2 = -1;
       t1 = t2 = 0.;
       response = 0;
+      responseID = -1;
       BoilerT =  BoilerT2 = 0.;
       Tset = 40.;
       Tset_r = 0.;
@@ -292,22 +299,22 @@ public:
 
       TdhwSet = 40.;
 /* look at int OpenTherm::update_OTid(int id, int sts) */      
-      need_set_T = 9;
-      need_set_T2 = 0;
-      need_set_dhwT = 2;
-      need_set_MaxRelModLevel = 9;
-      need_set_RemoteRequest = 3;
+      
+      //need_set_T2 = 0;
       need_send_Blor = 0;
-      need_set_MaxTSet = 1;
+//      need_set_MaxTSet = 1;
 /********************************/      
       need_write_f = 0;
       RetT = 0.;
       dhw_t = 0.;
+      TdhwSetUB = 60.f;
+      TdhwSetLB = 30.f;      
       Toutside = 0.;
       Texhaust = 0.;
       Tstorage = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
+      DHWFlowRate = 0.; 
       MaxRelModLevelSetting = 100.;
       MaxCapacity = MinModLevel = 0;
       Fault = 0;
@@ -353,7 +360,9 @@ public:
       Use_MaxRelModLevel = 0;
       umin = 40;
       umax = 80;
-      MaxTSet = umax;
+      MaxTSet = MAX_CH_TEMP;
+      MaxTSetUB = MAX_CH_TEMP;
+      MaxTSetLB = umin;
     start_sts = 1;
     _U0start = 0;
     InTstartset = 0;
@@ -419,6 +428,20 @@ public:
   void set_new_PID_setpoint(float Tsetpoint, int src);
 #endif
   void DetectCapabilities(void);
+  void handle_SConfigSMemberIDcode(uint16_t u88);
+  void planner_setup(void);
+  int  planner_loop(void);
+  void planner_validate(void);
+  void NeedSet(int needId, int nc);
+  void Decriment_NeedSet(int needId);
+  unsigned int buildRequest(int ot_id);
+  void need_set_T(int n);
+  void need_set_T_CH2(int n);
+  void need_set_dhwT(int n); 
+  void need_set_blor(void); 
+  void need_set_MaxRelModLevel(int n);
+  void need_set_MaxTSet(int n);
+
 };
 
 #endif // SD_OPENTHERM
