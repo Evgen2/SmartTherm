@@ -1,4 +1,4 @@
-/* Web.cpp  UTF-8  */
+﻿/* Web.cpp  UTF-8  */
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -1898,10 +1898,12 @@ static unsigned long t0=0, raz = 0; // t1=0;
         oldmode = mode;
         oldstatus = rc;
     } else if(needStopAP) {
-      if(millis()-t0 > 10000)
+      if(millis()-t0 > 20000)
       {   needStopAP = 0;
           if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
-          {  WiFi.softAPdisconnect(true);
+          {   Serial.printf("WiFi softAPdisconnect\n");
+          
+             WiFi.softAPdisconnect(true);
               WiFi.enableAP(false);
           }
       }

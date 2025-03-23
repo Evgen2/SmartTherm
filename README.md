@@ -21,6 +21,9 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+0.8.5.1
+* ST2 combined mode
+
 0.8.5
 * The OpenTherm request cycle has been changed to request dynamic planner with two priority levels.
 * support for

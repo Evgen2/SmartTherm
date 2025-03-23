@@ -780,6 +780,7 @@ int OTloop(void)
     int rc = 0, ot_id;
 
 #if ST_VERS == 2
+static int slst = 0;
   if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
   { if(SmOT.ot_slave_stsOT == -2)
     { if(SmOT.stsOT == 0)
@@ -798,22 +799,6 @@ int OTloop(void)
       case 0:
       if (ot.isReady()) 
       {  unsigned int request;
-        ot_id = SmOT.planner_loop();
-   //      Serial.printf("OTloop ot_id %d (%d %d)\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf() );
-         
-         if(ot_id >= 0)
-            request = SmOT.buildRequest(ot_id);       
-//         else
-//            request = buildRequest(0);
-
-  #if OT_DEBUGLOG
-            OTlog(request,0);
-  #endif          
-         if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
-         {    st++;
-         }
-       break;   
-
 #if ST_VERS == 2
 
 #if  OT_SLAVE_DEBUG
@@ -833,7 +818,9 @@ if (ot.isReady())
 #else
 
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1)) 
-    { if(SmOT.ot_slave_stsOT == 0)
+    { // Serial.printf("SmOT.ot_slave_stsOT %d ot_SlaveSts %d  %d\n", SmOT.ot_slave_stsOT, ot_SlaveSts, millis() );
+
+      if(SmOT.ot_slave_stsOT == 0)
       { if(ot_SlaveSts == 1)
         { int ids; 
           request = ot_SlaveRequest;
@@ -842,8 +829,11 @@ if (ot.isReady())
               SmOT.BoilerStatusRequest = request;
           ot.LastRequestId = ids;
           ot_SlaveSts = 2;
+          slst = 1;
           OTlog(request,2);
         } else {
+          if(slst == 1)
+              goto M00;
           break; // do nothing - no reqest from slave
         }
       } else {
@@ -855,29 +845,35 @@ if (ot.isReady())
       }
     } else {
 M00:
-        if(OTstartSts < OTstartSts_MAX)
-        request = buildRequestOnStart();
-         else
-            request = buildRequest(0);
+    ot_id = SmOT.planner_loop();
+// Serial.printf("* OTloop ot_id %d (%d %d) %d\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), millis() );
+  if(ot_id >= 0)
+         request = SmOT.buildRequest(ot_id);       
 #if OT_DEBUGLOG
-        if(SmOT.OT_slave_mode == 0)
+//        if(SmOT.OT_slave_mode == 0)
             OTlog(request,0);
 #endif          
-      }
+        slst = 0;
+    }
 #endif
 
 #else //ST_VERS == 2
-#if 0
-         if(OTstartSts < OTstartSts_MAX)
-            request = buildRequestOnStart();
-         else
-            request = buildRequest(0);
-  #if OT_DEBUGLOG
-            OTlog(request,0);
-  #endif
-#endif            
+    ot_id = SmOT.planner_loop();
+//      Serial.printf("OTloop ot_id %d (%d %d)\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf() );
+      
+    if(ot_id >= 0)
+         request = SmOT.buildRequest(ot_id);       
+//         else
+//            request = buildRequest(0);
+
+ #if OT_DEBUGLOG
+         OTlog(request,0);
+ #endif          
 #endif
 
+        if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
+        {    st++;
+        }
 
       }
       break;
@@ -891,7 +887,7 @@ M00:
       case 2:
        ot.process();
         if(ot.status ==  OpenThermStatus::READY)
-        { // unsigned int id;
+        {  unsigned int id;
           st = 0;
           rc = 1;
 //          id = (ot.getLastResponse() >> 16 & 0xFF);
@@ -1134,7 +1130,7 @@ void loop(void)
 #if ST_VERS == 2
   { int dtm = OT_CICLE_TIME;
 
-    if(OT_slave_present && (OT_slave_mode == 1) && (ot_slave_stsOT == 0))
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
         dtm -= 80;
 
     if(dt < dtm)
@@ -1172,7 +1168,7 @@ void loop2(void)
 #elif defined(ARDUINO_ARCH_ESP32)
      if(LedSts) //быстро моргаем раз в мсек
 #endif
-     {  if(dt > 2)
+     {  if(dt > 4)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
           t0 = t;
@@ -1317,26 +1313,24 @@ static int mday_prev = 0;
   }
   
 #if PID_USE
-    if(SmOT.enable_CentralHeating)
-        SmOT.loop_PID();
+  if(SmOT.enable_CentralHeating)
+  {
+#if ST_VERS == 2
+    if(!(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1 && SmOT.ot_slave_stsOT == 0))
+      SmOT.loop_PID();
+#else
+      SmOT.loop_PID();
+#endif 
+  }  
 #endif
 
-#if ST_VERS == 2
- #if OT_SLAVE_DEBUG 
-  { extern int nslaveint;
-    Serial.printf("v = %d", nslaveint);
-  }
- #endif 
-#endif 
-
-#if SERIAL_DEBUG 
-
 /*
+#if SERIAL_DEBUG 
 Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
           nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
 		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
-*/      
 #endif
+*/      
 
   if(hour_prev != nowtime->tm_hour)
   { hour_prev = nowtime->tm_hour;

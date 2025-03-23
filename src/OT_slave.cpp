@@ -125,6 +125,7 @@ static int timeOutcounter = 0;
 
     OpenThermMessageID id = ot_slave.getDataID(request);
     uint16_t data = ot_slave.getUInt(request);
+    float t = ot_slave.getFloat(request);
     messagetype = ot_slave.getMessageType(request);
 
 //    Serial.printf("Slave processRequest: id %x data %x\n", id, data); 
@@ -142,9 +143,16 @@ static int timeOutcounter = 0;
         }
 
 
-//    float f = ot.getFloat(request);
+   switch(id)
+   { 
+      case OpenThermMessageID::TSet:  // 1 W
+        SmOT.Tset = t;
+            break;
+      case OpenThermMessageID::TdhwSet: //56 W
+        SmOT.TdhwSet = t;
+        break;
 
-//      Serial.printf("Message id %d\n", id); 
+   }     
 /*************************************************/
     SmOT.ot_slave_t_lastwork  = time(nullptr);
     ot_SlaveRequest_ms = millis();

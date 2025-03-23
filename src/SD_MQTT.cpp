@@ -311,7 +311,7 @@ extern unsigned int OTcount;
 
    device.setName(SmOT.MQTT_topic,SmOT.MQTT_devname); //должно быть static!!
   { static char str[40];
-    sprintf(str,"%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
+    sprintf(str,"%d.%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
     device.setSoftwareVersion(str); //должно быть static!!
     device.setConfigurationUrl(SmOT.LocalUrl);// --//--
   }
@@ -631,17 +631,31 @@ void mqtt_start(void)
 
 void mqtt_loop(void)
 { char str[80];
-static int st_old = -2;  
+static int st_old = -2, raz=0;  
 unsigned long t1;
+unsigned long t0, t00=0;
+int dt;
 
+raz++;
 
 if(SmOT.stsMQTT == 0) 
-{   mqtt_setup();
+{ t0 = millis();  
+  mqtt_setup();
+  dt = millis() - t0;
+//  if(dt > 100)
+//  if(SmOT.stsMQTT != 0)
+//      Serial.printf("MQTT 0 dt %d t %d %d\n", dt, t0, raz );
+
      return;
 }
 
+    t0 = millis();  
     mqtt.loop();
-
+    dt = millis() - t0;
+//    if(dt > 100)
+//        Serial.printf("MQTT 1 dt %d t %d %d\n", dt, t0, raz );
+  
+  
     if(mqtt.isConnected())
     {   if(statemqtt != 1)
             Serial.println(F("MQTT connected"));
@@ -658,6 +672,9 @@ if(SmOT.stsMQTT == 0)
 
     if ((millis() - lastAvailabilityToggleAt) > SmOT.MQTT_interval*1000 || SmOT.MQTT_need_report)
     {   
+      t00 = millis();  
+//      Serial.printf("MQTT 10 t %d %d\n", millis() , raz );
+
         if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
           sensorState.setValue("OpenTherm не подключен");
@@ -665,6 +682,7 @@ if(SmOT.stsMQTT == 0)
           sensorOT.setAvailability(true);
           if(SmOT.stsOT == 2)
           { 
+            t0 = millis();
             sensorOT.setState(false);
             hvac.setAvailability(false);
             sensorBoilerT.setAvailability(false);
@@ -690,10 +708,14 @@ if(SmOT.stsMQTT == 0)
 #if PID_USE            
             hvacPID.setAvailability(false);
 #endif            
+            dt = millis() - t0;
+//            if(dt > 100)
+                Serial.printf("MQTT 2 dt %d t %d %d\n", dt, t0, raz );
 
           } else {
             if(st_old != SmOT.stsOT)
             {
+              t0 = millis();
               sensorOT.setState(true);
               sensorBoilerT.setAvailability(true);
               hvac.setAvailability(true);
@@ -721,110 +743,19 @@ if(SmOT.stsMQTT == 0)
                 sensorDHWFlowRate.setAvailability(true);
               if(SmOT.Toutside_present)
                 sensorText.setAvailability(true);
-            }
+                dt = millis() - t0;
+  //              if(dt > 100)
+                    Serial.printf("MQTT 3 dt %d t %d %d\n", dt, t0, raz );
+              }
 /******************/
+            t0 = millis();
             MQTTsenddata();
-/******************/
+            dt = millis() - t0;
+            if(dt > 100)
+                Serial.printf("MQTT 4 dt %d\n", dt);
+        /******************/
             
-            sprintf(str,"%.3f", SmOT.FlameModulation);
-            sensorModulation.setValue(str);
-            if(SmOT.RetT_present)
-            { sprintf(str,"%.3f", SmOT.RetT);
-              sensorBoilerRetT.setValue(str);  
-            }
-            if(SmOT.Pressure_present)
-            { sprintf(str,"%.3f", SmOT.Pressure);
-              sensorPressure.setValue(str);
-            }
-
-            if(SmOT.DHWFlowRate_present)
-            {   sprintf(str,"%.3f", SmOT.DHWFlowRate);
-                sensorDHWFlowRate.setValue(str);
-            }
-
-            if(SmOT.Toutside_present)
-            { sprintf(str,"%.3f", SmOT.Toutside);
-              sensorText.setValue(str);
-            }
-
-#if PID_USE
-        {
-            sprintf(str,"%.4f", SmOT.mypid.dP);
-            sensorPID_P.setValue(str);
-            sprintf(str,"%.4f", SmOT.mypid.dD);
-            sensorPID_D.setValue(str);
-            sprintf(str,"%.4f", SmOT.mypid.dI);
-            sensorPID_I.setValue(str);
-            sprintf(str,"%.4f", SmOT.mypid.u);
-            sensorPID_U.setValue(str);
-            sprintf(str,"%.4f", SmOT.mypid.ub);
-            sensorPID_U0.setValue(str);
-            
-//            Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
-
-            if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
-            {  numT_indoor.setState(SmOT.tempindoor, true);
-            }
-            if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
-            {   numT_outdoor.setState(SmOT.tempoutdoor, true);
-            }
-
-//            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
-//            textPIDinfo.setValue(str);
-
-        }
-
-#endif
-
 /*************************************************/            
-    if(SmOT.OEMDcode || SmOT.Fault)
-    { 
-       if(SmOT.Fault)
-       { if (SmOT.OEMDcode)
-         {
-           sprintf(str, "OT Fault %x OEMDcode %x", SmOT.Fault, SmOT.OEMDcode);
-         } else {
-           sprintf(str, "OT Fault %x", SmOT.Fault);
-         }
-       } else if (SmOT.OEMDcode) {
-           sprintf(str, "OEMDcode %x", SmOT.OEMDcode);
-       }
-       sensorState.setValue(str);
-    } else {
-        sensorState.setValue("нет");
-    }
-
-#if 0  
-todo     
-      if(SmOT.Fault)
-      { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
-        Info6.value += str0;
-        if(SmOT.Fault & 0xff00)
-        {    if(SmOT.Fault & 0x0100)
-                 Info6.value += " Service request";
-             if(SmOT.Fault & 0x0200)
-                 Info6.value += " Lockout-reset";
-             if(SmOT.Fault & 0x0400)
-                 Info6.value += " Lowwater press";
-             if(SmOT.Fault & 0x0800)
-                 Info6.value += " Gas/flame fault";
-             if(SmOT.Fault & 0x01000)
-                 Info6.value += " Air press fault";
-             if(SmOT.Fault & 0x02000)
-                 Info6.value += " Water over-temp fault";
-        }
-        if(SmOT.Fault & 0x00ff)
-        {    sprintf(str0, " OEM-specific fault/error cod = %d ( hex %x)", (SmOT.Fault&0xff), (SmOT.Fault&0xff));
-            Info6.value += str0;
-        }
-        Info6.value += "<br>";
-      }
-      if(SmOT.OEMDcode)
-      {     sprintf(str0, "OEM-specific diagnostic/service code = %d  ( hex %x)<br>", SmOT.OEMDcode, SmOT.OEMDcode);
-            Info6.value += str0;
-      }
-#endif //0
-/*******************************************/
           }
         }
         st_old = SmOT.stsOT;
@@ -880,6 +811,9 @@ todo
         lastAvailabilityToggleAt = millis();
         SmOT.MQTT_need_report = 0;
     }
+//    dt = millis() - t00;
+//    Serial.printf("MQTT 40 dt %d\n", dt);
+
 }
 
 void MQTTsenddata(void)
@@ -934,6 +868,104 @@ void MQTTsenddata(void)
 //   Serial.printf("SmOT.TdhwSet %f SmOT.dhw_t %f\n", SmOT.TdhwSet, SmOT.dhw_t );
 
         }
+        sprintf(str,"%.3f", SmOT.FlameModulation);
+        sensorModulation.setValue(str);
+        if(SmOT.RetT_present)
+        { sprintf(str,"%.3f", SmOT.RetT);
+          sensorBoilerRetT.setValue(str);  
+        }
+        if(SmOT.Pressure_present)
+        { sprintf(str,"%.3f", SmOT.Pressure);
+          sensorPressure.setValue(str);
+        }
+
+        if(SmOT.DHWFlowRate_present)
+        {   sprintf(str,"%.3f", SmOT.DHWFlowRate);
+            sensorDHWFlowRate.setValue(str);
+        }
+
+        if(SmOT.Toutside_present)
+        { sprintf(str,"%.3f", SmOT.Toutside);
+          sensorText.setValue(str);
+        }
+
+#if PID_USE
+    {
+        sprintf(str,"%.4f", SmOT.mypid.dP);
+        sensorPID_P.setValue(str);
+        sprintf(str,"%.4f", SmOT.mypid.dD);
+        sensorPID_D.setValue(str);
+        sprintf(str,"%.4f", SmOT.mypid.dI);
+        sensorPID_I.setValue(str);
+        sprintf(str,"%.4f", SmOT.mypid.u);
+        sensorPID_U.setValue(str);
+        sprintf(str,"%.4f", SmOT.mypid.ub);
+        sensorPID_U0.setValue(str);
+        
+//            Serial.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
+
+        if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
+        {  numT_indoor.setState(SmOT.tempindoor, true);
+        }
+        if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
+        {   numT_outdoor.setState(SmOT.tempoutdoor, true);
+        }
+
+//            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
+//            textPIDinfo.setValue(str);
+
+    }
+
+#endif
+
+  if(SmOT.OEMDcode || SmOT.Fault)
+  { 
+    if(SmOT.Fault)
+    { if (SmOT.OEMDcode)
+      {
+        sprintf(str, "OT Fault %x OEMDcode %x", SmOT.Fault, SmOT.OEMDcode);
+      } else {
+        sprintf(str, "OT Fault %x", SmOT.Fault);
+      }
+    } else if (SmOT.OEMDcode) {
+        sprintf(str, "OEMDcode %x", SmOT.OEMDcode);
+    }
+    sensorState.setValue(str);
+  } else {
+      sensorState.setValue("нет");
+  }
+#if 0  
+  todo     
+        if(SmOT.Fault)
+        { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
+          Info6.value += str0;
+          if(SmOT.Fault & 0xff00)
+          {    if(SmOT.Fault & 0x0100)
+                   Info6.value += " Service request";
+               if(SmOT.Fault & 0x0200)
+                   Info6.value += " Lockout-reset";
+               if(SmOT.Fault & 0x0400)
+                   Info6.value += " Lowwater press";
+               if(SmOT.Fault & 0x0800)
+                   Info6.value += " Gas/flame fault";
+               if(SmOT.Fault & 0x01000)
+                   Info6.value += " Air press fault";
+               if(SmOT.Fault & 0x02000)
+                   Info6.value += " Water over-temp fault";
+          }
+          if(SmOT.Fault & 0x00ff)
+          {    sprintf(str0, " OEM-specific fault/error cod = %d ( hex %x)", (SmOT.Fault&0xff), (SmOT.Fault&0xff));
+              Info6.value += str0;
+          }
+          Info6.value += "<br>";
+        }
+        if(SmOT.OEMDcode)
+        {     sprintf(str0, "OEM-specific diagnostic/service code = %d  ( hex %x)<br>", SmOT.OEMDcode, SmOT.OEMDcode);
+              Info6.value += str0;
+        }
+#endif //0
+/*******************************************/
+  
 
 }
 
