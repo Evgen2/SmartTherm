@@ -21,6 +21,11 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+
+0.8.5.2
+* User can set CPU frequency 240/160/80MHz
+It is possible that a lower frequency will result in more stable operation of the controller
+
 0.8.5.1
 * ST2 combined mode
 
