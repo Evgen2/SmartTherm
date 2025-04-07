@@ -103,6 +103,7 @@ class SD_Termo:public SmartDevice
 public:
   short int stsOT; // -1 not init, 0 - normal work, 2 - timeout
   time_t t_lastwork; // time of last stsOT = 0
+  int ns_OT, nr_OT; // тест число пакетов посланных и полученных
   int stsT1;
   int stsT2;
   float t1;
@@ -230,6 +231,7 @@ public:
   float _U0start;
   int InTstartset;
   int IsSetTemp; //01 tempIndoor set | 0x02 tempOutdoor set
+  int PID_PWMperiod;
 #endif
   int start_sts; //1 - start state, need ask server for last I and U0(?),  &0x02 - OT start log, 0 - not start
   unsigned short int UseID2;
@@ -237,7 +239,7 @@ public:
   unsigned short int CH2_DHW_flag;
   unsigned short int UseWinterMode;
   unsigned short int Use_OTC;
-  unsigned short int Use_ID29_DHW_flag;
+  unsigned short int Use_ID29_DHW_flag; // У одноконтурного Будеруса с БКН нужно ставить галку использовать ID29, чтобы температуру воды в бойлере показывал.
   unsigned short int Immergas_fix_flag;
   unsigned short int Use_MaxRelModLevel; 
 
@@ -252,6 +254,9 @@ public:
   float umin; //минимальная температура теплоносителя
   float umax; //максимальная температура теплоносителя
   planner plan;
+  int useCPU_freq; //0 =240, 1=160, 2=80
+  int CrasyState_count;
+  int needReport_CrasyState;
 
   SD_Termo(void)
   {	  
@@ -284,6 +289,7 @@ public:
     CapabilitiesDetected = 0;
 
       stsOT = -1;
+      ns_OT = nr_OT = 0; 
       t_lastwork = 0;
       t_lastSetPointChange = 0;
 	    stsT1 = -1;
@@ -348,6 +354,7 @@ public:
       tempindoor =  tempoutdoor = 0.;
       TroomTarget = 18.f;
       IsSetTemp = 0;
+      PID_PWMperiod = 15*60; //15 мин 
 #endif
       UseID2 = 0;
       ID2masterID = 0;
@@ -374,7 +381,9 @@ public:
     ot_slave_stsOT = -2; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
     ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
 #endif
-
+    useCPU_freq = -1; //2;
+    CrasyState_count = 0;
+    needReport_CrasyState = 0;
   }
   void RelayInit(void);
   void RelayOnOff(bool onoff);

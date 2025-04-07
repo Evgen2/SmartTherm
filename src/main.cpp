@@ -1,8 +1,7 @@
 /* main.cpp */
-// контроллер OpenTherm на ESP32/ESP8266 с измерением температуры
-// WiFi, Captive Portal, Web доступ
-// клиент-сервер (UDP или TCP)
-// based on OpenTherm Master Communication Example By: Ihor Melnyk
+// контроллер OpenTherm на ESP32 с измерением температуры
+// WiFi, Captive Portal, Web доступ, клиент-сервер (UDP или TCP), удалённый контроль
+// derived from OpenTherm lib by: Ihor Melnyk
 //
 
 #include <time.h>
@@ -23,6 +22,9 @@ typedef WebServer WEBServer;
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
+#include "esp32/clk.h"
+#include "soc/rtc.h"
+
 /************************************/
 extern void setup_read_config(void);
 extern void check_fs(void);
@@ -37,6 +39,7 @@ extern void planner_loop(void);
 
 #if OT_DEBUGLOG
 void OTlog(unsigned int reqresp, int sts);
+void OTlogErr(int status, int sts);
 void OTlogDelLast(void);
 #endif
 
@@ -111,18 +114,18 @@ OneWire oneWire1(DS1820_1);
 OneWire oneWire2(DS1820_2);
 DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
-extern int OTDebugInfo[12];
+extern unsigned int OTDebugInfo[12];
 extern unsigned int OTcount;
 
 
 void IRAM_ATTR handleInterrupt() {
-    ot.handleInterrupt();
+    ot.handleInterrupt();  
 }
 
 void init_ot_slave(void)
 {
 #if 0
-    Serial.printf("init_ot_slave\n");
+    Serial_db.printf("init_ot_slave\n");
     pinMode(inPinSlave,  INPUT_PULLUP ); //OUTPUT
     pinMode(outPinSlave, INPUT_PULLUP );
     digitalWrite(inPinSlave, 1);   
@@ -134,6 +137,79 @@ void init_ot_slave(void)
 
 }
 
+/*******************************/
+#if 0
+void FreqInfo(void) 
+{
+rtc_cpu_freq_config_t out_config;
+/*            
+            typedef enum {
+              RTC_CPU_FREQ_SRC_XTAL,  //!< XTAL
+              RTC_CPU_FREQ_SRC_PLL,   //!< PLL (480M or 320M)
+              RTC_CPU_FREQ_SRC_8M,    //!< Internal 8M RTC oscillator
+              RTC_CPU_FREQ_SRC_APLL   //!< APLL
+          } rtc_cpu_freq_src_t;
+          
+            typedef struct rtc_cpu_freq_config_s {
+              rtc_cpu_freq_src_t source;      //!< The clock from which CPU clock is derived
+              uint32_t source_freq_mhz;       //!< Source clock frequency
+              uint32_t div;                   //!< Divider, freq_mhz = source_freq_mhz / div
+              uint32_t freq_mhz;              //!< CPU clock frequency
+          } rtc_cpu_freq_config_t;
+          
+*/
+            rtc_clk_cpu_freq_get_config(&out_config);
+//            delay(100);
+//            Serial_db.printf("cpu_freq_get_config  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
+//            Serial.printf("cpfgc  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
+              Serial.printf("%d %d %d %d\n",
+                out_config.source, out_config.source_freq_mhz, out_config.div, out_config.freq_mhz );
+} 
+
+void FreqTest(int _Freq) 
+{ int fr;
+  int Freq;
+//setCpuFrequencyMhz(10);
+  if(_Freq > 0)
+    setCpuFrequencyMhz(_Freq);
+
+  Freq = getCpuFrequencyMhz();
+  delay(10);
+
+  if (Freq < 80) {
+    fr = 80 / Freq * 115200;
+  }
+  else {
+    fr = 115200;
+  }
+  if(fr > 0) 
+  { 
+    Serial.end();
+    delay(100);
+    Serial.begin(fr);  
+    delay(100);
+  }
+
+/*  
+  Serial.print(">");
+  Serial.print("CPU Freq = ");
+  Serial.print(Freq);
+  Serial.println(" MHz");
+  Freq = getXtalFrequencyMhz();
+  Serial.print("XTAL Freq = ");
+  Serial.print(Freq);
+  Serial.println(" MHz");
+  Freq = getApbFrequency();
+  Serial.print("APB Freq = ");
+  Serial.print(Freq);
+  Serial.println(" Hz");
+*/
+  FreqInfo();  
+}
+
+#endif //0
+
+/*******************************/
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
 
@@ -141,15 +217,24 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
   
-  delay(2);
   Serial.begin(115200);
+
   Serial.println(IDENTIFY_TEXT);
-  Serial.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
+  Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
 
   setup_read_config();
+
+  Serial.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
+  if(SmOT.useCPU_freq > 0)
+  { int v = 80;
+    if(SmOT.useCPU_freq == 1) v = 160;
+    setCpuFrequencyMhz(v);
+
+    Serial.printf("Set CPU Freq to %d\n", v);
+  }
   SmOT.RelayInit();
 /*******************************************/
   SmOT.planner_setup();
@@ -161,7 +246,7 @@ void setup() {
  #else
     if(SmOT.OT_slave_present)
     { if(SmOT.OT_slave_mode == 0)
-      {    Serial.printf("setup_slave 1\n");
+      {    Serial_db.printf("setup_slave 1\n");
            setup_ot_slave();
       } else {
         init_ot_slave();    
@@ -187,7 +272,7 @@ void setup() {
 //  SmOT.tcp_remoteIP.fromString("192.168.10.112");
   SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
-  Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
+  Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
 #endif	
 
@@ -206,7 +291,7 @@ void setupDS1820(void)
   if(Tsensor1.begin() == false)
   {   SmOT.stsT1 = -1;
       SmOT.status |= 0x02;
-      Serial.printf((PGM_P)F("ERROR: No DS18b20(1) found on pin %i\n"), DS1820_1);
+      Serial_db.printf((PGM_P)F("ERROR: No DS18b20(1) found on pin %i\n"), DS1820_1);
       delay(100);
       if(Tsensor1.begin() )
       {   Serial.println(F("2nd attempt(1) Ok"));
@@ -219,13 +304,13 @@ M1:      SmOT.stsT1 = 0;
 
       Tsensor1.setResolution(12);
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
-      Serial.printf((PGM_P)F("DS18b20(1) found on pin %i\n"), DS1820_1);
+      Serial_db.printf((PGM_P)F("DS18b20(1) found on pin %i\n"), DS1820_1);
   }
 
   if(Tsensor2.begin() == false)
   {   SmOT.stsT2 = -1;
       SmOT.status |= 0x0200;
-      Serial.printf((PGM_P)F("ERROR: No DS18b20(2) found on pin %i\n"), DS1820_2);
+      Serial_db.printf((PGM_P)F("ERROR: No DS18b20(2) found on pin %i\n"), DS1820_2);
       delay(100);
       if(Tsensor2.begin() )
       {   Serial.println(F("2nd attempt(2) Ok"));
@@ -237,7 +322,7 @@ M2:   SmOT.stsT2 = 0;
       SmOT.status |= 0x0100;
       Tsensor2.setResolution(12);
       Tsensor2.setConfig(DS18B20_CRC);  // or 1
-      Serial.printf((PGM_P)F("DS18b20(2) found on pin %i\n"), DS1820_2);
+      Serial_db.printf((PGM_P)F("DS18b20(2) found on pin %i\n"), DS1820_2);
   }
  } 
 
@@ -247,7 +332,7 @@ void loopDS1820(void)
   static int nd=0;
   float t;
 
-//  Serial.printf("loopDS1820 nd %i %li\n", nd, millis());
+//  Serial_db.printf("loopDS1820 nd %i %li\n", nd, millis());
   switch(nd)
   {   case 0:
         if(SmOT.status&0x01)
@@ -289,7 +374,7 @@ void loopDS1820(void)
                 SmOT.t1 = t;
             SmOT.stsT1 = 1;
             SmOT.OnChangeT(t,0);    
-//            Serial.printf("SmOT T1= %f\n",   SmOT.t1);
+//            Serial_db.printf("SmOT T1= %f\n",   SmOT.t1);
           }
           SmOT.status &= ~0x04;
           nd = 2;
@@ -340,7 +425,7 @@ void loopDS1820(void)
             SmOT.stsT2 = 1;
             SmOT.OnChangeT(t,1);    
 
-//            Serial.printf("SmOT T2= %f\n",   SmOT.t2);
+//            Serial_db.printf("SmOT T2= %f\n",   SmOT.t2);
           }
           nd = 0;
         }
@@ -358,6 +443,8 @@ void OTprocessResponse(unsigned long response, OpenThermResponseStatus status)
     int parity, messagetype;
 static int timeOutcounter = 0;
 
+    SmOT.nr_OT++;
+
      OTcount++;
      SmOT.RespMillis = millis();
      id = (response >> 16 & 0xFF);
@@ -367,7 +454,7 @@ static int timeOutcounter = 0;
       if(id == (SmOT.TestId & 0xff))
       {
 #if OT_DEBUG
-    Serial.printf("TestCmd processResponse %x %x\n", response,  status);
+    Serial_db.printf("TestCmd processResponse %x %x\n", response,  status);
 #endif
         SmOT.TestResponse = response;
         SmOT.TestStatus = status;
@@ -378,24 +465,25 @@ static int timeOutcounter = 0;
   
     if (status == OpenThermResponseStatus::SUCCESS) {
 		   if(SmOT.stsOT != 0)
-        {   SmOT.MQTT_need_report = 1;
-            SmOT.OnOpenThermRestore();
-           // buildRequest(1);
+        { SmOT.stsOT =  0;  
+          SmOT.MQTT_need_report = 1;
+          SmOT.OnOpenThermRestore();
         }
 
-        SmOT.stsOT = timeOutcounter = 0;
+        timeOutcounter = 0;
         SmOT.response = response; 
         OTDebugInfo[0]++;
     } else if (status == OpenThermResponseStatus::NONE) {
-#if OT_DEBUG
-      LogOT(status, 0, 0,  0,  0);
-#endif         
         OTDebugInfo[2]++;
     } else if (status == OpenThermResponseStatus::INVALID) {
         OTDebugInfo[3]++;
-    } else if (status == OpenThermResponseStatus::TIMEOUT) {
+        OTlogErr(2, 1);
+        return;
+      } else if (status == OpenThermResponseStatus::TIMEOUT) {
       if(SmOT.stsOT != -1)
-	    { if(timeOutcounter > 10)
+	    { //if(SmOT.stsOT != 2)
+        //    Serial_db.printf("TIMEOUT %d %x t %d %d\n", timeOutcounter, response, millis(), SmOT.stsOT);
+        if(timeOutcounter > 10)
 		    { if(SmOT.stsOT != 2)
                SmOT.MQTT_need_report = 1;
           SmOT.stsOT = 2;
@@ -405,6 +493,8 @@ static int timeOutcounter = 0;
 #if OT_DEBUGLOG
         if(SmOT.stsOT == 2)
           OTlogDelLast();
+        else 
+          OTlogErr(1, 1);
 #endif
       } else {
 #if OT_DEBUGLOG
@@ -412,9 +502,6 @@ static int timeOutcounter = 0;
 #endif
       }
       OTDebugInfo[4]++;
-#if OT_DEBUG
-      LogOT(status, 0, 0,  0,  0);
-#endif         
       return;
     }
 
@@ -449,7 +536,7 @@ static int timeOutcounter = 0;
          ot_SlaveResponse = response;
      
         slraz++;
-//Serial.printf("buildRequestIfNeed raz %d\n", raz);
+//Serial_db.printf("buildRequestIfNeed raz %d\n", raz);
         if(SmOT.CapabilitiesDetected == 0)
         {  if(slraz++ > 30)
            {  SmOT.CapabilitiesDetected = 1;
@@ -494,14 +581,14 @@ static int timeOutcounter = 0;
 
       ot.update_OTid(id, 0);
          if(OTstartSts > 0)  OTstartSts++;
-//        Serial.printf("UNKNOWN_DATA_ID %d\n", id);
+//      Serial_db.printf("UNKNOWN_DATA_ID %d (%x)\n", id, id);
       return;
     }
     if(messagetype != READ_ACK && messagetype != WRITE_ACK )
     { OTDebugInfo[9]++;
          if(OTstartSts > 0)  OTstartSts++;
 #if SERIAL_DEBUG 
-        Serial.printf("Messagetype  %d!!! Status %d %d ot.LastRequestId %d\n", messagetype, status, SmOT.stsOT, ot.LastRequestId);
+        Serial_db.printf("Messagetype  %d!!! Status %d %d ot.LastRequestId %d\n", messagetype, status, SmOT.stsOT, ot.LastRequestId);
 #endif        
       return;
     }
@@ -514,9 +601,8 @@ static int timeOutcounter = 0;
     
     if(id != ot.LastRequestId)
     { OTDebugInfo[10]++;
-        Serial.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
 #if SERIAL_DEBUG 
-        Serial.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
+        Serial_db.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
 #endif        
       return;
     }
@@ -573,7 +659,7 @@ bit: description [ clear/0, set/1]
 
         SmOT.BoilerStatus = u88;
 
-//        Serial.printf("BoilerStatus: %x %x\n", u88, response);
+//        Serial_db.printf("BoilerStatus: %x %x\n", u88, response);
 //        Serial.println("Central Heating: " + String(ot.isCentralHeatingActive(response) ? "on" : "off"));
 //        Serial.println("Hot Water: " + String(ot.isHotWaterActive(response) ? "on" : "off"));
 //        Serial.println("Flame: " + String(ot.isFlameOn(response) ? "on" : "off"));
@@ -585,15 +671,16 @@ bit: description [ clear/0, set/1]
         break;
 
     case OpenThermMessageID::TSet:  // 1
-        SmOT.Tset_r = t;
+    SmOT.Tset_r = t;
         if(u88 == ot.temperatureToData(SmOT.Tset) )
           SmOT.Decriment_NeedSet(OpenThermMessageID::TSet);
+
             break;
         
     case OpenThermMessageID::MConfigMMemberIDcode: //2
          if(OTstartSts == 2)  OTstartSts++;
 #if SERIAL_DEBUG 
-       Serial.printf((PGM_P)F("OpenThermMessageID::MConfigMMemberIDcode, %d\n"), OTstartSts);
+       Serial_db.printf((PGM_P)F("OpenThermMessageID::MConfigMMemberIDcode, %d\n"), OTstartSts);
 #endif
         break;
 
@@ -621,13 +708,13 @@ bit: description [ clear/0, set/1]
             }
 
             SmOT.OTmemberCode = _SConfigSMemberIDcode & 0xff;
-//        Serial.printf("SmOT.OTmemberCode %d\n", SmOT.OTmemberCode);
+//        Serial_db.printf("SmOT.OTmemberCode %d\n", SmOT.OTmemberCode);
          }
-//        Serial.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
+//        Serial_db.printf("OTstartSts %d: u88 %x SmOT.HotWater_present = %d\n", OTstartSts, u88, SmOT.HotWater_present );
         break;
 
     case OpenThermMessageID::RemoteRequest: // 4 Remote Request
-//    Serial.printf("RemoteRequest responce %d\n", u88 );
+//    Serial_db.printf("RemoteRequest responce %d\n", u88 );
 
       SmOT.Decriment_NeedSet(OpenThermMessageID::RemoteRequest);
         break;
@@ -744,7 +831,7 @@ An OEM-specific fault/error code
         if(u88)
           OTDebugInfo[6]++;
         SmOT.OEMDcode = u88;
-//        Serial.printf("OEMDcode: %x\n", SmOT.OEMDcode);
+//        Serial_db.printf("OEMDcode: %x\n", SmOT.OEMDcode);
         SmOT.rcode[4] = u88;
         break;
         
@@ -769,22 +856,24 @@ unsigned int buildTestRequest(void)
     }
     
 #if OT_DEBUG
-    Serial.printf("TestRequest: %x\n", request);
+    Serial_db.printf("TestRequest: %x\n", request);
 #endif    
     return request;
 }
+
 
 /* return 0 if no response, 1 if have responce */
 int OTloop(void)
 {   static int st = 1;
     int rc = 0, ot_id;
+    unsigned long t_m, d_tm;
 
 #if ST_VERS == 2
 static int slst = 0;
   if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
   { if(SmOT.ot_slave_stsOT == -2)
     { if(SmOT.stsOT == 0)
-      {   Serial.printf("setup_slave 2\n");
+      {   Serial_db.printf("setup_slave 2\n");
               setup_ot_slave();
       }
     }
@@ -818,7 +907,7 @@ if (ot.isReady())
 #else
 
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1)) 
-    { // Serial.printf("SmOT.ot_slave_stsOT %d ot_SlaveSts %d  %d\n", SmOT.ot_slave_stsOT, ot_SlaveSts, millis() );
+    { // Serial_db.printf("SmOT.ot_slave_stsOT %d ot_SlaveSts %d  %d\n", SmOT.ot_slave_stsOT, ot_SlaveSts, millis() );
 
       if(SmOT.ot_slave_stsOT == 0)
       { if(ot_SlaveSts == 1)
@@ -846,7 +935,7 @@ if (ot.isReady())
     } else {
 M00:
     ot_id = SmOT.planner_loop();
-// Serial.printf("* OTloop ot_id %d (%d %d) %d\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), millis() );
+// Serial_db.printf("* OTloop ot_id %d (%d %d) %d\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), millis() );
   if(ot_id >= 0)
          request = SmOT.buildRequest(ot_id);       
 #if OT_DEBUGLOG
@@ -859,7 +948,7 @@ M00:
 
 #else //ST_VERS == 2
     ot_id = SmOT.planner_loop();
-//      Serial.printf("OTloop ot_id %d (%d %d)\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf() );
+//      Serial_db.printf("OTloop ot_id %d (%d %d)\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf() );
       
     if(ot_id >= 0)
          request = SmOT.buildRequest(ot_id);       
@@ -870,9 +959,9 @@ M00:
          OTlog(request,0);
  #endif          
 #endif
-
         if(ot.sendRequestAync(request))    // 	status = OpenThermStatus::RESPONSE_WAITING;    
         {    st++;
+          SmOT.ns_OT++; 
         }
 
       }
@@ -891,7 +980,7 @@ M00:
           st = 0;
           rc = 1;
 //          id = (ot.getLastResponse() >> 16 & 0xFF);
-//             Serial.printf("Last ResponseStatus:  %d Response id %d\n",  ot.getLastResponseStatus(), id);
+//             Serial_db.printf("Last ResponseStatus:  %d Response id %d\n",  ot.getLastResponseStatus(), id);
         }
       break;
     }
@@ -899,15 +988,27 @@ M00:
     return rc;
 }
 
+int Jopa = 0;
+
 unsigned int SD_Termo::buildRequest(int ot_id)
 { unsigned int request = 0;
   int rc;
 
-// Serial.printf("SD_Termo::buildRequest %d\n", ot_id);
+// Serial_db.printf("SD_Termo::buildRequest %d\n", ot_id);
   switch(ot_id) 
   {
 /**************************/
     case OpenThermMessageID::Status: // 0 запрос статуса
+{
+  if(stsOT == 2)
+  { static int raz=0;
+     Jopa = raz;
+     raz++;
+     if(raz > 255)
+        raz = 1;
+   }
+  
+}    
 #if PID_USE
       if(!usePID)
          enable_CentralHeating_real = enable_CentralHeating;
@@ -922,7 +1023,7 @@ unsigned int SD_Termo::buildRequest(int ot_id)
       if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && enable_CentralHeating_real)
          need_set_MaxRelModLevel(2); 
 
-// Serial.printf("enable_CentralHeating_real  %d %d\n",enable_CentralHeating_real, old_CH );
+// Serial_db.printf("enable_CentralHeating_real  %d %d\n",enable_CentralHeating_real, old_CH );
 #if MQTT_USE 
       rc = MQTT_pub_cmdCH(enable_CentralHeating_real);
       if(rc)
@@ -947,7 +1048,6 @@ unsigned int SD_Termo::buildRequest(int ot_id)
     
     case OpenThermMessageID::TSet:
       request = ot.buildSetBoilerTemperatureRequest(Tset); //1 W
-
         break;
 
 /**************************/
@@ -970,7 +1070,7 @@ unsigned int SD_Termo::buildRequest(int ot_id)
       {   data = (0x01<<8);  //BLOR        
           need_send_Blor = 0;
       }
-//      Serial.printf("RemoteRequest  %d\n", data );
+//      Serial_db.printf("RemoteRequest  %d\n", data );
 
         request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::RemoteRequest, data);
   }
@@ -1047,7 +1147,6 @@ unsigned int SD_Termo::buildRequest(int ot_id)
         break;
 
   case OpenThermMessageID::Toutside: //27 R
-//todo    if(ot.OTid_used(OpenThermMessageID::Toutside))
     request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Toutside, 0); //27
         break;
 
@@ -1100,7 +1199,7 @@ unsigned int SD_Termo::buildRequest(int ot_id)
 
 /**************************/
     default:
-        Serial.printf("Error: unknown id %d in SD_Termo::buildRequest\n", ot_id);
+        Serial_db.printf("Error: unknown id %d in SD_Termo::buildRequest\n", ot_id);
   }
 
   return request;
@@ -1119,7 +1218,7 @@ void loop(void)
   dt1 = t-told;
   if(dt1 > 1000)
   { told = t;
-   Serial.printf("loop=%d dt=%d\n", count++, dt1);
+   Serial_db.printf("loop=%d dt=%d\n", count++, dt1);
   }
 #endif
 
@@ -1146,7 +1245,7 @@ void loop(void)
   if(dt < OT_CICLE_TIME)
   {  loop2();
   } else  if( OTloop() ) {
-//   Serial.printf("raz=%d\n", raz);
+//   Serial_db.printf("raz=%d\n", raz);
       t0 = millis();
   }  else {
      loop2();
@@ -1161,26 +1260,30 @@ void loop2(void)
 {   static int irot = 0;
     static unsigned long  t0=0; // t1=0;
     unsigned long t, dt;
-     t = millis();
+    int wt;
+    t = millis();
      dt = t - t0;
 #if defined(ARDUINO_ARCH_ESP8266)
      if(!LedSts) //быстро моргаем раз в мсек
 #elif defined(ARDUINO_ARCH_ESP32)
      if(LedSts) //быстро моргаем раз в мсек
 #endif
-     {  if(dt > 4)
+     {  wt = 10;
+        if(SmOT.stsOT > 0) wt = 1000;
+        if(dt > wt)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
           t0 = t;
         }
      } else {
-        int wt = 500;
+        wt = 500;
         if(SmOT.stsOT == 0) wt = 2000;
         else if(SmOT.stsOT > 0) wt = 1000;
         if(dt > (unsigned long)wt)
         { LedSts = (LedSts+1)&0x01;
           digitalWrite(LED_BUILTIN, LedSts);   
           t0 = t;   
+
 /************************/ 
 //test for lost OT connection
       {  time_t now = time(nullptr);
@@ -1213,7 +1316,7 @@ void loop2(void)
         break;
         case 2:
    
-//Serial.printf("loop_udp\n");
+//Serial_db.printf("loop_udp\n");
 { static int oldFree = 0;
   int free, needrep=0;
   unsigned int maxFreeBlockSize;
@@ -1245,7 +1348,7 @@ void loop2(void)
   maxFreeBlockSize = ESP.getMaxFreeBlockSize();
 #endif
     
-    Serial.printf((PGM_P)F("IRAM free: %6d bytes (min %d) maxFreeBlock %6d\n"), free, minRamFree, maxFreeBlockSize) ;
+    Serial_db.printf("IRAM free: %6d bytes (min %d) maxFreeBlock %6d\n", free, minRamFree, maxFreeBlockSize) ;
     oldFree = free;
   }
 }
@@ -1266,13 +1369,14 @@ void loop2(void)
 
         case 4:
         loopDS1820();
-          irot++;
+        irot++;
         break;
 
         case 5:
         loop_time();
-          irot = 0;
-        break;
+        irot = 0;
+          break;
+
     }
 }
 
@@ -1326,7 +1430,7 @@ static int mday_prev = 0;
 
 /*
 #if SERIAL_DEBUG 
-Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
+Serial_db.printf( "%02d.%02d.%d %d:%02d:%02d\n",
           nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
 		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);
 #endif
@@ -1352,6 +1456,7 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
         SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_d = 0.;
         SmOT.Bstat.sec_d = 0;
+        SmOT.Bstat.NflameOn_day = 0;
 	    interrupts();
       mday_prev = nowtime->tm_mday;
     }
@@ -1361,13 +1466,13 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
         if(SmOT.Bstat.sec_h)
       SmOT.Bstat.Eff_Mod_h = SmOT.Bstat.ModIntegral_h / (float)(SmOT.Bstat.sec_h + dt);
 
-//     Serial.printf("sec_hour = %d Eff_Mod_h=%f ModIntegral_h=%f\n", SmOT.Bstat.sec_h, SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.ModIntegral_h );
+//     Serial_db.printf("sec_hour = %d Eff_Mod_h=%f ModIntegral_h=%f\n", SmOT.Bstat.sec_h, SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.ModIntegral_h );
 
 
     if(SmOT.Bstat.sec_d)
       SmOT.Bstat.Eff_Mod_d = SmOT.Bstat.ModIntegral_d / (float)(SmOT.Bstat.sec_d + dt);
 
-//     Serial.printf("sec_d = %d Eff_Mod_d=%f ModIntegral_d=%f\n", SmOT.Bstat.sec_d, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.ModIntegral_d );
+//     Serial_db.printf("sec_d = %d Eff_Mod_d=%f ModIntegral_d=%f\n", SmOT.Bstat.sec_d, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.ModIntegral_d );
   }
 }
 
@@ -1404,6 +1509,21 @@ void SD_Termo::RelayOnOff(bool onoff)
 }
 
 #if OT_DEBUGLOG
+//
+#define OT_TIMEOUT 255
+#define OT_INVALID 254
+
+void OTlogErr(int status, int sts)
+{ unsigned int reqresp;
+  if(status == 1) //timeout
+      reqresp =  OT_TIMEOUT << 16;
+  else            //invalid
+      reqresp = OT_INVALID << 16;
+
+//      Serial_db.printf("OTlogErr %d SmOT.nOTlog %d\n", status, SmOT.nOTlog);
+
+  OTlog(reqresp, sts);
+}
 //пишем в кольцевой буфер не более 1024 пакетов
 //sts: 0 - request, 1 - response, 
 //2 - request from slave interface
@@ -1412,17 +1532,17 @@ void OTlog(unsigned int reqresp, int sts)
 { unsigned int b[2];
   unsigned long t = millis();
   int lb;
+
   if(!SmOT.Use_remoteTCPserver)
     return;
     
   lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
 
   if(SmOT.nOTlog < 1024 && lb > 1)
-  { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff));
+  { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff)); //  
     
-//    Serial.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
+//    Serial_db.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
 //        SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
-
     b[1] =  reqresp;
 
     SmOT.OTlogBuf.Add( b);
@@ -1464,20 +1584,20 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
   if(raz > 1000)
     return;
   if(raz == 1000)
-  {   Serial.printf("End of OT log\n");
+  {   Serial_db.printf("End of OT log\n");
       raz++; 
       return;     
   }
   
   raz++; 
 
-  Serial.printf("%6d %3d ", ms, dms);
-  Serial.printf("%3d ", id);
+  Serial_db.printf("%6d %3d ", ms, dms);
+  Serial_db.printf("%3d ", id);
   if(code == 0)
   {
     switch(status)
     { case -1:
-        Serial.printf((PGM_P)F("Resp: ParityErr %d %d %04x\n"), id, messagetype, u88);
+        Serial_db.printf((PGM_P)F("Resp: ParityErr %d %d %04x\n"), id, messagetype, u88);
           break;
       case OpenThermResponseStatus::NONE:
         Serial.println(F("Resp: NONE"));
@@ -1499,26 +1619,26 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
       case OpenThermMessageID::Status:
         if( messagetype == OpenThermMessageType::READ_ACK)
         {
-            Serial.printf("Resp: %2d READ_ACK  %04x (Status LB %d %d %d %d %d %d %d)\n", 
+            Serial_db.printf("Resp: %2d READ_ACK  %04x (Status LB %d %d %d %d %d %d %d)\n", 
               id,  u88,(u88&0x40)>>6, (u88&0x20)>>5, (u88&0x10)>>4, (u88&0x08)>>3, (u88&0x04)>>2, (u88&0x02)>>1,  (u88&0x01));
         } else {
-            Serial.printf("Resp: %2d messagetype %x  %04x (Status LB %d %d %d %d %d %d %d)\n", 
+            Serial_db.printf("Resp: %2d messagetype %x  %04x (Status LB %d %d %d %d %d %d %d)\n", 
               id, messagetype, u88,(u88&0x40)>>6, (u88&0x20)>>5, (u88&0x10)>>4, (u88&0x08)>>3, (u88&0x04)>>2, (u88&0x02)>>1,  (u88&0x01));
         }
         break;
       case OpenThermMessageID::TSet:
         t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
         if(messagetype == WRITE_ACK)
-              Serial.printf((PGM_P)F("Resp: TSet Write %.3f\n"), t);
+              Serial_db.printf((PGM_P)F("Resp: TSet Write %.3f\n"), t);
         else if(messagetype == READ_ACK)
-              Serial.printf((PGM_P)F("Resp: TSet read %.3f\n"), t);
+              Serial_db.printf((PGM_P)F("Resp: TSet read %.3f\n"), t);
         else if(messagetype == WRITE)
-              Serial.printf((PGM_P)F("Resp: TSet WRITE  %.3f\n"),  t);
+              Serial_db.printf((PGM_P)F("Resp: TSet WRITE  %.3f\n"),  t);
         else
-              Serial.printf((PGM_P)F("Resp: TSet ! %d %04x\n"),  messagetype, u88);
+              Serial_db.printf((PGM_P)F("Resp: TSet ! %d %04x\n"),  messagetype, u88);
         break;
       default:
-        Serial.printf((PGM_P)F("Resp: %2d "), id);
+        Serial_db.printf((PGM_P)F("Resp: %2d "), id);
 	/* Slave to Master */
 //	READ_ACK        = B100,
 //	WRITE_ACK       = B101,
@@ -1534,11 +1654,11 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
         else if(messagetype == OpenThermMessageType::UNKNOWN_DATA_ID)
         {   extern OpenThermID OT_ids[N_OT_NIDS]; 
             Serial.print((PGM_P)F("UNKNOWN_DATA_ID"));
-             Serial.printf(" %d %d ", OT_ids[id].count, OT_ids[id].countOk );
+             Serial_db.printf(" %d %d ", OT_ids[id].count, OT_ids[id].countOk );
         }   else 
-            Serial.printf( "%d",messagetype);
+            Serial_db.printf( "%d",messagetype);
 
-        Serial.printf(" %04x\n", u88);
+        Serial_db.printf(" %04x\n", u88);
     }
     return;
 
@@ -1553,39 +1673,39 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
     case OpenThermMessageID::Status:
       if( messagetype == OpenThermMessageType::READ_DATA)
       {
-          Serial.printf("%s: %2d READ_DATA %04x (Status HB %d %d %d %d %d %d %d)\n", str,
+          Serial_db.printf("%s: %2d READ_DATA %04x (Status HB %d %d %d %d %d %d %d)\n", str,
             id,  u88,(u88&0x4000)>>14,(u88&0x2000)>>13, (u88&0x1000)>>12, (u88&0x0800)>>11, (u88&0x0400)>>10, (u88&0x0200)>>9,  (u88&0x0100)>>8);
       } else {
-          Serial.printf("%s: %2d messagetype %x  %04x (Status HB %d %d %d %d %d)\n", str,
+          Serial_db.printf("%s: %2d messagetype %x  %04x (Status HB %d %d %d %d %d)\n", str,
             id, messagetype, u88,(u88&0x1000)>>12, (u88&0x0800)>>11, (u88&0x0400)>>10, (u88&0x0200)>>9,  (u88&0x0100)>>8);
       }
       break;
     case OpenThermMessageID::TSet:
       t = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
       if(messagetype == WRITE)
-            Serial.printf((PGM_P)F("%s: TSet Write %.3f\n"), str,t);
+            Serial_db.printf((PGM_P)F("%s: TSet Write %.3f\n"), str,t);
       else if(messagetype == READ)
-            Serial.printf((PGM_P)F("%s: TSet read %.3f\n"), str, t);
+            Serial_db.printf((PGM_P)F("%s: TSet read %.3f\n"), str, t);
       else
-            Serial.printf((PGM_P)F("%s: TSet ! %d %04x\n"), str, messagetype, u88);
+            Serial_db.printf((PGM_P)F("%s: TSet ! %d %04x\n"), str, messagetype, u88);
       break;
 
     case OpenThermMessageID::SConfigSMemberIDcode:
-    Serial.printf((PGM_P)F("%s: SConfigSMemberIDcode %d %04x\n"),str, messagetype,  u88);
+    Serial_db.printf((PGM_P)F("%s: SConfigSMemberIDcode %d %04x\n"),str, messagetype,  u88);
       break;
     case OpenThermMessageID::MConfigMMemberIDcode:
-    Serial.printf((PGM_P)F("%s: MConfigMMemberIDcode %d %04x\n"), str, messagetype,  u88);
+    Serial_db.printf((PGM_P)F("%s: MConfigMMemberIDcode %d %04x\n"), str, messagetype,  u88);
       break;
 
     default:
-        Serial.printf((PGM_P)F("%s: %2d "), str, id);
+        Serial_db.printf((PGM_P)F("%s: %2d "), str, id);
         if(messagetype == OpenThermMessageType::READ_DATA)
             Serial.print((PGM_P)F("READ_DATA"));
         else if(messagetype == OpenThermMessageType::WRITE_DATA)
             Serial.print((PGM_P)F("WRITE_DAT"));
         else 
-            Serial.printf( "%d",messagetype);
-        Serial.printf((PGM_P)F(" %04x\n"),  u88);
+            Serial_db.printf( "%d",messagetype);
+        Serial_db.printf((PGM_P)F(" %04x\n"),  u88);
   }
 
  }   

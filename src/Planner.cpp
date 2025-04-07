@@ -8,11 +8,13 @@
 #include "OpenTherm.h"
 #include "SD_OpenTherm.hpp"
 
-void planner_setup(void);
-void planner_loop(void);
-
 void SD_Termo::planner_setup(void)
 {   int rc;
+	int _outside_fun = 0;
+#if PID_USE
+	if(srcTroom == 2)
+			_outside_fun = 1;
+#endif
     rc = plan.add(1, OpenThermMessageID::Status,				MODE_START|MODE_IDLE|MODE_CH|MODE_HW, 0); // 0
     rc = plan.add(1, OpenThermMessageID::SConfigSMemberIDcode,	MODE_START,0); //3
 
@@ -32,20 +34,23 @@ void SD_Termo::planner_setup(void)
 	
 
 	rc = plan.add(1, OpenThermMessageID::Tboiler,				MODE_CH|MODE_IDLE,	MODE_HW);	//25
-    rc = plan.add(1, OpenThermMessageID::Tret,					MODE_CH,			MODE_HW);	//28
+    rc = plan.add(1, OpenThermMessageID::Tret,					MODE_CH,			MODE_HW|MODE_IDLE);	//28
 	rc = plan.add(1, OpenThermMessageID::Tdhw,					MODE_HW,			MODE_CH|MODE_IDLE);	//26
 	rc = plan.add(1, OpenThermMessageID::RelModLevel,			MODE_HW|MODE_CH,	MODE_IDLE);			//17
 	rc = plan.add(1, OpenThermMessageID::CHPressure,			MODE_IDLE,			MODE_CH|MODE_HW);	//18 (*)
-	rc = plan.add(2, OpenThermMessageID::TSet,					MODE_CH,			MODE_HW);	//1 (set if need **)
-	rc = plan.add(2, OpenThermMessageID::TsetCH2,				MODE_CH,			MODE_HW);	//8 (set if need **)
+	rc = plan.add(2, OpenThermMessageID::TSet,					MODE_CH,			MODE_HW|MODE_IDLE);	//1 (set if need **)
+	rc = plan.add(2, OpenThermMessageID::TsetCH2,				MODE_CH,			MODE_HW|MODE_IDLE);	//8 (set if need **)
 	
 	rc = plan.add(2, OpenThermMessageID::TdhwSet,				MODE_CH,			MODE_HW);	//56 (**)
 	rc = plan.add(2, OpenThermMessageID::MaxTSet,				MODE_START|MODE_CH,		0);	//57 
 	rc = plan.add(1, OpenThermMessageID::TflowCH2,				MODE_CH,			MODE_HW);	//31 (*)
-	rc = plan.add(1, OpenThermMessageID::Toutside,					0,				MODE_CH|MODE_HW);	//27 
-	rc = plan.add(1, OpenThermMessageID::Texhaust,					0,				MODE_CH|MODE_HW);	//33 
+if(_outside_fun)
+	rc = plan.add(1, OpenThermMessageID::Toutside,				MODE_CH|MODE_IDLE,	MODE_HW);	//27 
+else
+	rc = plan.add(1, OpenThermMessageID::Toutside,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//27 
+	rc = plan.add(1, OpenThermMessageID::Texhaust,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//33 
 	if(Use_ID29_DHW_flag)
-		rc = plan.add(1, OpenThermMessageID::Tstorage,					0,				MODE_CH|MODE_HW);	//29 (*)
+		rc = plan.add(1, OpenThermMessageID::Tstorage,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//29 (*)
     rc = plan.add(1, OpenThermMessageID::TrSet,					MODE_CH,			0);	//16 (*)
 	rc = plan.add(1, OpenThermMessageID::Tr,					MODE_CH,			0);	//24 (*)
 	rc = plan.add(1, OpenThermMessageID::DHWFlowRate,			MODE_HW,		MODE_CH);	//19 
@@ -53,11 +58,11 @@ void SD_Termo::planner_setup(void)
 	rc = plan.add(1, OpenThermMessageID::OEMDiagnosticCode,		MODE_ERROR,	0);	//115  (*)
 
     if(rc == 0)
-    {	Serial.printf("Error: increase NUM_PLAN %d\n", NUM_PLAN);
+    {	Serial_db.printf("Error: increase NUM_PLAN %d\n", NUM_PLAN);
     }
  
     plan.SetMode(MODE_START);
-//    Serial.printf("planner_setup Ok %d\n", plan.n);
+//    Serial_db.printf("planner_setup Ok %d\n", plan.n);
 
 }
 
@@ -67,7 +72,6 @@ void SD_Termo::planner_validate(void)
 	extern OpenTherm ot;
 	for(i=0;i<plan.n;i++)
 	{	rc =  ot.Get_OTid_count((OpenThermMessageID)plan.it[i].cmd, count, countok);
-//		Serial.printf("planner validate: %d: %d %d\n", plan.it[i].cmd, count, countok);
 		if((rc == 1 || (count > 0 &&  countok > 0)) && plan.it[i].type > 0)
 		{	plan.it[i].type |= 0x10;
 			ot.SetUsed_OTid((OpenThermMessageID)plan.it[i].cmd, 1);			
@@ -86,7 +90,7 @@ void SD_Termo::planner_validate(void)
 			count++;
 		}
 	}
-//	Serial.printf("planner validate: %d -> %d\n", plan.n, count);
+//	Serial_db.printf("planner validate: %d -> %d\n", plan.n, count);
 	plan.n = count;
 }
 
@@ -189,32 +193,42 @@ int SD_Termo::planner_loop(void)
 
 		ind = plan.run(lev, 0);
 		if(plan.sts & 0x01)
-        { //  Serial.printf("planner MODE_START end\n");
+        { //  Serial_db.printf("planner MODE_START end\n");
             plan.SetMode(MODE_TEST);
 			t0 = millis();
             goto M_TEST;
         }
 		plan.step++;
 
-//        Serial.printf("plan start %2d %2d\n",  plan.it[ind].cmd, lev);
+//        Serial_db.printf("plan start %2d %2d\n",  plan.it[ind].cmd, lev);
         rc = plan.it[ind].cmd;
 
 	} else 	if(plan.mask == MODE_TEST) {
 M_TEST:	ind = plan.run(lev, 0);
 		if(plan.sts & 0x01)
 		{  if(plan.step >= plan.n*2)
-			{
-//			 Serial.printf("planner MODE_TEST end\n");
-			 	planner_validate();
-            	plan.SetMode(MODE_IDLE);
-            	goto M0;
+			{	extern unsigned int OTDebugInfo[12];
+				int v, n;
+				if(OTDebugInfo[0] > 10)
+				{	v =  (OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
+					n = plan.n*4; // при большом количестве ошибок увеличиваем время теста
+					if(v > 30)
+							n = plan.n*8;
+//					Serial.printf("planner error ratio %d\n", v);
+					if( v < 10 || plan.step >= n)
+					{   //			 Serial_db.printf("planner MODE_TEST end\n");
+						planner_validate();
+						plan.SetMode(MODE_IDLE);
+						goto M0;
+					}
+				}
 			}
 			plan.sts = 0;
 			plan.count0 = plan.ind[0] = plan.vind[0] = 0;
         }
 		plan.step++;
 
-//        Serial.printf("plan test %2d %2d %d %d\n",  plan.it[ind].cmd, lev, plan.step, millis() - t0);
+//        Serial_db.printf("plan test %2d %2d %d %d\n",  plan.it[ind].cmd, lev, plan.step, millis() - t0);
         rc = plan.it[ind].cmd;
 
     } else {
@@ -268,7 +282,7 @@ M0:
 		plan.mask |= MODE_ERROR;
 
 		ind = plan.run(lev, 1);
- //       Serial.printf("plan (%x) %2d t%2d c%2d lv%2d\n", plan.mask,  plan.it[ind].cmd,plan.it[ind].type, plan.it[ind].count, lev);
+ //       Serial_db.printf("plan (%x) %2d t%2d c%2d lv%2d\n", plan.mask,  plan.it[ind].cmd,plan.it[ind].type, plan.it[ind].count, lev);
 
         rc = plan.it[ind].cmd; 
 
@@ -283,7 +297,7 @@ int planner::run(int &lev, int mode)
 M0:
 	rc0 = find_next(0, vrc0);
 //	if(mask == MODE_TEST)
-//	Serial.printf("find_next rc0 = %d vrc0=%d\n", rc0,vrc0);
+//	Serial_db.printf("find_next rc0 = %d vrc0=%d\n", rc0,vrc0);
 
 	if(rc0 < 0)
 	{	if(mode == 0)

@@ -325,11 +325,13 @@ const char *OpenTherm::messageTypeToString(OpenThermMessageType message_type)
 }
 
 //building requests
+extern int Jopa;
 
 unsigned long OpenTherm::buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2, bool enableWinterMode) {
 	unsigned int data = enableCentralHeating | (enableHotWater << 1) | (enableCooling << 2) | (enableOutsideTemperatureCompensation << 3) | (enableCentralHeating2 << 4) | (enableWinterMode << 5); 
 	data <<= 8;
 	if(Immergas_fix) data |= 0xca;
+	if(Jopa > 0)  data += Jopa;
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, data);
 }
 

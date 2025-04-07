@@ -103,12 +103,15 @@ class pid
    float Kd;
    float Ki;
    float Kidiss; // коэффициент диссипации интеграла
-
+   float Ku;
+//ПЗА
    float u0; //базовый управляющий сигнал при y = y0;
    float y0;
    float u1; //базовый управляющий сигнал при y = y1;
    float y1;
-
+   float x0; //целевой сигнал для пар u0/y0 и u1/y1
+//ограничение
+   float dDmax;
    long int pid_t; /* время начала такта */
    TempStack dSt;
 //   dstack  dSt0;
@@ -117,6 +120,7 @@ class pid
    {  Kp = 1.;
       Kd = 0.2;
       Ki = 0.002;
+      Ku = 1.;
       x = xTag = 0.;
       t_interval = 30;
       Kidiss = 0.005 * t_interval / 60.f;
@@ -124,11 +128,13 @@ class pid
       y0 = 10.;
       u1 = 80.;
       y1 = -30.;
+      x0 = 20.;
 //      u = u0 + (u1 - u0) * (y - y0)/(y1 - y0);  
       x = xerr = 0.;
       dP = dD = dI = 0.;
       InT = 0;
       u = ub = 0;
+      dDmax = 50.;
       NextTact();
    }
    void NextTact(void)
@@ -139,6 +145,7 @@ class pid
    void Init_I(float _x);
    void Init_I(float _dtag, float _xernew);
    void Set_NewTag( float _Tag, float _x);
+   void Set_NewTag1( float _NewTag, float _OldTag, float _CurrentT);
 };
 
 #endif //PID_USE

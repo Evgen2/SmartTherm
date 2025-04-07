@@ -58,7 +58,7 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
 static int timeOutcounter = 0;
 
 #if  OT_SLAVE_DEBUG
-    Serial.printf("Slave processRequest: request %x status %x\n", request, status); 
+    Serial_db.printf("Slave processRequest: request %x status %x\n", request, status); 
 #endif
     if (status == OpenThermResponseStatus::SUCCESS) {
         ot_SlaveSts = 0;
@@ -128,11 +128,11 @@ static int timeOutcounter = 0;
     float t = ot_slave.getFloat(request);
     messagetype = ot_slave.getMessageType(request);
 
-//    Serial.printf("Slave processRequest: id %x data %x\n", id, data); 
+//    Serial_db.printf("Slave processRequest: id %x data %x\n", id, data); 
 
         if (!ot_slave.isValidRequest(request))
         {
-    Serial.printf("Err: invalidRequest %x\n", request); 
+    Serial_db.printf("Err: invalidRequest %x\n", request); 
         //build UNKNOWN-DATAID response
         response = ot_slave.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, ot_slave.getDataID(request), 0);   
     //send response
@@ -174,7 +174,7 @@ SR:
     LogOT(5,  iid,  messagetype,  u88);
   } 
 #endif         
-//    Serial.printf("Slave processRequest: id %x data %x\n", id, data); 
+//    Serial_db.printf("Slave processRequest: id %x data %x\n", id, data); 
 
     SmOT.ot_slave_stsOT = 0;
     //send response
@@ -193,7 +193,7 @@ int setup_ot_slave(void)
 {
   if(SmOT.ot_slave_stsOT == -2)
   {
-//    Serial.printf("setup_slave\n");
+//    Serial_db.printf("setup_slave\n");
 
  ot_slave.begin(handleInterruptslave, processRequest);
     SmOT.ot_slave_stsOT = -1;
@@ -207,7 +207,7 @@ void sendResponse_ot_slave(void)
     id = (ot_SlaveResponse >> 16 & 0xFF);
     nslaveint = 0;
 //    if(ot_slave.getMessageType(ot_SlaveResponse) == DATA_INVALID)
-//       Serial.printf("DATA_INVALID SlaveResponse 2\n");
+//       Serial_db.printf("DATA_INVALID SlaveResponse 2\n");
 
 ot_slave.sendResponse(ot_SlaveResponse);
     ot_SlaveSts = 4;
@@ -224,7 +224,7 @@ int OT_slaveloop(void)
   if(t-t0>500)
   {
     ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Status, 0xffff);
-    Serial.printf("Slave test send Response:  %x\n", ot_SlaveResponse); 
+    Serial_db.printf("Slave test send Response:  %x\n", ot_SlaveResponse); 
     sendResponse_ot_slave();
 
     t0 = t;

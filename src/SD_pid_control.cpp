@@ -44,7 +44,7 @@ void SD_Termo::loop_PID(void)
     if(!issF && (t - t0 < (unsigned long int)(mypid.t_interval*1000))) 
             return;
 
-//     Serial.printf("==>PID dt %d iss %d\n", t-t0, issF); 
+//     Serial_db.printf(("==>PID dt %d iss %d\n", t-t0, issF); 
 
     OldBoilerStatus = BoilerStatus;
 //if Flame status changed  then 4 times continue with 4 sec interval  
@@ -66,18 +66,18 @@ void SD_Termo::loop_PID(void)
 
     if(is & 0x02)
     {   if(tempoutdoor <= mypid.y0)
-            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
         else
         {  if(mypid.y0 != mypid.xTag)
-                  u0 = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
+                  u0 = mypid.xTag + (mypid.u0 + mypid.Ku * (mypid.xTag - mypid.x0) - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
            else
                   u0 = mypid.xTag;
         }
     } else { //нет внешней температуры
-        u0 = _U0start;
+        u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
     } 
 
-//   Serial.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
+//   Serial_db.printf(("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
 //             is, start, tempoutdoor, u0, mypid.InT );
 
 /**********************************************/
@@ -86,7 +86,7 @@ void SD_Termo::loop_PID(void)
                 
     rc = mypid.Pid(tempindoor, u0); //PID
 
-//    Serial.printf("mypid.Pid rc =%d\n", rc);
+//    Serial_db.printf(("mypid.Pid rc =%d\n", rc);
     
     if(rc != 1)  // если PID не OK
                 return;
@@ -112,7 +112,7 @@ void SD_Termo::loop_PID(void)
         need_heat = 1;
     }
 
-//    Serial.printf("==>PID _u %f need_heat %d\n", _u, need_heat); 
+//    Serial_db.printf(("==>PID _u %f need_heat %d\n", _u, need_heat); 
 
     if(need_heat == 1 && (start_heat == 0 || start_heat == 2)) //включение отопления
     {   dt =  now - t_stop_heat;
@@ -134,19 +134,23 @@ void SD_Termo::loop_PID(void)
         }
     }
 
-//    Serial.printf("==>PID _u %f need_heat %d enable_CentralHeating_real %d\n",
+//    Serial_db.printf(("==>PID _u %f need_heat %d enable_CentralHeating_real %d\n",
 //             _u, need_heat, enable_CentralHeating_real); 
 
     if(start_heat == 1 && need_heat == 1) //отопление включено
     {   if(BoilerStatus& 0x08) //если горелка включена
-        {   dt = now - Bstat.t_flame_on;
+        {   int dt0;
+            dt0 = 15*60;
+            if(abs(tempindoor-mypid.xTag) > 2.f)
+                                    dt0 = 5*60;
+            dt = now - Bstat.t_flame_on;
             _uu = _u;
 //            if(issF == 3)
 //                _ustart = _u;
 
-            if(dt < 15*60) //пытаемся плавно повышать температуру
+            if(dt < dt0) //пытаемся плавно повышать температуру
             {   float r, du;
-                r = dt/(60.*15.);
+                r = dt/ float(dt0);
                 _uu = _u * r +  _ustart  * (1-r); // корректируем уставку температуры
             }
             if(BoilerT > _uu) //однако, если температура  теплоносителя уже достигла заданного значения
@@ -173,7 +177,7 @@ void SD_Termo::loop_PID(void)
 
     Tset = CHtempLimit(_u);
 
-//    Serial.printf("==>PID Tset %f_u %f need_heat %d enable_CentralHeating_real %d\n",
+//    Serial_db.printf(("==>PID Tset %f_u %f need_heat %d enable_CentralHeating_real %d\n",
 //             Tset, _u, need_heat, enable_CentralHeating_real); 
     need_set_T(1);  // for OpenTherm
 #if MQTT_USE
@@ -189,9 +193,11 @@ void SD_Termo::loop_PID(void)
 void SD_Termo::set_new_PID_setpoint(float Tsetpoint, int src)
 {
 #if PID_USE
-    oldTroomSetpoint = mypid.xTag;
+oldTroomSetpoint = mypid.xTag;
     src_lastSetPointChange = src;
-    mypid.Set_NewTag(Tsetpoint, tempindoor);
+//  mypid.Set_NewTag(Tsetpoint, tempindoor);
+    mypid.Set_NewTag1(Tsetpoint, oldTroomSetpoint,  tempindoor);
+
     t_lastSetPointChange = time(nullptr);
 #endif    
 }
@@ -207,7 +213,7 @@ void SD_Termo::loop_mean(void)
         t_mean[i].get();
 //debug
 //if(i < 2)
-//    Serial.printf("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
+//    Serial_db.printf(("t_mean[%d] x=%f  mean =%f nx=%d isset %d\n", i, t_mean[i].x, t_mean[i].xmean, t_mean[i].nx, t_mean[i].isset ); 
 
         if(t_mean[i].nx > 2 || (i == 4 && t_mean[i].isset == 1)) /* 4 - outdoor mqtt */
                 t_mean[i].init(1);
@@ -226,7 +232,7 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
         if(srcTroom < 0 || srcTroom > 4)
         {  is = 0;
         } else {
-//  Serial.printf("0 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
+//  Serial_db.printf(("0 srcTroom =%d, isset=%d xmean=%f nx=%d\n",
 //         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
             if(t_mean[srcTroom].isset != -1)
             {   tempindoor = t_mean[srcTroom].x;

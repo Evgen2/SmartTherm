@@ -40,15 +40,13 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 
 #if defined(ARDUINO_ARCH_ESP8266)
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
-
 #endif
 
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
-int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
+unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
-
 
 /*********************************/
 const char* INFO_URI  = "/info";
@@ -134,14 +132,16 @@ AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2
 AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лето/зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseCPU_FREQ_ChB("CPUFREQ","", "CPU FREQ", false, AC_Behind, AC_Tag_None);
+ACInput(CPU_FREQ,"", " ","", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
 
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID, Info1, SendBLOR });
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, SetupPID, Info1, SendBLOR });
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar, Info1, SendBLOR});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, Info1, SendBLOR});
 #endif //#if PID_USE
 
 
@@ -161,14 +161,17 @@ ACInput(Set_u0_PID,"", "u0:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); /
 ACInput(Set_t0_PID,"", "t0:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u1_PID,"", "u1:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_t1_PID,"", "t1:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
-ACInput(Set_CH_GIST,"", "Гистерезис включения горелки, град:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
-
+ACInput(Set_x0_PID,"", "Базовая температура помещения:",  "", "", AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_CH_GIST,"", "Гистерезис включения горелки, град:",  "", "", AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+AutoConnectCheckbox UsePIDPWM("UsePIDPWM","", "Использовать PWM при выходе U &lt; Tmin", false, AC_Behind , AC_Tag_BR);
+ACInput(PWM_T_PID,"", "Время PWM, сек:",  "", "", AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 
 
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
                       SetKpPID, SetKdPID, SetKiPID,SetIdissPID, 
-                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });  // onSetupPID()
+                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Set_x0_PID, Set_CH_GIST, Info4,
+                      UsePIDPWM, PWM_T_PID, Info5, Info6,  ApplyPID });  // onSetupPID()
 #endif
 /************* SetPID end ***************/
 
@@ -200,7 +203,7 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
-     CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
+     CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd, ApplyChB});
 #else
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
@@ -211,7 +214,7 @@ AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2,
 
 
 AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
-AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
+AutoConnectAux SetParPage(SET_PAR_URI,    "SetPar", false, {}, false);
 AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
 #if PID_USE
 AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
@@ -360,7 +363,7 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial.printf("WiFi psk=%s\n", config.psk.c_str());
+   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
   
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
@@ -371,7 +374,7 @@ void setup_web_common(void)
   webServer.on("/", onRoot);  // Register the root page redirector.
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
-    Serial.println(F("WiFi Not connected"));
+    Serial_db.printf("WiFi Not connected");
     WiFi.setAutoReconnect(true);
   }  
   
@@ -385,30 +388,29 @@ void setup_web_common(void)
     } else {
       wifi_get_macaddr(STATION_IF, SmOT.Mac);
     }
-//    Serial.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
+//    Serial_db.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
 #elif defined(ARDUINO_ARCH_ESP32)
     if(WiFi.getMode() == WIFI_MODE_NULL){
         esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
-//      Serial.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
+//      Serial_db.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }
     else{
         esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
-//      Serial.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
+//      Serial_db.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }  
 #endif //
-//  Serial.printf("(20) %d\n", millis());
+//  Serial_db.printf("(20) %d\n", millis());
 
 }
 
 int setup_web_common_onconnect(void)
 { static int init = 0;
 
-  //Serial.printf("setup_web_common_onconnect init %d\n", init);
+  //Serial_db.printf("setup_web_common_onconnect init %d\n", init);
 
-  Serial.print(F("WiFi connected, IP address: "));
-  Serial.println(WiFi.localIP());
+  Serial_db.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
-  Serial.printf("WiFi mode = %d\n", WiFi.getMode());
+  Serial_db.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
     return 1;
 
@@ -429,7 +431,7 @@ const char*  const _ntp2 = "pool.ntp.org";
 #if SERIAL_DEBUG      
 	  time_t  now;
   now = time(nullptr);
-  Serial.printf("1 %s", ctime(&now));
+  Serial_db.printf("1 %s", ctime(&now));
 #endif 
    // By configuring NTP, the timestamp appended to the capture filename will
     // be accurate. But this procedure is optional. It does not affect ESP32Cam
@@ -441,15 +443,14 @@ const char*  const _ntp2 = "pool.ntp.org";
 //   delay(1000);
 #if SERIAL_DEBUG      
   now = time(nullptr);
-  Serial.printf("2 %s\n", ctime(&now));
+  Serial_db.printf("2 %s\n", ctime(&now));
 #endif  
   // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #if defined(ARDUINO_ARCH_ESP8266)
 // default ntp update  1 hour
 // it can be redefined via uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #elif defined(ARDUINO_ARCH_ESP32)
-  Serial.print("Sync time in ms: ");
-  Serial.println(sntp_get_sync_interval());  
+Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
 #endif
 
 
@@ -498,9 +499,11 @@ int OutUTCtime(time_t now);
 #include "esp32/rom/rtc.h"
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[180];
+{  char str[256];
   // int l;
 extern int minRamFree;
+
+//Serial_db.drop();
 
 //WiFiDebugInfo
 //   sprintf(str,"WiFi statistics:");
@@ -517,7 +520,7 @@ extern int minRamFree;
    sprintf(str,(PGM_P)F("OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d"), 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
    //l = strlen(str);
-   //Serial.printf("4 l=%d\n", l);
+   //Serial_db.printf("4 l=%d\n", l);
 
    Info4.value = str;
 #if ST_VERS == 2
@@ -530,8 +533,12 @@ extern int minRamFree;
 
 #endif      
 
-   sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
-   Info5.value = str;
+  sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
+  Info5.value = str;
+   if(SmOT.CrasyState_count > 0)
+   {  sprintf(str," CSc %d", SmOT.CrasyState_count);
+      Info5.value += str;
+   }
   
   {       
    OutUTCtime(time(nullptr));
@@ -541,17 +548,17 @@ extern int minRamFree;
 
   }
 
-   sprintf(str,(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
+   snprintf(str,sizeof(str),(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
           SmOT.Bstat.NflameOn, SmOT.Bstat.NflameOn_h, SmOT.Bstat.NflameOn_h_prev, SmOT.Bstat.NflameOn_day, SmOT.Bstat.NflameOn_day_prev);
 //   l = strlen(str);
-//   Serial.printf("5 l=%d\n", l);
+//   Serial_db.printf("5 l=%d\n", l);
    
    Info6.value = str;
-   sprintf(str,(PGM_P)F("<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f"), 
+   snprintf(str,sizeof(str),(PGM_P)F("<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f"), 
           SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
 
 //   l = strlen(str);
-//   Serial.printf("6 l=%d\n", l);
+//   Serial_db.printf("6 l=%d\n", l);
 
    Info6.value += str;
 #if PID_USE
@@ -559,7 +566,7 @@ extern int minRamFree;
     {  extern int debcode;
        extern int wait_if_takt;
 
-       sprintf(str,"<br>pid: U= %f u0 = %f  dP=%f, dD=%f dI=%f\n",
+       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f\n",
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
 //      sprintf(str,"<br>debcode %d wait_if_takt %d",  debcode, wait_if_takt); 
@@ -881,8 +888,9 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 }
 
 // SetAddParPage 
+// SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0;
+{  int isChange=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -933,14 +941,41 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
      SmOT.Immergas_fix_flag = icheck;
   }
 
+  if( UseCPU_FREQ_ChB.checked) icheck = true;
+  else                         icheck = false;
+  if(icheck)
+  { if(SmOT.useCPU_freq == -1)
+    {   redir = 1;  
+        SmOT.useCPU_freq = 0;
+    } else {
+      int v=0;
+      v2 = CPU_FREQ.value.toInt();
+      if(v2 == 240) v = 0;
+      else if(v2 == 160) v = 1;
+      else if(v2 == 80)  v = 2;
+      if(v != SmOT.useCPU_freq)
+      { SmOT.useCPU_freq = v;
+        isChange = 1;
+      }
+    }
+  } else {
+    SmOT.useCPU_freq = -1;
+    isChange = 1;
+  }
+  
 
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
-
-  aux.redirect(SETUP_URI);
+  
+  if(redir)
+        aux.redirect(SETUP_ADD_URI);
+  else
+        aux.redirect(SETUP_URI);
+    
   return String();
 }
 
+//SETUP_ADD_URI
 String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 {  char str[40];
 
@@ -977,6 +1012,23 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       Immergas_fix_ChB.checked = false;
 
+  if(SmOT.useCPU_freq >=0)
+      UseCPU_FREQ_ChB.checked = true;
+  else
+      UseCPU_FREQ_ChB.checked = false;
+
+  if( UseCPU_FREQ_ChB.checked) 
+  {   CPU_FREQ.enable = true;
+    if(SmOT.useCPU_freq < 1)  strcpy(str,"240");
+    else if(SmOT.useCPU_freq == 1)  strcpy(str,"160");
+    else  strcpy(str,"80");
+    CPU_FREQ.value = str;
+    Info2.value ="<small>Частота процессора: 240/160/80</small>";
+  } else {
+    CPU_FREQ.enable = false;
+    Info2.value ="";
+  }
+
   if(SmOT.RemoteRequest_present)
   {   SendBLOR.enable = true;
       Info1.value = "Удаленный сброс ошибки (BLOR), я знаю, что я делаю";
@@ -985,13 +1037,12 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
      SendBLOR.enable = false;
   }
 
-
   return String();
 }
 
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
-  char str0[80];
+  char str0[256];
 extern OpenTherm ot;
 
    switch(SmOT.stsOT)
@@ -1070,10 +1121,10 @@ extern OpenTherm ot;
         double dt;
         dt = difftime(now,SmOT.t_lastwork);
         if(dt < 3600.)
-        {   sprintf(str0, (PGM_P)F("Потеря связи с котлом %.f сек назад"), dt);
+        {   snprintf(str0,sizeof(str0), (PGM_P)F("Потеря связи с котлом %.f сек назад"), dt);
 
         } else {        
-            sprintf(str0, (PGM_P)F("Потеря связи связи с котлом %.1f час(ов) назад"), dt);
+            snprintf(str0, sizeof(str0), (PGM_P)F("Потеря связи связи с котлом %.1f час(ов) назад"), dt);
         }
         Info1.value =  String(SmOT.stsOT) + " : <b>Ошибка:</b> ";
         Info1.value +=  str0;
@@ -1159,7 +1210,7 @@ if(SmOT.useMQTT)
 
 /***************************************/
 
-//  Serial.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
+//  Serial_db.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
 
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура ";
@@ -1247,19 +1298,28 @@ if(SmOT.useMQTT)
               Info6.value += " &";
         }
         if(SmOT.Fault & 0x00ff)
-        {    sprintf(str0, (PGM_P)F(" OEM-specific fault/error cod = %d ( hex %x)"), (SmOT.Fault&0xff), (SmOT.Fault&0xff));
+        {    sprintf(str0, (PGM_P)F(" OEM-specific fault/error cod = %d (hex %x)"), (SmOT.Fault&0xff), (SmOT.Fault&0xff));
             Info6.value += str0;
         }
         Info6.value += "<br>";
       }
       if(SmOT.OEMDcode)
-      {     sprintf(str0, (PGM_P)F("OEM-specific diagnostic/service code = %d  ( hex %x)<br>"), SmOT.OEMDcode, SmOT.OEMDcode);
+      {     sprintf(str0, (PGM_P)F("OEM-specific diagnostic/service code = %d (hex %x)<br>"), SmOT.OEMDcode, SmOT.OEMDcode);
             Info6.value += str0;
       }
     } else {
       Info6.value = "";
     }
+    if(OTDebugInfo[0] > 10)
+    {	int v =  (OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
+      if(v > 30)
+      {   sprintf(str0, "Большое количество ошибок OpenTherm: %d%%<br>", v);
+          Info6.value += str0;
+      }
+    }
 //    Info7.value = " MinModLevel="  + String(SmOT.MinModLevel) + "<br>"  + " MaxCapacity="  + String(SmOT.MaxCapacity) + "<br>";
+
+
     Info7.value = "";
 
 /******************************/  
@@ -1393,7 +1453,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
     }
 #endif
 
-//  Serial.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
+//  Serial_db.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
    
   if(SmOT.MaxRelModLevel_present)
   {     CtrlChBMmod.enable = true;
@@ -1521,21 +1581,22 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 
 String onSetPID(AutoConnectAux& aux, PageArgument& args)
 {  int isChange=0;
-   unsigned short int icheck, icheck2=0;
+   unsigned short int icheck, icheck1=0, icheck2=0;
    short int iv;
    float v;
 
-//   Serial.printf((PGM_P)F("onSetPID\n"));
+//   Serial_db.printf(PGM_P)F("onSetPID\n"));
 
   if( UsePID.checked) 
   {  icheck = 1;
-     if( UsePID_NoLimit.checked) icheck2 = 2;
+     if(UsePID_NoLimit.checked) icheck1 = 2;
+     if(UsePIDPWM.checked)      icheck2 = 4;
   }  else  {
       icheck = 0;
   }
 
-  if((icheck|icheck2) != SmOT.usePID)
-  { SmOT.usePID = icheck|icheck2;
+  if((icheck|icheck1|icheck2) != SmOT.usePID)
+  { SmOT.usePID = icheck|icheck1|icheck2;
     isChange = 1;
 #if MQTT_USE
     MQTT_pub_usePID();    
@@ -1552,8 +1613,8 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
         else if (iv < -1)
         iv = -1;
 
-//    Serial.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
-//    Serial.printf("SetTempSrcPID.value =%d\n", iv);
+//    Serial_db.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
+//    Serial_db.printf("SetTempSrcPID.value =%d\n", iv);
 
     if(iv != SmOT.srcTroom)
     { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
@@ -1581,7 +1642,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     }
     
     v = SetKdPID.value.toFloat();
-//  Serial.printf("*kdPID = %s %f\n", SetKdPID.value.c_str(), v);
+//  Serial_db.printf("*kdPID = %s %f\n", SetKdPID.value.c_str(), v);
 
     if(v != SmOT.mypid.Kd)
     { SmOT.mypid.Kd = v;
@@ -1647,12 +1708,29 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     { SmOT.mypid.y1 = v;
       isChange = 1;
     }
+
+    v = Set_x0_PID.value.toFloat();
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+
+    if(v != SmOT.mypid.x0)
+    { SmOT.mypid.x0 = v;
+      isChange = 1;
+    }
+
+    iv = PWM_T_PID.value.toInt();
+    if( iv <  5*60) v = 5*60;
+    else if(iv > 3600) v = 3600;
+    if(iv != SmOT.PID_PWMperiod)
+    { SmOT.PID_PWMperiod = iv;
+      isChange = 1;
+    } 
   }
 
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
 
-//  Serial.printf("isChange %d onSetPID usePID %d srcText %d srcTroom %d\n",
+//  Serial_db.printf("isChange %d onSetPID usePID %d srcText %d srcTroom %d\n",
 //         isChange, SmOT.usePID, SmOT.srcText,  SmOT.srcTroom );
 
   aux.redirect(SETUP_URI);
@@ -1667,10 +1745,17 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   } else {
     UsePID.checked = false;    
   }
-  if(SmOT.usePID == 3) 
+  if((SmOT.usePID & 0x03) == 0x03) 
     UsePID_NoLimit.checked = true;
   else 
     UsePID_NoLimit.checked = false;
+
+  if((SmOT.usePID & 0x05) == 0x05) 
+    UsePIDPWM.checked = true;
+  else 
+    UsePIDPWM.checked = false;
+
+
 
   Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2";
   if(SmOT.Toutside_present)
@@ -1722,6 +1807,13 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   sprintf(str0,"%.2f",SmOT.mypid.y1);
   Set_t1_PID.value = str0;
 
+  sprintf(str0,"%.2f",SmOT.mypid.x0);
+  Set_x0_PID.value = str0;
+
+  sprintf(str0,"%d",SmOT.PID_PWMperiod);
+  PWM_T_PID.value = str0;
+
+  
   //Info3.value = "";
   Info4.value = "";
   Info5.value = "";
@@ -1777,7 +1869,7 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args)
 
 //AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, Info5, Info6});
 String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
-{   char str0[80];
+{   char str0[256];
 
    Info1.value = "Интерфейс slave OpenTherm:<br>";
    switch(SmOT.ot_slave_stsOT)
@@ -1862,7 +1954,7 @@ void loop_web()
 {  int rc,  dt;
 static unsigned long t0=0, raz = 0; // t1=0;
 
-  portal.handleClient();
+//  portal.handleClient();
 
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте 
      3->5->1->0->3
@@ -1873,7 +1965,6 @@ static unsigned long t0=0, raz = 0; // t1=0;
     WL_SCAN_COMPLETED   = 2,
     WL_CONNECTED        = 3,
     WL_CONNECT_FAILED   = 4,
-    WL_CONNECTION_LOST  = 5,
     WL_CONNECTION_LOST  = 5,
     WL_DISCONNECTED     = 6
 //esp8266 
@@ -1887,11 +1978,61 @@ static unsigned long t0=0, raz = 0; // t1=0;
     int mode = WiFi.getMode();
     int ch = WiFi.channel();
 
+    if(rc == WL_CONNECTION_LOST)
+    {  if((rc != oldstatus) && (SmOT.stsOT == 2))
+       { 
+/******************* test for crasy state ********/ 
+           portal._ac_wifi_scan_sc = -100;
+           Serial_db.printf("crasy state test\n");
+/*************************************************/ 
+        } 
+    }
+
+    if(rc == WL_CONNECTION_LOST || rc == WL_IDLE_STATUS)
+    {
+/******************* test for crasy state ********/ 
+      if(portal._ac_wifi_scan_sc != -100)
+      { if(portal._ac_wifi_scan_sc  == 0) // при поиске WiFi не найдено сетей
+        { if(SmOT.stsOT == 2) //связь OT пропала
+          { 
+            Serial_db.printf("crasy state detected\n");
+            if(SmOT.useCPU_freq == 0 )
+              setCpuFrequencyMhz(160);
+            else 
+              setCpuFrequencyMhz(240);
+            delay(10);
+
+            if(SmOT.useCPU_freq  == 0) 
+              setCpuFrequencyMhz(240);
+            else  if(SmOT.useCPU_freq  == 1) 
+              setCpuFrequencyMhz(160);
+            else
+              setCpuFrequencyMhz(80);
+            delay(10);
+
+            Serial_db.printf("crasy state %d setCpuFrequencyMhz %d\n", SmOT.CrasyState_count, getCpuFrequencyMhz() );
+            SmOT.CrasyState_count++; 
+            SmOT.needReport_CrasyState = 0x3;
+            portal._ac_wifi_scan_sc = -200;
+          }
+
+        }
+      }
+/*************************************************/ 
+    }
+
     if((rc != oldstatus) || mode != oldmode)
     {
-        Serial.printf("WiFi: status=%i mode = %d chanel=%d\n", rc,  mode, ch);
+        Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, ch, millis());
+        if(rc == WL_IDLE_STATUS)
+        {  Serial_db.printf("WiFi Idle: t %d stsOT %d\n", millis(), SmOT.stsOT);
+
+        }
+
+//        Serial_db.printf("WiFi: t %d stsOT %d %d %d\n", millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
+
         if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
-        {   Serial.printf("WiFi status chage to connected");
+        {   Serial_db.printf("WiFi status chage to connected");
             needStopAP = 1;
             t0 = millis();
         }
@@ -1901,7 +2042,7 @@ static unsigned long t0=0, raz = 0; // t1=0;
       if(millis()-t0 > 20000)
       {   needStopAP = 0;
           if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
-          {   Serial.printf("WiFi softAPdisconnect\n");
+          {   Serial_db.printf("WiFi softAPdisconnect\n");
           
              WiFi.softAPdisconnect(true);
               WiFi.enableAP(false);
@@ -1909,21 +2050,24 @@ static unsigned long t0=0, raz = 0; // t1=0;
       }
     }
   }
+
+  portal.handleClient();
+
    if(rc != WiFists)
   { 
 #if SERIAL_DEBUG      
-    Serial.printf("WiFi.status=%i\n", rc);
+    Serial_db.printf("WiFi.status=%i\n", rc);
 #endif    
     if(rc == WL_CONNECTED)
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
 #if SERIAL_DEBUG      
-      Serial.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
+      Serial_db.printf(PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
       Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
 #endif      
     } else {
-      Serial.printf("WiFi disconnected (sts=%d)\n", rc);
+      Serial_db.printf("WiFi disconnected (sts=%d t %d stsOT %d %d %d)\n", rc, millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
       LedSts = 1;
 //      digitalWrite(LED_BUILTIN, LedSts);   
     }
@@ -1940,7 +2084,7 @@ static unsigned long t0=0, raz = 0; // t1=0;
      {   t0 = millis();
          razRSSI++;
          sRSSI += WiFi.RSSI();
-  //Serial.printf(" WiFi.RSSI()=%i %i %i\n",  WiFi.RSSI(), dt, razRSSI);
+  //Serial_db.printf(" WiFi.RSSI()=%i %i %i\n",  WiFi.RSSI(), dt, razRSSI);
 
          if(razRSSI > 6*10)
          {  mRSSi =  float(sRSSI)/float(razRSSI);
@@ -1997,16 +2141,16 @@ document.getElementById("utcl").innerHTML = d;
 */  
 
 //  now = time(nullptr);
-//  Serial.printf("****** 2 %s\n", ctime(&now));
+//  Serial_db.printf("****** 2 %s\n", ctime(&now));
   tm_info = localtime(&now);
 
   strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
   buffer[25] = 0;
-//  Serial.printf("*******3 %s\n", buffer);
+//  Serial_db.printf("*******3 %s\n", buffer);
   sprintf(str,"%s%sZ%s%s", s0,buffer,s1, s2);
   utc_time_jc = str;
 /*  
-  Serial.printf("****** %s len=%d\n", str, strlen(str));
+  Serial_db.printf("****** %s len=%d\n", str, strlen(str));
   Serial.println(utc_time_jc);
 */
   return 0;
@@ -2037,7 +2181,7 @@ void check_fs(void)
         // Could be also used to mend broken files, to clean unreferenced pages, etc.
         // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
         if (ret != ESP_OK) {
-            Serial.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
+            Serial_db.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
             return;
         } else {
             Serial.println("SPIFFS_check() successful");
@@ -2053,18 +2197,18 @@ void check_fs(void)
  
 #if SERIAL_DEBUG      
       Serial.print("FILE: ");
-      Serial.printf( "%s %d\n", file.name(), file.size());
+      Serial_db.printf( "%s %d\n", file.name(), file.size());
 #endif      
       if(file.size() > 1000000)
        { char str[80];
          sprintf(str,"/%s",file.name() );
       #if SERIAL_DEBUG      
-         Serial.printf( "remove %s\n", str);
+         Serial_db.printf( "remove %s\n", str);
       #endif         
          file.close();
          b = FlashFS.remove(str);
       #if SERIAL_DEBUG      
-         Serial.printf( "remove  rc = %d\n", b);
+         Serial_db.printf( "remove  rc = %d\n", b);
       #endif         
          break;
        }
@@ -2086,7 +2230,7 @@ void check_fs(void)
       tBytes  = FlashFS.totalBytes();
       uBytes = FlashFS.usedBytes();
 #endif      
-      Serial.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
+      Serial_db.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
     }
 #endif //SERIAL_DEBUG     
 

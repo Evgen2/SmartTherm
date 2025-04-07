@@ -78,6 +78,9 @@ class planner
 		vind[0] = vind[1] = 0;
 		sts = 0;
 		count0 = 0;
+
+//		Serial.printf("Planner set mode to %x\n", _mask);
+
 		if(_mask == MODE_START)
 		{	n0 = n;
 			step = 0; 

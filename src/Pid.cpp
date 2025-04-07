@@ -8,7 +8,7 @@
 void  pid::Set_NewTag( float _Tag, float _x)
 {  float dtag, _xerr, _xerrnew;
    
-//   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
+//   Serial_db.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
    _xerr = xTag - _x;
    _xerrnew = _Tag - _x;
    dtag = _Tag - xTag;
@@ -17,12 +17,94 @@ void  pid::Set_NewTag( float _Tag, float _x)
    {  //Init_I(_x);
       Init_I(dtag,  _xerrnew);
 
-//   Serial.printf("**** Set_NewTag: dtag = %f xerr =%f xerrnew =%f\n", dtag, _xerr, _xerrnew);
-//   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
+//   Serial_db.printf("**** Set_NewTag: dtag = %f xerr =%f xerrnew =%f\n", dtag, _xerr, _xerrnew);
+//   Serial_db.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
 
       dSt.n = dSt.ind = 0;
 //      dSt.nlast = dSt.ind_last = 0;
    }
+}
+
+/* 
+Выход ПИД в равновесии в зависимости от уcтавки:  U(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
+линейное приближение. Тогда
+U(Xtag0) = Kp*(X-Xtag0) + Ki*I(Xtag0)
+U(Xtag)  = Kp*(X-Xtag) + Ki*I(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
+Kp*(X-Xtag) + Ki*I(Xtag) = Kp*(X-Xtag0) + Ki*I(Xtag0) + Ku*(Xtag-Xtag0)
+Ki*I(Xtag) = Kp*(Xtag-Xtag0) + Ki*I(Xtag0) + Ku*(Xtag-Xtag0)
+I(Xtag) = I(Xtag0) + (Kp + Ku)/Ki*(Xtag-Xtag0)
+
+*/
+//  _NewTag,  _OldTag - новая и старая целевая
+//  _CurrentT  - текущая
+//
+void pid::Set_NewTag1( float _NewTag, float _OldTag, float _CurrentT)
+{  float InTold, InTnew; 
+   int sts;
+   InTold = InT;
+
+   InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+   sts = 0;
+   if( _OldTag > _CurrentT)  
+   {  if(_NewTag > _OldTag)  sts = 1; // старая уставка выше текущей температуры, новая уставка выше старой
+      else
+      {  if(_NewTag > _CurrentT) sts = 2; // старая уставка выше текущей температуры, новая уставка ниже старой и выше текущей температуры
+         else sts = 3;                    // старая уставка выше текущей температуры, новая уставка ниже старой и ниже текущей температуры 
+      }
+   } else { // старая уставка ниже текущей температуры, 
+      if(_NewTag > _OldTag) 
+      {  if(_NewTag > _CurrentT) sts = 4; // старая уставка ниже текущей температуры, новая уставка выше старой и выше текущей температуры
+         else           sts = 5;          // старая уставка ниже текущей температуры, новая уставка выше старой и ниже текущей температуры
+      } else {
+         sts = 6; // старая уставка ниже текущей температуры, новая уставка ниже старой
+      }
+   }
+
+   switch(sts)
+   {  case 1: // старая уставка выше текущей температуры, новая уставка выше старой
+      {  if(InTold < 0.) // старый интеграл отрицательный, клиент хочет тепла
+            InTold = 0.;
+         InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+      }
+            break;
+      case 2: // старая уставка выше текущей температуры, новая уставка ниже старой и выше текущей температуры
+         InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+         if(InTnew < 0.) // клиент хочет тепла
+               InTnew = 0.;
+            break;
+
+      case 3:  // старая уставка выше текущей температуры, новая уставка ниже старой и ниже текущей температуры 
+         InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+         if(InTnew > 0.) // клиент не хочет тепла
+               InTnew = 0.;
+               break;
+
+      case 4: // старая уставка ниже текущей температуры, новая уставка выше старой и выше текущей температуры
+         InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);   //_dtag * 2.f/Ki;
+         if(InTnew < 0.) // клиент хочет тепла
+               InTnew = 0.;
+            break;
+
+      case 5: // старая уставка ниже текущей температуры, новая уставка выше старой и ниже текущей температуры
+            InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+            if(InTnew > 0.) // клиент не хочет тепла
+                  InTnew = 0.;
+                  break;
+      case 6: // старая уставка ниже текущей температуры, новая уставка ниже старой
+      InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
+         if(InTnew > 0.) // клиент не хочет тепла
+               InTnew = 0.;
+            break;  
+   }
+
+   Serial_db.printf("_NewTag %g _OldTag %g  InTnew  %g InTold %g \n", _NewTag, _OldTag, InTnew , InTold);
+
+
+   if(fabs(_NewTag -_OldTag) > 0.5)
+         dSt.n = dSt.ind = 0;
+
+   InT = InTnew;
+   xTag = _NewTag;
 }
 
 /* 
@@ -45,7 +127,7 @@ void pid::Init_I(float _dtag, float _xernew)
       if(I1 * Ki < -30.f )
             I1 = -30.f/Ki;
    InT = I1;
-//   Serial.printf("**** Init_I2  InT %f InT * Ki %f\n",InT, InT * Ki ); 
+//   Serial_db.printf("**** Init_I2  InT %f InT * Ki %f\n",InT, InT * Ki ); 
 }
 
 void pid::Init_I(float _x)
@@ -63,9 +145,9 @@ void pid::Init_I(float _x)
    }
    InT = I0;
 
-//   Serial.printf("**** Init_I1  InT %f InT * Ki %f\n",InT, InT * Ki ); 
+//   Serial_db.printf("**** Init_I1  InT %f InT * Ki %f\n",InT, InT * Ki ); 
 
-//   Serial.printf("**** Init_I _x =%f, _xerr %f InT %f InT * Ki %f\n", _x, _xerr, InT, InT * Ki ); 
+//   Serial_db.printf("**** Init_I _x =%f, _xerr %f InT %f InT * Ki %f\n", _x, _xerr, InT, InT * Ki ); 
 
 }
 
@@ -76,7 +158,7 @@ void pid::Init_I(float _x)
     t  = millis();
     dt = t - pid_t; // dt, msec
 
-//      Serial.printf("****pid: dt = %ld\n", dt );
+//      Serial_db.printf("****pid: dt = %ld\n", dt );
 
 //P    
    x = _x;
@@ -87,10 +169,10 @@ void pid::Init_I(float _x)
 // calcD() - derivative calculation, return _dft
 // _dft dimension is grad/msec
    dSt.calcD(xerr, t, _dft);
-//   Serial.printf("====>>  _dft0=%e  _dft=%e diff=%e\n",  _dft0,  _dft,  _dft0 - _dft);
+//   Serial_db.printf("====>>  _dft0=%e  _dft=%e diff=%e\n",  _dft0,  _dft,  _dft0 - _dft);
    { 
       dX = _dft * 3600.f* 1000.f; //grad/hour
-//   Serial.printf("====>> dX=%f\n", dX) ;
+//   Serial_db.printf("====>> dX=%f\n", dX) ;
    }
 
    dSt.add(xerr, t);
@@ -102,29 +184,42 @@ void pid::Init_I(float _x)
    _Kidiss = Kidiss;
    if(fabs(xerr) < 1.f)              //Kidiss magic, part 2:
    {  _Kidiss = Kidiss* fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
+   } else {
+      if(InT*xerr < 0.f) // more disspation on different signs of InT and xerr
+      {         _Kidiss *= 2.f;
+         Serial_db.printf("Pid _Kidiss %f\n", _Kidiss );
+
+      }
    }
    dtf = float(dt) / 1000.f; // dt, sec
    _Kidiss =  _Kidiss * dtf / float(t_interval);
+
    if(_Kidiss > 0.5) _Kidiss = 0.5;
 
    InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
 #if SERIAL_DEBUG 
-//   Serial.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
+//   Serial_db.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
 //          dt , xerr, InT, dX); 
-//   Serial.printf("pid: _x %f xTag=%f, u0=%f\n",
+//   Serial_db.printf("pid: _x %f xTag=%f, u0=%f\n",
 //          _x , xTag, _u0); 
 #endif          
    dP = xerr * Kp; //dP - grad, Kp - dimensionless 
+   
    dD = dX * Kd;   //dD - grad, Kd - hour
+   if(dD > dDmax) dD = dDmax;
+   else if (dD < -dDmax) dD = -dDmax;
+
    dI = InT * Ki;  //dI - grad, Ki - (1/sec)
    _u = dP + dD + dI;
+
    if(dSt.n <= 4)
          u = _u + _u0;
    else
-         u = (u + _u + _u0) * 0.5; //filter output of pid
+         u = (u  +  _u + _u0) * 0.5; //filter output of pid
+
 
 #if SERIAL_DEBUG 
-//   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
+//   Serial_db.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
 //        u, _u0, _u , dP, dD, dI); 
 #endif         
    ub = _u0;
@@ -147,11 +242,9 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
    int Np;
    float coeff[N_X];
 
-   //https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
-//   float d[NB];
-//   unsigned long int t[NB];
+  //https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
 
-//   Serial.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
+ //  Serial_db.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
 
 //    if( n < 2)
       if( n < 4)
@@ -161,11 +254,11 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 
 //      t0 = t[ind];
 //      get(_xerr, _t);
-//      Serial.printf("----- _xerr =%f _t = %d t0 %d-------\n", _xerr, _t, t0) ;
-//      Serial.printf("-----  xerr =%f tt = %ld  -------\n",  xerr, tt) ;
+//      Serial_db.printf("----- _xerr =%f _t = %d t0 %d-------\n", _xerr, _t, t0) ;
+//      Serial_db.printf("-----  xerr =%f tt = %ld  -------\n",  xerr, tt) ;
 //      _dft = float(tt - _t) / 1000.f; // dt, sec
 //      dX = (xerr - _xerr) /_dft * 3600; //grad/hour
-//      Serial.printf("----- dX(*) =%e dX =%f dt = %d-------\n", (xerr - _xerr)/float(tt - _t) ,  dX, tt - _t) ;
+//      Serial_db.printf("----- dX(*) =%e dX =%f dt = %d-------\n", (xerr - _xerr)/float(tt - _t) ,  dX, tt - _t) ;
 
 
    dmid = 0.f;
@@ -180,14 +273,11 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
             t0 = t[i]; 
          dmid += d[i];
          tmid += (t[i] - t0); 
-
-//     Serial.printf("%d %d %f %li \n",ii, i, d[i], t[i]-t0); 
-
       }
+
       dmid += xerr;
       tmid += (tt - t0); 
-
-  //    Serial.printf("dmid %f tmid %d t0* %d\n", dmid, tmid, t0) ;
+  //    Serial_db.printf("dmid %f tmid %d t0* %d\n", dmid, tmid, t0) ;
       xm = tmid / (n+1);
       ym = dmid / (n+1);
 #if 0      
@@ -201,11 +291,11 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
          _y = d[i] - ym;
          xm2 += _x * _x;
          xym += _x * _y;
-//    Serial.printf("[%d] d %f dt %d\n", ii, d[i], t[i] - t0) ;
+//    Serial_db.printf("[%d] d %f dt %d\n", ii, d[i], t[i] - t0) ;
       }   
 
       b = xym / xm2; 
-//    Serial.printf("[%d] d %f dt %d b=%e\n", n, xerr, tt - t0, b) ;
+//    Serial_db.printf("[%d] d %f dt %d b=%e\n", n, xerr, tt - t0, b) ;
       _x = (tt - t0) - xm;
       _y = xerr - ym;
       xm2 += _x * _x;
@@ -213,9 +303,9 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
       if (xm2 == 0.f)
          return 2;
 
- //  Serial.printf("xym =%f xm2b = %f\n", xym , xm2) ;
+ //  Serial_db.printf("xym =%f xm2b = %f\n", xym , xm2) ;
       b = xym / xm2; 
-  //    Serial.printf("b = %e dt =%d n=%d\n", b, tt- t0, n );
+  //    Serial_db.printf("b = %e dt =%d n=%d\n", b, tt- t0, n );
       diff = b;
 #endif
       Np =0;
@@ -225,12 +315,12 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
       IncrCalculateMatrixYfX2( (tt - t0) - xm, xerr - ym, &Np);
          
       CalculateMNKYfX2(coeff,&Np);
-//      Serial.printf("MNK coeff = %e %e  %e\n", coeff[0], coeff[1], coeff[2] );
+//      Serial_db.printf("MNK coeff = %e %e  %e\n", coeff[0], coeff[1], coeff[2] );
 /* Y = a + b * X + c * X**2                */
 /* Y' = b + 2c * X */
       {  float ydf;
          ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm);
-//      Serial.printf("MNK coeff Y' = %e\n", ydf );
+//      Serial_db.printf("MNK coeff Y' = %e\n", ydf );
       diff = ydf;
 
       }
@@ -296,6 +386,12 @@ int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] 
    XXM[0][2] = XXM[2][0];
    XXM[2][1] = _XX[2][1] * v;
    XXM[1][2] = XXM[2][1];
+
+   if(XXM[1][1] == 0.)
+      Serial_db.printf("CalculateMNKYfX2 coeff XXM[1][1] = 0\n");
+  if(XXM[2][2] == 0.)
+      Serial_db.printf("CalculateMNKYfX2 coeff XXM[2][2] = 0\n");
+
 /* считаем обpатную */
   MatrixInvert(n,XXM,XX_1);
 /* вычисляем коэффициенты */
@@ -323,11 +419,10 @@ int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
    for(i=0;i<n;i++)   Out[i][i] = 1.;
 /*   Matrix Out(1.), B = A; */
 
-
    for(i=0;i<n;i++)
    {
       d = B[i][i];
-      if(d != 1.0 )
+      if(d != 1.0 && d != 0.)
       {    for(j=0;j<n;j++)
            {  Out[i][j]/= d;
               B[i][j]  /= d;

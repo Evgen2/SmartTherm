@@ -3,6 +3,7 @@
 #define SMART_CONFIG
 
 #include "DeviceType.h"
+#include "SmartDebug.h"
 
 #define CONFIG_VERSIONBASE 0x1003
 

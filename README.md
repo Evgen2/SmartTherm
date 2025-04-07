@@ -24,7 +24,14 @@ Features:
 
 0.8.5.2
 * User can set CPU frequency 240/160/80MHz
-It is possible that a lower frequency will result in more stable operation of the controller
+  It is possible that a lower frequency will result in more stable operation of the controller
+* AutoConnect 1.4.5
+* Add base temperature for weather-compensated automation
+* Pid
+** more aggressive dissipation of the integral for different signs of the error and the integral
+** more fast heater start at setpoint and current temperature difference more than 2 degrees
+* Planner fix
+* Indication of a large number of OpenTherm errors if more 30% at webinterface
 
 0.8.5.1
 * ST2 combined mode
