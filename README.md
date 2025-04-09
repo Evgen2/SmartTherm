@@ -22,11 +22,14 @@ Features:
 * up to 2 DS18B20 temperature sensors
 
 
+0.8.5.3
+* Pid & WCA fixes
+
 0.8.5.2
 * User can set CPU frequency 240/160/80MHz
   It is possible that a lower frequency will result in more stable operation of the controller
 * AutoConnect 1.4.5
-* Add base temperature for weather-compensated automation
+* Add base temperature for weather-compensated automation (WCA)
 * Pid
 ** more aggressive dissipation of the integral for different signs of the error and the integral
 ** more fast heater start at setpoint and current temperature difference more than 2 degrees

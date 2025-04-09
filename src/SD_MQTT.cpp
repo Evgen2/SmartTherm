@@ -920,7 +920,7 @@ void MQTTsenddata(void)
 #endif
 
   if(SmOT.OEMDcode || SmOT.Fault ||  (SmOT.needReport_CrasyState&0x01) )
-  { 
+  {  str[0] = 0;
     if(SmOT.Fault)
     { if (SmOT.OEMDcode)
       {

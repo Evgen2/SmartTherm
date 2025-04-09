@@ -65,13 +65,14 @@ void SD_Termo::loop_PID(void)
     is = loop_pid_gettemp(start);
 
     if(is & 0x02)
-    {   if(tempoutdoor <= mypid.y0)
+    {   if(tempoutdoor <= mypid.y0) /* for example xTag=20, y0 =10 tempoutdoor = -5*/
             u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
         else
-        {  if(mypid.y0 != mypid.xTag)
-                  u0 = mypid.xTag + (mypid.u0 + mypid.Ku * (mypid.xTag - mypid.x0) - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
-           else
-                  u0 = mypid.xTag;
+        {  if(mypid.xTag > tempoutdoor) /* for example xTag=20, y0 =10 tempoutdoor = 15 */
+            {   u0 = mypid.xTag + (mypid.u0 + mypid.Ku * (mypid.xTag - mypid.x0) - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
+            } else { /* for example xTag=8, y0 =10  tempoutdoor = 15*/
+                u0 = mypid.xTag;
+            }
         }
     } else { //нет внешней температуры
         u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
@@ -141,7 +142,7 @@ void SD_Termo::loop_PID(void)
     {   if(BoilerStatus& 0x08) //если горелка включена
         {   int dt0;
             dt0 = 15*60;
-            if(abs(tempindoor-mypid.xTag) > 2.f)
+            if((mypid.xTag - tempindoor) > 2.f)
                                     dt0 = 5*60;
             dt = now - Bstat.t_flame_on;
             _uu = _u;
@@ -195,8 +196,7 @@ void SD_Termo::set_new_PID_setpoint(float Tsetpoint, int src)
 #if PID_USE
 oldTroomSetpoint = mypid.xTag;
     src_lastSetPointChange = src;
-//  mypid.Set_NewTag(Tsetpoint, tempindoor);
-    mypid.Set_NewTag1(Tsetpoint, oldTroomSetpoint,  tempindoor);
+    mypid.Set_NewTag(Tsetpoint, oldTroomSetpoint,  tempindoor);
 
     t_lastSetPointChange = time(nullptr);
 #endif    
@@ -249,9 +249,9 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 IsSetTemp |= 0x02;
             }
 
-            if(is & 0x01 && InTstartset == 0) 
-            {        mypid.Init_I(tempindoor );
-            }
+//            if(is & 0x01 && InTstartset == 0) 
+//            {        mypid.Init_I(tempindoor );
+//            }
 
         }
     } else {  // start == 0

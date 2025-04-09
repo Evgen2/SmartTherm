@@ -5,25 +5,6 @@
 #if PID_USE
 #include "pid.hpp"
 
-void  pid::Set_NewTag( float _Tag, float _x)
-{  float dtag, _xerr, _xerrnew;
-   
-//   Serial_db.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
-   _xerr = xTag - _x;
-   _xerrnew = _Tag - _x;
-   dtag = _Tag - xTag;
-   xTag = _Tag;
-   if(fabs(dtag) > 0.5)
-   {  //Init_I(_x);
-      Init_I(dtag,  _xerrnew);
-
-//   Serial_db.printf("**** Set_NewTag: dtag = %f xerr =%f xerrnew =%f\n", dtag, _xerr, _xerrnew);
-//   Serial_db.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
-
-      dSt.n = dSt.ind = 0;
-//      dSt.nlast = dSt.ind_last = 0;
-   }
-}
 
 /* 
 Выход ПИД в равновесии в зависимости от уcтавки:  U(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
@@ -38,7 +19,7 @@ I(Xtag) = I(Xtag0) + (Kp + Ku)/Ki*(Xtag-Xtag0)
 //  _NewTag,  _OldTag - новая и старая целевая
 //  _CurrentT  - текущая
 //
-void pid::Set_NewTag1( float _NewTag, float _OldTag, float _CurrentT)
+void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 {  float InTold, InTnew; 
    int sts;
    InTold = InT;
@@ -107,49 +88,6 @@ void pid::Set_NewTag1( float _NewTag, float _OldTag, float _CurrentT)
    xTag = _NewTag;
 }
 
-/* 
-U =  Kp*(Xtag-X) + Ki*I
-Xtag ->Xtagnew = Xtag + _dtag, I -> Inew = I + di
-di = coeff * _dtag
-
-*/
-void pid::Init_I(float _dtag, float _xernew)
-{  float di, I1;
-   if(Ki == 0.)
-         return;
-   di = _dtag * 2.f/Ki;
-//   if((_xernew > 0.f && InT < 0.f) || (_xernew < 0.f && InT > 0.f))
-//         InT = 0.f;
-   I1 = InT + di;
-   if(I1 * Ki > 30.f )
-      I1 = 30.f/Ki;
-   else
-      if(I1 * Ki < -30.f )
-            I1 = -30.f/Ki;
-   InT = I1;
-//   Serial_db.printf("**** Init_I2  InT %f InT * Ki %f\n",InT, InT * Ki ); 
-}
-
-void pid::Init_I(float _x)
-{  float  _xerr, I0, I1;
-   if(Ki == 0.)
-         return;
-//Limit for InT with constant  xerr:  xerr * dt/Kidiss  
-   _xerr = xTag - _x;
-   I0 = _xerr * (t_interval) /Kidiss * 0.5;
-   I1 = I0 * Ki;
-   if(I1 > 30.f)
-   {  I0 = 30.f / Ki;
-   } else if(I1 < -30.f) {
-     I0 = -30.f / Ki;
-   }
-   InT = I0;
-
-//   Serial_db.printf("**** Init_I1  InT %f InT * Ki %f\n",InT, InT * Ki ); 
-
-//   Serial_db.printf("**** Init_I _x =%f, _xerr %f InT %f InT * Ki %f\n", _x, _xerr, InT, InT * Ki ); 
-
-}
 
  int pid::Pid(float _x, float _u0)
  {  unsigned long int t, dt, _t;
@@ -182,17 +120,14 @@ void pid::Init_I(float _x)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss  
 
    _Kidiss = Kidiss;
-   if(fabs(xerr) < 1.f)              //Kidiss magic, part 2:
-   {  _Kidiss = Kidiss* fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
-   } else {
-      if(InT*xerr < 0.f) // more disspation on different signs of InT and xerr
-      {         _Kidiss *= 2.f;
-         Serial_db.printf("Pid _Kidiss %f\n", _Kidiss );
-
-      }
+   if(InT*xerr < 0.f) // more dissipation on different signs of InT and xerr
+   {  _Kidiss *=  2.f * fabs(xerr);  
+   } else   if(fabs(xerr) < 1.f) {   
+      _Kidiss *=  fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
    }
-   dtf = float(dt) / 1000.f; // dt, sec
-   _Kidiss =  _Kidiss * dtf / float(t_interval);
+
+   dtf = float(dt) / 1000.f; // dt, sec 
+   _Kidiss =  _Kidiss * dtf / float(t_interval); // normalize for time interval
 
    if(_Kidiss > 0.5) _Kidiss = 0.5;
 

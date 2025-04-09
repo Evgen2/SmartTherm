@@ -1437,8 +1437,9 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 //   Serial_db.printf("**** servercallback_send_Sts_answ: _It = %f _U0 = %f\n", _It, _U0);
             if(_U0 != 0.f)
                     _U0start = _U0;
-             mypid.InT = _It;
-             InTstartset = 1;       
+            mypid.InT = _It;
+            mypid.dSt.n = mypid.dSt.ind = 0;
+            InTstartset = 1;       
         }
     } else if(len == 6+4*2+2) {
 #if OT_DEBUGLOG
