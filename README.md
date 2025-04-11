@@ -20,6 +20,9 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+0.8.4.1
+* bugfix
+
 0.8.4
 * Add remote OT log
 * Close AP after conection to WiFi router after timeout

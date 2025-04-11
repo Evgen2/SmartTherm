@@ -504,7 +504,7 @@ int SD_Termo::Read_mqtt_fs(void)
 }
 
 int SD_Termo::Write_mqtt_fs(void)
-{   int rc, n;
+{   int rc, n=0;
     uint8_t Buff[FS_BUFMQTT];
     uint8_t len;
 

@@ -215,7 +215,7 @@ void SD_Termo::loop_mean(void)
 }
 
 int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения tindoor и toutdoor
-{   int is;
+{   int is=0;
     if(_start)
     {   if(_start == 2)
         {  // start_t = t;

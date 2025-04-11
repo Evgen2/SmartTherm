@@ -131,7 +131,7 @@ static int timeOutcounter = 0;
 
         if (!ot_slave.isValidRequest(request))
         {
-    Serial.printf("Err: invalidRequest %x\n", request); 
+    Serial.printf("Err: invalidRequest %lx\n", request); 
         //build UNKNOWN-DATAID response
         response = ot_slave.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, ot_slave.getDataID(request), 0);   
     //send response

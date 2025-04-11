@@ -164,6 +164,9 @@ void setup() {
 
   ot.begin(handleInterrupt, OTprocessResponse);
 #if ST_VERS == 2
+ #if OT_SLAVE_DEBUG
+     setup_ot_slave();
+ #else
     if(SmOT.OT_slave_present)
     { if(SmOT.OT_slave_mode == 0)
       {    Serial.printf("setup_slave 1\n");
@@ -172,6 +175,7 @@ void setup() {
         init_ot_slave();    
       }
     }
+ #endif
 #endif
 
   setupDS1820();
@@ -1256,19 +1260,37 @@ int OTloop(void)
     else
       OT_slaveloop();
   }
+
 #endif
 
     switch(st)
     {
       case 0:
       if (ot.isReady()) 
-      {  unsigned int request;
+      {  unsigned int request=0;
 #if SERIAL_DEBUG 
           if((millis() - SmOT.RespMillis) < 100)
                Serial.printf((PGM_P)F("OTloop too fast: %d **********\n"), int (millis() - SmOT.RespMillis));
 #endif
 
 #if ST_VERS == 2
+
+#if  OT_SLAVE_DEBUG
+if (ot.isReady()) 
+{
+  static unsigned long int t0=0;
+  unsigned long int t;
+  t = millis();
+  if(t-t0>500)
+  {
+    request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, 0xaaaa);
+
+  t0 = t;
+  }
+
+}
+#else
+
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1)) 
     { if(SmOT.ot_slave_stsOT == 0)
       { if(ot_SlaveSts == 1)
@@ -1293,14 +1315,16 @@ int OTloop(void)
     } else {
 M00:
         if(OTstartSts < OTstartSts_MAX)
-            request = buildRequestOnStart();
-         else
-            request = buildRequest(0);
+		request = buildRequestOnStart();
+	else
+        	request = buildRequest(0);
 #if OT_DEBUGLOG
         if(SmOT.OT_slave_mode == 0)
             OTlog(request,0);
 #endif          
       }
+#endif
+
 #else //ST_VERS == 2
          if(OTstartSts < OTstartSts_MAX)
             request = buildRequestOnStart();
@@ -1600,6 +1624,7 @@ Serial.printf( "%02d.%02d.%d %d:%02d:%02d\n",
         SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_d = 0.;
         SmOT.Bstat.sec_d = 0;
+        SmOT.Bstat.NflameOn_day = 0;
 	    interrupts();
       mday_prev = nowtime->tm_mday;
     }

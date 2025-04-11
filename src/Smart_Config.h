@@ -9,7 +9,7 @@
 //ST_VERS 0   SmartTherm32
 //ST_VERS 1   SmartTherm = SmartTherm32 + Relay
 //ST_VERS 2   SmartTherm 2 = SmartTherm32 + Relay + 2 OpenTherm (master+slave)
-#define ST_VERS 2
+#define ST_VERS 0
 
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
