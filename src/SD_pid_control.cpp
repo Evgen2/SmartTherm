@@ -24,7 +24,7 @@ void SD_Termo::loop_PID(void)
     float  u0, _u, _uu;
     int rc, dt;
     time_t now; 
-    extern OpenTherm ot;
+    
     int is = 0;
     static int need_heat = 0;
 
@@ -150,7 +150,7 @@ void SD_Termo::loop_PID(void)
 //                _ustart = _u;
 
             if(dt < dt0) //пытаемся плавно повышать температуру
-            {   float r, du;
+            {   float r;
                 r = dt/ float(dt0);
                 _uu = _u * r +  _ustart  * (1-r); // корректируем уставку температуры
             }
@@ -221,7 +221,7 @@ void SD_Termo::loop_mean(void)
 }
 
 int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения tindoor и toutdoor
-{   int is;
+{   int is=0;
     if(_start)
     {   if(_start == 2)
         {  // start_t = t;

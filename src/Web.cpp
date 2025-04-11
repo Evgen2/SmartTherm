@@ -277,8 +277,7 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 
 void setup_web_common(void)
-{    bool b;
-
+{   
 //  Serial.println();
 //   Serial.println("setup_web_common");
 
@@ -563,13 +562,9 @@ extern int minRamFree;
    Info6.value += str;
 #if PID_USE
     if(SmOT.usePID)
-    {  extern int debcode;
-       extern int wait_if_takt;
-
+    { 
        sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f\n",
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
-
-//      sprintf(str,"<br>debcode %d wait_if_takt %d",  debcode, wait_if_takt); 
 
       Info6.value += str;
 
@@ -1093,24 +1088,24 @@ extern OpenTherm ot;
         if(SmOT.BoilerStatus & 0x40)
           Info1.value += "<br>Diag";
 
-          if(SmOT.BoilerStatus & 0xff00)
-          { Info1.value += "<br><small>Уставки:";
-            if(SmOT.BoilerStatus & 0x0100)
-              Info1.value += " CH";
-            if(SmOT.BoilerStatus & 0x0200)
-              Info1.value += " DHW";
-            if(SmOT.BoilerStatus & 0x0400)
-              Info1.value += " Cool";
-            if(SmOT.BoilerStatus & 0x0800)
-              Info1.value += " OTC";
-            if(SmOT.BoilerStatus & 0x1000)
-              Info1.value += " CH2";
-            if(SmOT.BoilerStatus & 0x2000)
-              Info1.value += " Summer";
-            if(SmOT.BoilerStatus & 0x4000)
-              Info1.value += " DHWblocking";
-              Info1.value += "</small>";
-          }
+        if(SmOT.BoilerStatus & 0xff00)
+        { Info1.value += "<br><small>Уставки:";
+          if(SmOT.BoilerStatus & 0x0100)
+            Info1.value += " CH";
+          if(SmOT.BoilerStatus & 0x0200)
+            Info1.value += " DHW";
+          if(SmOT.BoilerStatus & 0x0400)
+            Info1.value += " Cool";
+          if(SmOT.BoilerStatus & 0x0800)
+            Info1.value += " OTC";
+          if(SmOT.BoilerStatus & 0x1000)
+            Info1.value += " CH2";
+          if(SmOT.BoilerStatus & 0x2000)
+            Info1.value += " Summer";
+          if(SmOT.BoilerStatus & 0x4000)
+            Info1.value += " DHWblocking";
+          Info1.value += "</small>";
+        }
       }
         break;
       case 1:
@@ -1476,47 +1471,47 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   else
       CtrlChB1.checked = false;
 /*********************************/      
- if (SmOT.stsOT >= 0)
- {
-  if(SmOT.HotWater_present) 
-  { CtrlChB2.enable  =  true;    
-    if(SmOT.enable_HotWater)
-      CtrlChB2.checked = true;
+  if (SmOT.stsOT >= 0)
+  {
+    if(SmOT.HotWater_present) 
+    { CtrlChB2.enable  =  true;    
+      if(SmOT.enable_HotWater)
+        CtrlChB2.checked = true;
+      else
+        CtrlChB2.checked = false;
+    } else {
+      CtrlChB2.enable  = false;
+    }
+
+    if(SmOT.CH2_present) 
+      CtrlChB3.enable  = true;
     else
-      CtrlChB2.checked = false;
-  } else {
-     CtrlChB2.enable  = false;
-  }
+      CtrlChB3.enable  = false;
 
-  if(SmOT.CH2_present) 
-     CtrlChB3.enable  = true;
-  else
-     CtrlChB3.enable  = false;
+    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
 
-     Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+    sprintf(str,"%.2f",SmOT.umax);
+    SetTmaxPID.value = str;
+    sprintf(str,"%.2f",SmOT.umin);
+    SetTminPID.value = str;
+          
+    if(SmOT.Use_remoteTCPserver)
+      CtrlChB_UseRemoteControl.checked = true;
+    else
+      CtrlChB_UseRemoteControl.checked = false;
 
-     sprintf(str,"%.2f",SmOT.umax);
-     SetTmaxPID.value = str;
-     sprintf(str,"%.2f",SmOT.umin);
-     SetTminPID.value = str;
-         
-  if(SmOT.Use_remoteTCPserver)
-    CtrlChB_UseRemoteControl.checked = true;
-  else
-    CtrlChB_UseRemoteControl.checked = false;
+    Info1.value ="";
 
-  Info1.value ="";
+    Ctrl2.value = "Котёл: "; 
+    pstr = GetOTVendorName(SmOT.OTmemberCode);
+    if(pstr)
+    {   Ctrl2.value += pstr; 
+    } else {
+        Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
+    }
 
-  Ctrl2.value = "Котёл: "; 
-  pstr = GetOTVendorName(SmOT.OTmemberCode);
-  if(pstr)
-  {   Ctrl2.value += pstr; 
-  } else {
-      Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
-  }
-
-  if(SmOT.DHW_tank_present) 
-      Ctrl2.value +=  "\nбойлер косвенного нагрева";
+    if(SmOT.DHW_tank_present) 
+        Ctrl2.value +=  "\nбойлер косвенного нагрева";
 
 /*********************************/      
  } else {
@@ -1952,7 +1947,7 @@ extern int LedSts;
 
 void loop_web()
 {  int rc,  dt;
-static unsigned long t0=0, raz = 0; // t1=0;
+static unsigned long t0=0;
 
 //  portal.handleClient();
 
@@ -2171,7 +2166,7 @@ void setup_read_config(void)
 }
 
 void check_fs(void)
-{ bool b;
+{ 
 /**********************************/
 // Check consistency of reported partiton size info.
 /*    
@@ -2206,10 +2201,12 @@ void check_fs(void)
          Serial_db.printf( "remove %s\n", str);
       #endif         
          file.close();
-         b = FlashFS.remove(str);
-      #if SERIAL_DEBUG      
-         Serial_db.printf( "remove  rc = %d\n", b);
-      #endif         
+#if SERIAL_DEBUG      
+        bool b = FlashFS.remove(str);
+        Serial_db.printf( "remove  rc = %d\n", b);
+#else
+        FlashFS.remove(str);
+#endif         
          break;
        }
       

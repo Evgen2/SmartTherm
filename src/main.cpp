@@ -866,7 +866,6 @@ unsigned int buildTestRequest(void)
 int OTloop(void)
 {   static int st = 1;
     int rc = 0, ot_id;
-    unsigned long t_m, d_tm;
 
 #if ST_VERS == 2
 static int slst = 0;
@@ -887,7 +886,7 @@ static int slst = 0;
     {
       case 0:
       if (ot.isReady()) 
-      {  unsigned int request;
+      {  unsigned int request = 0;
 #if ST_VERS == 2
 
 #if  OT_SLAVE_DEBUG
@@ -976,9 +975,10 @@ M00:
       case 2:
        ot.process();
         if(ot.status ==  OpenThermStatus::READY)
-        {  unsigned int id;
+        { 
           st = 0;
           rc = 1;
+//          unsigned int id;
 //          id = (ot.getLastResponse() >> 16 & 0xFF);
 //             Serial_db.printf("Last ResponseStatus:  %d Response id %d\n",  ot.getLastResponseStatus(), id);
         }
@@ -1056,12 +1056,13 @@ unsigned int SD_Termo::buildRequest(int ot_id)
         request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, _SConfigSMemberIDcode); //3
       else 
         request = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, ID2masterID /* (_SConfigSMemberIDcode&0xff) */); //3
-        break;
+        
+      break;
 
 /**************************/
-  case OpenThermMessageID::SConfigSMemberIDcode: // 3
-    request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0); //3
-      break;
+    case OpenThermMessageID::SConfigSMemberIDcode: // 3
+      request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0); //3
+        break;
 
 /**************************/
   case OpenThermMessageID::RemoteRequest: //4 W

@@ -537,7 +537,7 @@ int SD_Termo::Read_mqtt_fs(void)
 }
 
 int SD_Termo::Write_mqtt_fs(void)
-{   int rc, n;
+{   int rc, n=0;
     uint8_t Buff[FS_BUFMQTT];
     uint8_t len;
 
@@ -829,7 +829,7 @@ void SD_Termo::Send_to_server_HandShake(void)
 //MCMD_INTRODUCESELF MD_IDENTIFY
 void SD_Termo::Send_to_server_IdentifySelf(void)
 { int l, lp; 
-    unsigned char * MsgOut, ch;
+    unsigned char * MsgOut;
     struct Msg1 *msg;
 
     l = strlen((PGM_P)IDENTIFY_TEXT); 
@@ -1077,27 +1077,28 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
 	 memcpy((void *)&MsgOut[8],(void *) &stsOT,2); 
  #endif
  
-     memcpy((void *)&MsgOut[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+    memcpy((void *)&MsgOut[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
      
 {
 //     Serial_db.printf("t_lastwork =  %s ", ctime(&t_lastwork));
 //     Serial_db.printf("  %02x %02x %02x %02x \n", MsgOut[10], MsgOut[11],MsgOut[12], MsgOut[13]);
 }
 
-	 memcpy((void *)&MsgOut[14],(void *) &BoilerStatus,4);  //20=12+8
+	memcpy((void *)&MsgOut[14],(void *) &BoilerStatus,4);  //20=12+8
 //    Serial_db.printf("BoilerT %f\n", BoilerT);
 //    Serial_db.printf("RetT %f\n", RetT);
 
-	 memcpy((void *)&MsgOut[18],(void *) &BoilerT,4); 
-	 memcpy((void *)&MsgOut[22],(void *) &RetT,4); 
-	 memcpy((void *)&MsgOut[26],(void *) &Tset,4); 
-	 memcpy((void *)&MsgOut[30],(void *) &Tset_r,4); 
+	memcpy((void *)&MsgOut[18],(void *) &BoilerT,4); 
+	memcpy((void *)&MsgOut[22],(void *) &RetT,4); 
+	memcpy((void *)&MsgOut[26],(void *) &Tset,4); 
+    memcpy((void *)&MsgOut[30],(void *) &Tset_r,4);
+
     if(Use_ID29_DHW_flag)   
         memcpy((void *)&MsgOut[34],(void *)&Tstorage,4);
     else        
         memcpy((void *)&MsgOut[34],(void *)&dhw_t,4);
 
-	memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
+    memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
     memcpy((void *)&MsgOut[42],(void *) &FlameModulation,4); 
 	memcpy((void *)&MsgOut[46],(void *) &Pressure,4); 
     statDS = 0;
@@ -1141,8 +1142,8 @@ void SD_Termo::Send_to_server_Sts(void)
 
 //CCMD_SEND_STS_S send to remote server
 void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size) )
-{   short int B_flags, tmp;
-    int rc = 1, tmp4, statDS, l;
+{   short int B_flags;
+    int statDS, l;
     struct Msg1 *msg;
 
     l = 78+8;
@@ -1267,7 +1268,7 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 void SD_Termo::Send_to_server_OTlog(void)
 {   unsigned char * MsgOut;
     short int  tmp2;
-    int rc = 1, tmp4, i, l, lb;
+    int  i, l, lb;
     struct Msg1 *msg;
     unsigned char buf[8];
 //    Send_to_server_Sts(MsgOut, TcpServer_Lsend, server_get_buf );
@@ -1308,8 +1309,7 @@ void SD_Termo::Send_to_server_OTlog(void)
 
 //SCMD_SEND_OTLOG_C = CCMD_SEND_OTLOG_S answer
 int SD_Termo::server_answerOTLog( U8 *bf, int len)
-{   unsigned char * MsgOut;
-    unsigned short int tmp2;
+{   unsigned short int tmp2;
     int rc = 0;
     nOTsend += nOT_need_send;
     if(len == 8)
@@ -1337,8 +1337,8 @@ int SD_Termo::server_answer_IdentifySelf( U8 *bf, int len)
 {   int tmp4;
     if(len < 12)
         return -1;
-        TCPserver_rc = MCMD_INTRODUCESELF;
-        memcpy((void *)&ClientId,(void *)&bf[6],4);
+    TCPserver_rc = MCMD_INTRODUCESELF;
+    memcpy((void *)&ClientId,(void *)&bf[6],4);
 	memcpy((void *)&ClientId_k,(void *)&bf[10],4);
 	memcpy((void *)&tmp4,(void *)&bf[14],4);
     TCPserver_report_period = tmp4*1000;
@@ -1369,7 +1369,6 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
         if(remote_cmd == 1)
         {
             short int B_flags_toSet;
-            float Tset_toSet;    
             float TroomTarget_toSet;
             float TdhwSet_toSet;
             memcpy((void *)&B_flags_toSet,(void *)&bf[12],2);
@@ -1464,10 +1463,8 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 
 //SCMD_GET_STS answer  to remote server
 int SD_Termo::servercallback_Get_Sts( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{   short int B_flags, tmp;
-    int rc = 1, tmp4, statDS, l;
-    struct Msg1 *msg;
-
+{   int  tmp4;
+  
 //    Serial_db.printf("!!!!!!!!servercallback_Get_Sts len %d\n", len);
     if(len != 10)
     { 
@@ -1691,19 +1688,18 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 
 //MCMD_SET_TCPSERVER
 void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{ int s, dt, p, ischange = 0; // i, rc;
-//  char tzbuf[20];
-  char buf[20];
-  IPAddress  ip;
+{   int s, dt, p, ischange = 0; // i, rc;
+    char buf[20];
+    IPAddress  ip;
 
-  Lsend = 6; 
-  MsgOut = get_buf(Lsend);
+    Lsend = 6; 
+    MsgOut = get_buf(Lsend);
 	
     memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
     if(!Use_remoteTCPserver)
         return;
 
-	memcpy((void *)&s,(void *)&bf[6],4); 
+    memcpy((void *)&s,(void *)&bf[6],4); 
     memcpy((void *)buf,(void *)&bf[10],20); 
 
 //  Serial_db.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
@@ -1953,7 +1949,7 @@ extern OpenTherm ot;
         else
                 MaxRelModLevel_present  = false;
 
-                if(ot.OTid_used(OpenThermMessageID::RemoteRequest))
+        if(ot.OTid_used(OpenThermMessageID::RemoteRequest))
                 RemoteRequest_present = true;
         else
                 RemoteRequest_present  = false;
@@ -1975,7 +1971,6 @@ extern OpenTherm ot;
 void SD_Termo::OnOpenThermRestore(void)
 {
 extern OpenTherm ot;
-extern OpenThermID OT_ids[N_OT_NIDS];
 
 #if  PID_USE
     if(enable_CentralHeating_real)

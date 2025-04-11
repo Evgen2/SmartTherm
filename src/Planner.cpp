@@ -44,13 +44,13 @@ void SD_Termo::planner_setup(void)
 	rc = plan.add(2, OpenThermMessageID::TdhwSet,				MODE_CH,			MODE_HW);	//56 (**)
 	rc = plan.add(2, OpenThermMessageID::MaxTSet,				MODE_START|MODE_CH,		0);	//57 
 	rc = plan.add(1, OpenThermMessageID::TflowCH2,				MODE_CH,			MODE_HW);	//31 (*)
-if(_outside_fun)
-	rc = plan.add(1, OpenThermMessageID::Toutside,				MODE_CH|MODE_IDLE,	MODE_HW);	//27 
-else
-	rc = plan.add(1, OpenThermMessageID::Toutside,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//27 
+	if(_outside_fun)
+		rc = plan.add(1, OpenThermMessageID::Toutside,			MODE_CH|MODE_IDLE,	MODE_HW);	//27 
+	else
+		rc = plan.add(1, OpenThermMessageID::Toutside,				0,				MODE_CH|MODE_HW|MODE_IDLE);	//27 
 	rc = plan.add(1, OpenThermMessageID::Texhaust,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//33 
 	if(Use_ID29_DHW_flag)
-		rc = plan.add(1, OpenThermMessageID::Tstorage,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//29 (*)
+		rc = plan.add(1, OpenThermMessageID::Tstorage,				0,				MODE_CH|MODE_HW|MODE_IDLE);	//29 (*)
     rc = plan.add(1, OpenThermMessageID::TrSet,					MODE_CH,			0);	//16 (*)
 	rc = plan.add(1, OpenThermMessageID::Tr,					MODE_CH,			0);	//24 (*)
 	rc = plan.add(1, OpenThermMessageID::DHWFlowRate,			MODE_HW,		MODE_CH);	//19 
@@ -185,7 +185,6 @@ void SD_Termo::handle_SConfigSMemberIDcode(uint16_t u88)
 
 int SD_Termo::planner_loop(void)
 {   int rc,ind, lev;
-	static unsigned long  t0 = 0;
 
     if(plan.mask == MODE_START)
     {   if(plan.step == 1 && responseID  == -1)
@@ -195,16 +194,16 @@ int SD_Termo::planner_loop(void)
 		if(plan.sts & 0x01)
         { //  Serial_db.printf("planner MODE_START end\n");
             plan.SetMode(MODE_TEST);
-			t0 = millis();
+			//t0 = millis();
             goto M_TEST;
         }
 		plan.step++;
 
-//        Serial_db.printf("plan start %2d %2d\n",  plan.it[ind].cmd, lev);
         rc = plan.it[ind].cmd;
 
 	} else 	if(plan.mask == MODE_TEST) {
 M_TEST:	ind = plan.run(lev, 0);
+
 		if(plan.sts & 0x01)
 		{  if(plan.step >= plan.n*2)
 			{	extern unsigned int OTDebugInfo[12];
@@ -237,14 +236,15 @@ M0:
 		{	case MODE_IDLE: // IDLE -> HW || CH
 			
 		if(
-		#if PID_USE
+#if PID_USE
 		enable_CentralHeating_real
-		#else 
+#else 
 		enable_CentralHeating
-		#endif
+#endif
 		)	plan.SetMode(MODE_CH);
 		else  if(HotWater_present && (BoilerStatus & 0x04))
 			plan.SetMode(MODE_HW);
+
 				break;
 
 			case MODE_CH: // CH -> HW | IDLE
@@ -286,6 +286,8 @@ M0:
 
         rc = plan.it[ind].cmd; 
 
+		Serial_db.printf("plan(%x)  %2d %2d\n", plan.mask,  plan.it[ind].cmd, lev);
+
     }
 
 	responseID = -1;
@@ -293,7 +295,7 @@ M0:
 }
 
 int planner::run(int &lev, int mode)
-{	int rc=0, rc0, rc1, vrc0=0, vrc1, is = 0;
+{	int rc=0, rc0, rc1, vrc0=0, vrc1;
 M0:
 	rc0 = find_next(0, vrc0);
 //	if(mask == MODE_TEST)
@@ -341,15 +343,15 @@ M0:
 }
 
 int planner::find_next(int level, int &indrc)
-{	int ii, vii, rc = -2;
+{	int ii, vii;
 
 	if(level == 0)
 	{	ii = ind[0]+1;
 //		if(ind[0] == n0 -1)
 		if(count0 == n0)
 			return -1;
-		for(; ii<n;  ii++)
-		{	vii = vind[0] + ii;
+		for(; ii<n;  ii++) 
+		{	vii = vind[0] + ii; 
 			if(vii >=n) 
 				vii -= n;
 			if((it[vii].mask[0] & mask ) && (it[vii].type  > 0))
@@ -370,7 +372,7 @@ int planner::find_next(int level, int &indrc)
 		if(ind[1] == n -1)
 			return -1;
 		for(; ii<n;  ii++)
-		{	if((it[ii].mask[1] & mask ) && (it[vii].type  > 0))
+		{	if((it[ii].mask[1] & mask ) && (it[ii].type  > 0))
 			{	indrc = ii;
 				return ii;
 			}

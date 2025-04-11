@@ -22,6 +22,9 @@ Features:
 * up to 2 DS18B20 temperature sensors
 
 
+0.8.5.4
+* bugfixed, clean build with -Wall
+
 0.8.5.3
 * Pid & WCA fixes
 

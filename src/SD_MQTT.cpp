@@ -632,7 +632,6 @@ void mqtt_start(void)
 void mqtt_loop(void)
 { char str[80];
 static int st_old = -2, raz=0;  
-unsigned long t1;
 unsigned long t0, t00=0;
 int dt;
 
@@ -744,10 +743,10 @@ if(SmOT.stsMQTT == 0)
                 sensorDHWFlowRate.setAvailability(true);
               if(SmOT.Toutside_present)
                 sensorText.setAvailability(true);
-                dt = millis() - t0;
-  //              if(dt > 100)
-                    Serial_db.printf("MQTT 3 dt %d t %d %d\n", dt, t0, raz );
-              }
+              dt = millis() - t0;
+  //     if(dt > 100)
+              Serial_db.printf("MQTT 3 dt %d t %d %d\n", dt, t0, raz );
+            }
 /******************/
             t0 = millis();
             MQTTsenddata();
@@ -848,74 +847,74 @@ void MQTTsenddata(void)
   else
         sensor_CH.setState(false); 
 
-        if(SmOT.HotWater_present)
-        {
-          if(SmOT.BoilerStatus & 0x04)
-          {      sensor_HW.setState(true); 
-          }  else {
-                sensor_HW.setState(false); 
-          }
-          if(SmOT.enable_HotWater)
-              hvacDHW.setMode(HAHVAC::HeatMode);
-          else
-              hvacDHW.setMode(HAHVAC::OffMode);
+  if(SmOT.HotWater_present)
+  {
+    if(SmOT.BoilerStatus & 0x04)
+    {      sensor_HW.setState(true); 
+    }  else {
+          sensor_HW.setState(false); 
+    }
+    if(SmOT.enable_HotWater)
+        hvacDHW.setMode(HAHVAC::HeatMode);
+    else
+        hvacDHW.setMode(HAHVAC::OffMode);
 
-          if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
-             hvacDHW.setCurrentTemperature(SmOT.Tstorage);
-          else if(SmOT.Dhw_t_present)
-              hvacDHW.setCurrentTemperature(SmOT.dhw_t);
-           
-          hvacDHW.setTargetTemperature(SmOT.TdhwSet);
+    if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
+        hvacDHW.setCurrentTemperature(SmOT.Tstorage);
+    else if(SmOT.Dhw_t_present)
+        hvacDHW.setCurrentTemperature(SmOT.dhw_t);
+      
+    hvacDHW.setTargetTemperature(SmOT.TdhwSet);
 //   Serial_db.printf("SmOT.TdhwSet %f SmOT.dhw_t %f\n", SmOT.TdhwSet, SmOT.dhw_t );
 
-        }
-        sprintf(str,"%.3f", SmOT.FlameModulation);
-        sensorModulation.setValue(str);
-        if(SmOT.RetT_present)
-        { sprintf(str,"%.3f", SmOT.RetT);
-          sensorBoilerRetT.setValue(str);  
-        }
-        if(SmOT.Pressure_present)
-        { sprintf(str,"%.3f", SmOT.Pressure);
-          sensorPressure.setValue(str);
-        }
+  }
+  sprintf(str,"%.3f", SmOT.FlameModulation);
+  sensorModulation.setValue(str);
+  if(SmOT.RetT_present)
+  { sprintf(str,"%.3f", SmOT.RetT);
+    sensorBoilerRetT.setValue(str);  
+  }
+  if(SmOT.Pressure_present)
+  { sprintf(str,"%.3f", SmOT.Pressure);
+    sensorPressure.setValue(str);
+  }
 
-        if(SmOT.DHWFlowRate_present)
-        {   sprintf(str,"%.3f", SmOT.DHWFlowRate);
-            sensorDHWFlowRate.setValue(str);
-        }
+  if(SmOT.DHWFlowRate_present)
+  {   sprintf(str,"%.3f", SmOT.DHWFlowRate);
+      sensorDHWFlowRate.setValue(str);
+  }
 
-        if(SmOT.Toutside_present)
-        { sprintf(str,"%.3f", SmOT.Toutside);
-          sensorText.setValue(str);
-        }
+  if(SmOT.Toutside_present)
+  { sprintf(str,"%.3f", SmOT.Toutside);
+    sensorText.setValue(str);
+  }
 
 #if PID_USE
-    {
-        sprintf(str,"%.4f", SmOT.mypid.dP);
-        sensorPID_P.setValue(str);
-        sprintf(str,"%.4f", SmOT.mypid.dD);
-        sensorPID_D.setValue(str);
-        sprintf(str,"%.4f", SmOT.mypid.dI);
-        sensorPID_I.setValue(str);
-        sprintf(str,"%.4f", SmOT.mypid.u);
-        sensorPID_U.setValue(str);
-        sprintf(str,"%.4f", SmOT.mypid.ub);
-        sensorPID_U0.setValue(str);
+  {
+      sprintf(str,"%.4f", SmOT.mypid.dP);
+      sensorPID_P.setValue(str);
+      sprintf(str,"%.4f", SmOT.mypid.dD);
+      sensorPID_D.setValue(str);
+      sprintf(str,"%.4f", SmOT.mypid.dI);
+      sensorPID_I.setValue(str);
+      sprintf(str,"%.4f", SmOT.mypid.u);
+      sensorPID_U.setValue(str);
+      sprintf(str,"%.4f", SmOT.mypid.ub);
+      sensorPID_U0.setValue(str);
         
 //            Serial_db.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
 
-        if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
-        {  numT_indoor.setState(SmOT.tempindoor, true);
-        }
-        if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
-        {   numT_outdoor.setState(SmOT.tempoutdoor, true);
-        }
+      if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
+      {  numT_indoor.setState(SmOT.tempindoor, true);
+      }
+      if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
+      {   numT_outdoor.setState(SmOT.tempoutdoor, true);
+      }
 
 //            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
 //            textPIDinfo.setValue(str);
 
-    }
+  }
 
 #endif
 
@@ -999,9 +998,9 @@ void  MQTT_pub_relay(void)
 #endif
  
 void  MQTT_pub_cmd2(int val)
-{ char str[80];
-  if(SmOT.stsMQTT != 2)
+{ if(SmOT.stsMQTT != 2)
     return;
+// char str[80];
 //  sprintf(str,"%d",  val);
 //  sensor_TestNum.setValue(str);  
 }
