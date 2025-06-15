@@ -72,7 +72,7 @@ int SmartDevice::servercallback_HandShake( U8 *bf, int len)
 
 //SCMD_GET_HAND_SHAKE
 int SmartDevice::server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{ int l, rc = 0;
+{ int  rc = 0;
 
     TCPserver_rc = SCMD_GET_HAND_SHAKE;
     TCPserver_sts2 = 1;
@@ -161,7 +161,7 @@ void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &
       Lsend += 4; 
 
    MsgOut = get_buf(Lsend);
-   time_t now = time(nullptr);
+//   time_t now = time(nullptr);
 	
     gettimeofday(&tv, NULL);  
 //  Serial.println(ctime(&now));
@@ -182,25 +182,21 @@ void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 
 //MCMD_SETTIME  установить время
 void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
-{   int  tm_l;
-	  struct timeb  tb;
-    char tzbuf[20];
-timeval tv = { 0, 0 };
-	 tm_l = sizeof(time_t);
-   Lsend = 6; 
-   MsgOut = get_buf(Lsend);
+{  
+  timeval tv = { 0, 0 };
+  Lsend = 6; 
+  MsgOut = get_buf(Lsend);
 	
-	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
+	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 
-	 memcpy((void *)&tv.tv_sec,(void *)&bf[6], 4); 
-	 memcpy((void *)&tv.tv_usec,(void *)&bf[10],4); 
+	memcpy((void *)&tv.tv_sec,(void *)&bf[6], 4); 
+	memcpy((void *)&tv.tv_usec,(void *)&bf[10],4); 
 //  Serial.printf("###****################ tv  %d %d\n", tv.tv_sec, tv.tv_usec);
 
 //{  time_t now;
 //  now = time(nullptr);
 //  Serial.printf("1 %s\n", ctime(&now));
 //}  
-
 
   settimeofday(&tv, nullptr);
 

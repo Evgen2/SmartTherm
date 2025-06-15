@@ -70,9 +70,9 @@ void pid::Init_I(float _x)
 }
 
  int pid::Pid(float _x, float _u0)
- {  unsigned long int t, dt, _t;
-    float _xerr, dX, dtf, _dft, _u;
-    float _dft0, _Kidiss;
+ {  unsigned long int t, dt;
+    float dX, dtf, _dft, _u;
+    float _Kidiss;
     t  = millis();
     dt = t - pid_t; // dt, msec
 
@@ -141,9 +141,8 @@ int CalculateMNKYfX2(float coeff[],int *Np);
 
 int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 {  int i, ii;
-   unsigned long int  t0, dt, tmid, _t;  
-   float _d, dmid, _xerr, xm, ym, xm2,xym, _x, _y, b;
-   float  _dft, dX; 
+   unsigned long int  t0, tmid;  
+   float  dmid, xm, ym;
    int Np;
    float coeff[N_X];
 
@@ -238,14 +237,14 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 }  
 
 
-static float XX[N_X][N_X],XXM[N_X][N_X],XX_1[N_X][N_X],Yx[N_X],YxM[N_X], Yy[N_X],A[N_X];
+static float XX[N_X][N_X],XXM[N_X][N_X],XX_1[N_X][N_X],Yx[N_X],YxM[N_X];
 int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X]);
 
 
 int IncrCalculateMatrixYfX2(float x, float y, int *Np, float _XX[N_X][N_X ], float _Yx[N_X] )
-{  int i,j,n;
+{  int i,j;
    double x2;
-   n = 3;
+//   n = 3;
    x2 = x * x;
    if(*Np == 0)
    {  for(i=0;i<3;i++)

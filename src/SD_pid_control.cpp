@@ -24,7 +24,6 @@ void SD_Termo::loop_PID(void)
     float  u0, _u, _uu;
     int rc, dt;
     time_t now; 
-    extern OpenTherm ot;
     int is = 0;
     static int need_heat = 0;
 
@@ -145,7 +144,7 @@ void SD_Termo::loop_PID(void)
 //                _ustart = _u;
 
             if(dt < 15*60) //пытаемся плавно повышать температуру
-            {   float r, du;
+            {   float r;
                 r = dt/(60.*15.);
                 _uu = _u * r +  _ustart  * (1-r); //то корректируем уставку температуры
             }

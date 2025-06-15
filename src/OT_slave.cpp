@@ -54,7 +54,7 @@ void IRAM_ATTR handleInterruptslave() {
 void processRequest(unsigned long request, OpenThermResponseStatus status) {
 
     unsigned long response = 0;
-    int parity, messagetype;
+    int parity;
 static int timeOutcounter = 0;
 
 #if  OT_SLAVE_DEBUG
@@ -124,8 +124,7 @@ static int timeOutcounter = 0;
     }
 
     OpenThermMessageID id = ot_slave.getDataID(request);
-    uint16_t data = ot_slave.getUInt(request);
-    messagetype = ot_slave.getMessageType(request);
+    float t = ot_slave.getFloat(request);
 
 //    Serial.printf("Slave processRequest: id %x data %x\n", id, data); 
 
@@ -141,10 +140,18 @@ static int timeOutcounter = 0;
  //         return;
         }
 
+   switch(id)
+   { 
+      case OpenThermMessageID::TSet:  // 1 W
+        SmOT.Tset = t;
+            break;
+      case OpenThermMessageID::TdhwSet: //56 W
+        SmOT.TdhwSet = t;
+        break;
+      default:
+      break;
+   }     
 
-//    float f = ot.getFloat(request);
-
-//      Serial.printf("Message id %d\n", id); 
 /*************************************************/
     SmOT.ot_slave_t_lastwork  = time(nullptr);
     ot_SlaveRequest_ms = millis();
@@ -195,8 +202,6 @@ int setup_ot_slave(void)
 
 void sendResponse_ot_slave(void)
 { 
-  int id;
-    id = (ot_SlaveResponse >> 16 & 0xFF);
     nslaveint = 0;
 //    if(ot_slave.getMessageType(ot_SlaveResponse) == DATA_INVALID)
 //       Serial.printf("DATA_INVALID SlaveResponse 2\n");

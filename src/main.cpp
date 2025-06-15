@@ -150,7 +150,7 @@ void setup() {
   delay(2);
   Serial.begin(115200);
   Serial.println(IDENTIFY_TEXT);
-  Serial.printf("Vers %d.%d.%d build %s\n",SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,  SmOT.BiosDate);
+  Serial.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
 // Serial.printf((PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
 //  Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
@@ -639,10 +639,7 @@ bit: description [ clear/0, set/1]
         break;
 
     case OpenThermMessageID::RemoteRequest: // 4 Remote Request
-    { extern OpenThermID OT_ids[N_OT_NIDS];
-
-//Serial.printf("Response RemoteRequest data %x count %d %d used %d\n", u88, OT_ids[4].count, OT_ids[4].countOk, OT_ids[4].used);
-    }
+//    Serial_db.printf("RemoteRequest responce %d\n", u88 );
         break;
 
     case OpenThermMessageID::ASFflags: //5

@@ -309,7 +309,8 @@ extern unsigned int OTcount;
 
    device.setName(SmOT.MQTT_topic,SmOT.MQTT_devname); //должно быть static!!
   { static char str[40];
-    sprintf(str,"%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
+    sprintf(str,"%d.%d.%d.%d %s" , SmOT.Vers,SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
+
     device.setSoftwareVersion(str); //должно быть static!!
     device.setConfigurationUrl(SmOT.LocalUrl);// --//--
   }
@@ -624,7 +625,6 @@ void mqtt_start(void)
 void mqtt_loop(void)
 { char str[80];
 static int st_old = -2;  
-unsigned long t1;
 
 
 if(SmOT.stsMQTT == 0) 
@@ -938,8 +938,7 @@ void  MQTT_pub_relay(void)
 #endif
  
 void  MQTT_pub_cmd2(int val)
-{ char str[80];
-  if(SmOT.stsMQTT != 2)
+{ if(SmOT.stsMQTT != 2)
     return;
 //  sprintf(str,"%d",  val);
 //  sensor_TestNum.setValue(str);  

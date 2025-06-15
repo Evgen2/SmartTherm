@@ -274,8 +274,7 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 
 void setup_web_common(void)
-{    bool b;
-
+{  
 //  Serial.println();
 //   Serial.println("setup_web_common");
 
@@ -556,9 +555,7 @@ extern int minRamFree;
    Info6.value += str;
 #if PID_USE
     if(SmOT.usePID)
-    {  extern int debcode;
-       extern int wait_if_takt;
-
+    {
        sprintf(str,"<br>pid: U= %f u0 = %f  dP=%f, dD=%f dI=%f\n",
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
@@ -1040,24 +1037,24 @@ extern OpenTherm ot;
         if(SmOT.BoilerStatus & 0x40)
           Info1.value += "<br>Diag";
 
-          if(SmOT.BoilerStatus & 0xff00)
-          { Info1.value += "<br><small>Уставки:";
-            if(SmOT.BoilerStatus & 0x0100)
-              Info1.value += " CH";
-            if(SmOT.BoilerStatus & 0x0200)
-              Info1.value += " DHW";
-            if(SmOT.BoilerStatus & 0x0400)
-              Info1.value += " Cool";
-            if(SmOT.BoilerStatus & 0x0800)
-              Info1.value += " OTC";
-            if(SmOT.BoilerStatus & 0x1000)
-              Info1.value += " CH2";
-            if(SmOT.BoilerStatus & 0x2000)
-              Info1.value += " Summer";
-            if(SmOT.BoilerStatus & 0x4000)
-              Info1.value += " DHWblocking";
-              Info1.value += "</small>";
-          }
+        if(SmOT.BoilerStatus & 0xff00)
+        { Info1.value += "<br><small>Уставки:";
+          if(SmOT.BoilerStatus & 0x0100)
+            Info1.value += " CH";
+          if(SmOT.BoilerStatus & 0x0200)
+            Info1.value += " DHW";
+          if(SmOT.BoilerStatus & 0x0400)
+            Info1.value += " Cool";
+          if(SmOT.BoilerStatus & 0x0800)
+            Info1.value += " OTC";
+          if(SmOT.BoilerStatus & 0x1000)
+            Info1.value += " CH2";
+          if(SmOT.BoilerStatus & 0x2000)
+            Info1.value += " Summer";
+          if(SmOT.BoilerStatus & 0x4000)
+            Info1.value += " DHWblocking";
+          Info1.value += "</small>";
+        }
       }
         break;
       case 1:
@@ -1423,12 +1420,12 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   else
      CtrlChB3.enable  = false;
 
-     Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+  Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
 
-     sprintf(str,"%.2f",SmOT.umax);
-     SetTmaxPID.value = str;
-     sprintf(str,"%.2f",SmOT.umin);
-     SetTminPID.value = str;
+  sprintf(str,"%.2f",SmOT.umax);
+  SetTmaxPID.value = str;
+  sprintf(str,"%.2f",SmOT.umin);
+  SetTminPID.value = str;
          
   if(SmOT.Use_remoteTCPserver)
     CtrlChB_UseRemoteControl.checked = true;
@@ -1832,7 +1829,7 @@ const char SM_OT_HomePage[]= "https://t.me/smartTherm";
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { char str[80];
   Info1.value = IDENTIFY_TEXT;
-  sprintf(str, (PGM_P)F("Vers %d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1, SmOT.BiosDate);
+  sprintf(str, (PGM_P)F("Vers %d.%d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
   Info2.value = str;
   if (WiFi.status() == WL_CONNECTED)
@@ -1851,7 +1848,7 @@ extern int LedSts;
 
 void loop_web()
 {  int rc,  dt;
-static unsigned long t0=0, raz = 0; // t1=0;
+static unsigned long t0=0; 
 
   portal.handleClient();
 
@@ -2016,7 +2013,7 @@ void setup_read_config(void)
 }
 
 void check_fs(void)
-{ bool b;
+{
 /**********************************/
 // Check consistency of reported partiton size info.
 /*    
@@ -2051,9 +2048,9 @@ void check_fs(void)
          Serial.printf( "remove %s\n", str);
       #endif         
          file.close();
-         b = FlashFS.remove(str);
+         FlashFS.remove(str);
       #if SERIAL_DEBUG      
-         Serial.printf( "remove  rc = %d\n", b);
+//       Serial.printf( "remove  rc = %d\n", b);
       #endif         
          break;
        }

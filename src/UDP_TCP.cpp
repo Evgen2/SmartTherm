@@ -517,18 +517,16 @@ int tcp_serversts = 0;
 unsigned long t00_server=0;
 
 void loop_servertcp(void)
-{   static int count = 0;
-    int rc, len;
-	static int nb = 0;
+{   int rc;
 
+#if SERIAL_DEBUG
 	static int ols_sts=-1;
 	if(tcp_serversts != ols_sts)
 	{
-#if SERIAL_DEBUG
 //		Serial.printf("tcp_serversts=%d\n",  tcp_serversts);
-#endif		
 		ols_sts = tcp_serversts;
 	}
+#endif		
 
 	
 	switch(tcp_serversts)
@@ -671,7 +669,7 @@ int net_ServerCallback(U8 *bf, int  len, PACKED unsigned char * &MsgOut, int &Ls
    unsigned short int par;
    int rc = 0;
 static unsigned short lastInd=0;
-static unsigned int jj=0xffff, Nlost=0;
+static unsigned int Nlost=0;
 
 
   cmd  = *((short int *)&bf[2]);
