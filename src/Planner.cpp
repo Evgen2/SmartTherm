@@ -286,7 +286,7 @@ M0:
 
         rc = plan.it[ind].cmd; 
 
-		Serial_db.printf("plan(%x)  %2d %2d\n", plan.mask,  plan.it[ind].cmd, lev);
+//		Serial_db.printf("plan(%x)  %2d %2d\n", plan.mask,  plan.it[ind].cmd, lev);
 
     }
 

@@ -35,7 +35,6 @@ extern void setup_tcpudp(SmartDevice *psd);
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
-extern void planner_loop(void);
 
 #if OT_DEBUGLOG
 void OTlog(unsigned int reqresp, int sts);
@@ -98,7 +97,7 @@ OpenTherm ot(inPin, outPin);
 void OTprocessResponse(unsigned long response, OpenThermResponseStatus status);
 int OTloop(void);
 void loop2(void);
-unsigned int buildRequest(int mode);
+
 #if OT_DEBUG
 void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88);
 #endif
@@ -988,7 +987,6 @@ M00:
     return rc;
 }
 
-int Jopa = 0;
 
 unsigned int SD_Termo::buildRequest(int ot_id)
 { unsigned int request = 0;
@@ -999,16 +997,7 @@ unsigned int SD_Termo::buildRequest(int ot_id)
   {
 /**************************/
     case OpenThermMessageID::Status: // 0 запрос статуса
-{
-  if(stsOT == 2)
-  { static int raz=0;
-     Jopa = raz;
-     raz++;
-     if(raz > 255)
-        raz = 1;
-   }
-  
-}    
+    
 #if PID_USE
       if(!usePID)
          enable_CentralHeating_real = enable_CentralHeating;
@@ -1394,8 +1383,18 @@ static int mday_prev = 0;
   now = time(nullptr);
   if(now == prev)
       return;
-
-
+//test 
+#if 0     
+{ static int raz=0;
+  static time_t prev00 = 0;
+  dt = now - prev00;
+  if((dt%2) == 0 )    /*12345678901234567890 */
+  {  Serial_db.printf( "time raz %d %d %d %d\n", raz, raz, raz, raz);
+     raz++;
+     prev00 = now;
+  }
+}
+#endif
   nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
   nowtime = localtime(&now);
@@ -1534,6 +1533,8 @@ void OTlog(unsigned int reqresp, int sts)
   unsigned long t = millis();
   int lb;
 
+return;
+//todo test  
   if(!SmOT.Use_remoteTCPserver)
     return;
     

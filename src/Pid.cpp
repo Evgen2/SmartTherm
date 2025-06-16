@@ -4,7 +4,15 @@
 #include "Smart_Config.h"
 #if PID_USE
 #include "pid.hpp"
+/* 
+ U(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
+ U0(Text) = U0(Text0) + K0 * (Text - Text0)
+ U0(Text,Tin) = U0(Text0,Tin)  + K0 * (Text - Text0) = U0(Text0,Tin0) + K1 *(Tin - Tin0) + K0 * (Text - Text0) =  U0(Text,Tin0) + K1 *(Tin - Tin0)
+ при точном ПЗА
+ U0(Text,Xtag) = U(Xtag) 
+ U0(Text,Xtag) = U0(Text,Xtag0) + K1 *(Xtag - Xtag0), K1 = Ku
 
+*/
 
 /* 
 Выход ПИД в равновесии в зависимости от уcтавки:  U(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
@@ -118,13 +126,16 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
 //Kidiss magic: dissipation of the integral automagically limit of integral & limiting the influence of old values
 //characteristic time: t_interval/Kidiss (sec) 
-//Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss  
+//Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss
 
    _Kidiss = Kidiss;
-   if(InT*xerr < 0.f) // more dissipation on different signs of InT and xerr
-   {  _Kidiss *=  2.f * fabs(xerr);  
-   } else   if(fabs(xerr) < 1.f) {   
-      _Kidiss *=  fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
+   if (fabs(xerr) < 1.f)
+   {
+      _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr
+   }
+   else if (InT * xerr < 0.f)
+   { // more dissipation on different signs of InT and xerr
+      _Kidiss *= 2.f * fabs(xerr);
    }
 
    dtf = float(dt) / 1000.f; // dt, sec 
@@ -380,4 +391,17 @@ int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
    return 0;
 }
 
+float fast_small_sqrt(float x)
+{  float xx, sq;
+   
+   if(x > 0.5) // x = 1 + xx; sqrt(1 + xx) = 1 + xx/2 - (xx*xx)/8 ....
+   {  xx = x - 1.f;
+      sq = 1.f + xx * (0.5f - xx * 0.125f);
+   } else {  //sqrt(x) = 1  + (x-1)/2 - (x-1)^2/8
+      xx = x - 1.f;
+      sq = 1.f + xx * (0.5f - xx * 0.125f);
+   }
+
+   return sq;
+}
 #endif //PID_USE

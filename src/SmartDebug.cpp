@@ -9,10 +9,12 @@
 #endif
 
 static char sp_buffer[312];
-int sp_n = 0, sp_l=0;
 
 class Serial_Debug Serial_db;
-static char *pmsg[1024];
+
+static char *pmsg0[1024];
+//char Serial_Debug::**pmsg = pmsg0;
+char  * * Serial_Debug::pmsg = pmsg0;
 
 size_t Serial_Debug::printf(const char *_format, ...)
 {	size_t rc;
@@ -34,6 +36,8 @@ size_t Serial_Debug::printf(const char *_format, ...)
 		{	
 			if(sp_n < 1024)
 			{	pm = strdup( sp_buffer);
+				if(pm == NULL)
+						 Serial.printf("Error: strdup return NULL for %d\n", l);	
 				pmsg[sp_n] = pm;
 				sp_n++;
 				sp_l += l;
@@ -45,8 +49,8 @@ size_t Serial_Debug::printf(const char *_format, ...)
 		}
 	}
 
-//	rc = Serial.printf("%d %d %s", sp_n, sp_l, sp_buffer);	
-	rc = Serial.printf("%s", sp_buffer);	
+	rc = Serial.printf("%d %d %s", sp_n, sp_l, sp_buffer);	
+//	rc = Serial.printf("%s", sp_buffer);	
 	return rc;
 }
 

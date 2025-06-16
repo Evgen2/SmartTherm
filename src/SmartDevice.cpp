@@ -29,7 +29,7 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
 #if SERIAL_DEBUG 
-//  Serial_db.printf(("MCMD_HAND_SHAKE  Lsend=%i\n", Lsend );
+//  Serial_db.printf("MCMD_HAND_SHAKE  Lsend=%i\n", Lsend );
 #endif
 	
   
@@ -40,8 +40,8 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	}
 /*  		 	
   for(int i=0; i<Lsend;i++)
-		Serial_db.printf(("%d ", MsgOut[i]);
-Serial_db.printf(("\n");
+		Serial_db.printf("%d ", MsgOut[i]);
+Serial_db.printf("\n");
 */
 }
 
@@ -49,20 +49,20 @@ Serial_db.printf(("\n");
 int SmartDevice::servercallback_HandShake( U8 *bf, int len)
 { int l, rc = 0;
 #if SERIAL_DEBUG 
-//  Serial_db.printf(("servercallback_HandShake len=%d\n", len);
+//  Serial_db.printf("servercallback_HandShake len=%d\n", len);
 #endif
 
   if(len >= 16)
   { l = sizeof(HAND_SHAKE_OUT);
     if(strncmp((char *)&bf[6], HAND_SHAKE_OUT,l) == 0)
     {
-//        Serial_db.printf(("HAND_SHAKE_OUT detected\n");
+//        Serial_db.printf("HAND_SHAKE_OUT detected\n");
         rc = 1;
         TCPserver_rc = MCMD_HAND_SHAKE;
         TCPserver_close_on_send = 0;
     } else {
         TCPserver_close_on_send = 1;
-//        Serial_db.printf(("HAND_SHAKE_OUT NOT detected\n");
+//        Serial_db.printf("HAND_SHAKE_OUT NOT detected\n");
     }
   }
 
@@ -77,8 +77,8 @@ int SmartDevice::server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(
     TCPserver_rc = SCMD_GET_HAND_SHAKE;
     TCPserver_sts2 = 1;
 #if SERIAL_DEBUG 
-//  Serial_db.printf(("server_send_HandShake SCMD_GET_HAND_SHAKE\n");
-//  Serial_db.printf(("TCPserver_sts2 = 1\n");
+//  Serial_db.printf("server_send_HandShake SCMD_GET_HAND_SHAKE\n");
+//  Serial_db.printf("TCPserver_sts2 = 1\n");
 #endif
 
 /*  
@@ -86,7 +86,7 @@ int SmartDevice::server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(
 extern int indcmd;
     
 #if SERIAL_DEBUG 
-  Serial_db.printf(("server_send_HandShake\n");
+  Serial_db.printf("server_send_HandShake\n");
 #endif
 
     l = strlen(HAND_SHAKE_INP);
@@ -137,7 +137,7 @@ void SmartDevice::callback_Identify( U8 *bf, PACKED unsigned char * &MsgOut,int 
 	memcpy((void *)&MsgOut[44],(void *)&Mac[0],6);
   memcpy_P((void *)&MsgOut[50],(void *)(PGM_P)IDENTIFY_TEXT, l);
   
-//  Serial_db.printf(("IDENTIFY_TEXT 4 l=%i Lsend =%i\n", l, Lsend );
+//  Serial_db.printf("IDENTIFY_TEXT 4 l=%i Lsend =%i\n", l, Lsend );
 //  Serial.print(IDENTIFY_TEXT);
 }
 
@@ -165,7 +165,7 @@ void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 	
     gettimeofday(&tv, NULL);  
 //  Serial.println(ctime(&now));
-//  Serial_db.printf(("Sizeof timeb %i\n", sizeof(timeb));
+//  Serial_db.printf("Sizeof timeb %i\n", sizeof(timeb));
 
 	 memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 	 memcpy((void *)&MsgOut[6],(void *)&tm_l,2); 
@@ -173,7 +173,7 @@ void SmartDevice::callback_gettime( U8 *bf, PACKED unsigned char * &MsgOut,int &
    {
 	    memcpy((void *)&MsgOut[8],(void *)&tv.tv_sec,tm_l); 
 	    memcpy((void *)&MsgOut[12],(void *)&tv.tv_usec,4); 
-//  Serial_db.printf(("################## tv  %d %d\n", tv.tv_sec, tv.tv_usec);
+//  Serial_db.printf("################## tv  %d %d\n", tv.tv_sec, tv.tv_usec);
    } else {
 	    memcpy((void *)&MsgOut[8],(void *)&tv.tv_sec,tm_l); 
 	    memcpy((void *)&MsgOut[8+tm_l],(void *)&tv.tv_usec,4); 
@@ -192,10 +192,10 @@ void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 
 	memcpy((void *)&tv.tv_sec,(void *)&bf[6], 4); 
 	memcpy((void *)&tv.tv_usec,(void *)&bf[10],4); 
-//  Serial_db.printf(("###****################ tv  %d %d\n", tv.tv_sec, tv.tv_usec);
+//  Serial_db.printf("###****################ tv  %d %d\n", tv.tv_sec, tv.tv_usec);
 //{  time_t now;
 //  now = time(nullptr);
-//  Serial_db.printf(("1 %s\n", ctime(&now));
+//  Serial_db.printf("1 %s\n", ctime(&now));
 //}  
 
   settimeofday(&tv, nullptr);
@@ -203,7 +203,7 @@ void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 #if SERIAL_DEBUG 
 //{  time_t now;
 //  now = time(nullptr);
-//  Serial_db.printf(("2 %s\n", ctime(&now));
+//  Serial_db.printf("2 %s\n", ctime(&now));
 //}  
 #endif  
 }

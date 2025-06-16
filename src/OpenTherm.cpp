@@ -300,38 +300,51 @@ void OpenTherm::end() {
 
 const char *OpenTherm::statusToString(OpenThermResponseStatus status)
 {
-	switch (status) {
-		case NONE:	return "NONE";
-		case SUCCESS: return "SUCCESS";
-		case INVALID: return "INVALID";
-		case TIMEOUT: return "TIMEOUT";
-		default:	  return "UNKNOWN";
+	switch (status)
+	{
+	case NONE:
+		return "NONE";
+	case SUCCESS:
+		return "SUCCESS";
+	case INVALID:
+		return "INVALID";
+	case TIMEOUT:
+		return "TIMEOUT";
+	default:
+		return "UNKNOWN";
 	}
 }
 
 const char *OpenTherm::messageTypeToString(OpenThermMessageType message_type)
 {
-	switch (message_type) {
-		case READ_DATA:	   return "READ_DATA";
-		case WRITE_DATA:	  return "WRITE_DATA";
-		case INVALID_DATA:	return "INVALID_DATA";
-		case RESERVED:		return "RESERVED";
-		case READ_ACK:		return "READ_ACK";
-		case WRITE_ACK:	   return "WRITE_ACK";
-		case DATA_INVALID:	return "DATA_INVALID";
-		case UNKNOWN_DATA_ID: return "UNKNOWN_DATA_ID";
-		default:			  return "UNKNOWN";
+	switch (message_type)
+	{
+	case READ_DATA:
+		return "READ_DATA";
+	case WRITE_DATA:
+		return "WRITE_DATA";
+	case INVALID_DATA:
+		return "INVALID_DATA";
+	case RESERVED:
+		return "RESERVED";
+	case READ_ACK:
+		return "READ_ACK";
+	case WRITE_ACK:
+		return "WRITE_ACK";
+	case DATA_INVALID:
+		return "DATA_INVALID";
+	case UNKNOWN_DATA_ID:
+		return "UNKNOWN_DATA_ID";
+	default:
+		return "UNKNOWN";
 	}
 }
 
 //building requests
-extern int Jopa;
-
 unsigned long OpenTherm::buildSetBoilerStatusRequest(bool enableCentralHeating, bool enableHotWater, bool enableCooling, bool enableOutsideTemperatureCompensation, bool enableCentralHeating2, bool enableWinterMode) {
 	unsigned int data = enableCentralHeating | (enableHotWater << 1) | (enableCooling << 2) | (enableOutsideTemperatureCompensation << 3) | (enableCentralHeating2 << 4) | (enableWinterMode << 5); 
 	data <<= 8;
 	if(Immergas_fix) data |= 0xca;
-	if(Jopa > 0)  data += Jopa;
 	return buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, data);
 }
 

@@ -199,6 +199,7 @@ public:
 #if MQTT_USE
   byte useMQTT;  //0 = not use, 1 use but not setup, 0x3 - use & setup
   byte stsMQTT;
+  int stsMQTTcfg;
  #if defined(ARDUINO_ARCH_ESP8266)
  //20+20+4+10+10+10= 74
   char MQTT_server[20]; 
@@ -257,6 +258,7 @@ public:
   int useCPU_freq; //0 =240, 1=160, 2=80
   int CrasyState_count;
   int needReport_CrasyState;
+  Serial_Debug * pSerial_db;
 
   SD_Termo(void)
   {	  
@@ -272,7 +274,6 @@ public:
     HotWater_present  = false;
     DHW_tank_present  = false;
 
-    HotWater_present  = false;
     Dhw_t_present = false;
     RetT_present  = false;
     CH2_present  = false;
@@ -339,6 +340,7 @@ public:
 #if MQTT_USE
       useMQTT = 0;
       stsMQTT = 0;
+      stsMQTTcfg = -1;
       strcpy(MQTT_server,"192.168.1.1");
       strcpy(MQTT_topic,"ST");
       strcpy(MQTT_devname,"Boiler");
@@ -384,6 +386,7 @@ public:
     useCPU_freq = -1; //2;
     CrasyState_count = 0;
     needReport_CrasyState = 0;
+    pSerial_db = NULL;
   }
   void RelayInit(void);
   void RelayOnOff(bool onoff);
@@ -396,7 +399,8 @@ public:
   void Send_to_server_Sts(void); // PACKED unsigned char * &MsgOut, int &Lsend, U8 *(*get_buf) (U16 size));
 #if OT_DEBUGLOG
   void Send_to_server_OTlog(void); 
-  int server_answerOTLog( U8 *bf, int len);
+  int  server_answerOTLog( U8 *bf, int len);
+  void Send_to_server_log(void); 
 #endif  
   int servercallback_send_Sts_answ( U8 *bf, int len);
   int server_answer_IdentifySelf( U8 *bf, int len);
@@ -417,6 +421,8 @@ public:
 
 #if OT_DEBUGLOG
   void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  int  server_answerLog( U8 *bf, int len);
+  
 #endif
   int Write_data_fs(char *path, uint8_t *dataBuff, int len, int mode);
   int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen, int mode);

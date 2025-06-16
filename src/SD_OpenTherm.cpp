@@ -79,7 +79,7 @@ int SD_Termo::Read_ot_fs(void)
     if(rc)
         return 1;
 #if SERIAL_DEBUG      
-    Serial_db.printf(PGM_P)F("Read %i bytes\n"), nw);
+    Serial_db.printf((PGM_P)F("Read %i bytes\n"), nw);
 #endif    
 
     n = sizeof(enable_CentralHeating);
@@ -505,7 +505,7 @@ int SD_Termo::Read_mqtt_fs(void)
     Serial_db.printf("Read %s rc %i\n", pathmqtt, rc);
 #endif    
     if(rc)
-        return 1;
+        return rc;
 #if MQTT_USE
     n = sizeof(useMQTT);
     memcpy((void *) &useMQTT, &Buff[0], sizeof(useMQTT));
@@ -587,13 +587,17 @@ int SD_Termo::Write_mqtt_fs(void)
   #define OT_DEBUGLOG_SIZE 8*256   
  #endif
  static char OT_DebugLog[OT_DEBUGLOG_SIZE];
+ extern Serial_Debug Serial_db;
+
 #endif //OT_DEBUGLOG
 
 void SD_Termo::init(int src)
 {
 #if OT_DEBUGLOG
     if(src == 1)
-        OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
+    {   OTlogBuf.Init(OT_DebugLog,OT_DEBUGLOG_SIZE,8);
+        pSerial_db = &Serial_db;
+    }
 #endif  
   Bstat.t_I_last =time(nullptr);
   Bstat.sec_h = Bstat.sec_d = 0;
@@ -766,14 +770,17 @@ void SD_Termo::loop(void)
                     if(millis() - ts0 > 5000) //todo
                     {   TCPserver_sts2 = 0; 
                         ts0 = millis();
-                        #if OT_DEBUGLOG
+#if OT_DEBUGLOG
                     } else if(TCPserver_rc == CCMD_SEND_STS_S) {
                         TCPserver_sts2 = 5; 
                         ts0 = millis();
                     } else if(TCPserver_rc == CCMD_SEND_OTLOG_S) {
                         TCPserver_sts2 = 7; 
                         ts0 = millis();
-#endif                        
+                    } else if(TCPserver_rc == CCMD_SEND_LOG_S) {
+                        TCPserver_sts2 = 9; 
+                        ts0 = millis();
+#endif 
                     } else if(TCPserver_rc == SCMD_GET_HAND_SHAKE) {
                      //   Serial_db.printf(">>>>>>>>>>>>>>>>>>>>  Сервер хочет HAND_SHAKE\n" );
                         TCPserver_sts2 = 1; //HandShake
@@ -800,6 +807,28 @@ void SD_Termo::loop(void)
                         ts0 = millis();
                     }
                     break;
+
+                    case 9: //send CCMD_SEND_LOG_S
+                        Send_to_server_log(); //todo
+                        ts0 = millis();
+                        TCPserver_sts2 = 10; 
+                    break;
+
+                    case 10: //wait answer to CCMD_SEND_LOG_S from server
+                    if(millis() - ts0 > 5000) // timeout todo
+                    {   TCPserver_sts2 = 0; 
+                        ts0 = millis();
+                        Serial_db.printf("Timeout CCMD_SEND_LOG_S **\n");
+
+                    } else if(TCPserver_rc == CCMD_SEND_STS_S) { 
+                        TCPserver_sts2 = 5; 
+                        ts0 = millis();
+                    } else if(TCPserver_rc == CCMD_SEND_LOG_S) { //todo
+                        TCPserver_sts2 = 9; 
+                        ts0 = millis();
+                    }
+                    break;
+
 #endif // OT_DEBUGLOG
                     
                 }
@@ -1235,7 +1264,13 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 
 #if OT_DEBUGLOG
     statDS = OTlogBuf.GetLbuf();
-    if(nOTlog < 16) statDS  = 0;
+    Serial.printf("statDS=%d, nOTlog=%d sp_n=%d\n", statDS, nOTlog, Serial_db.sp_n);
+    if(statDS  == 0)
+    {   statDS = Serial_db.sp_n;
+        statDS |= 0x8000;
+        Serial.printf("==>statDS=%x\n", statDS);
+    } else  if(nOTlog < 16) statDS  = 0;
+   
     memcpy((void *)&msg->Buf[52],(void *) &statDS,2); 
 #endif    
 
@@ -1330,6 +1365,122 @@ int SD_Termo::server_answerOTLog( U8 *bf, int len)
     }
     return rc;
 }
+
+
+//CCMD_SEND_LOG_S
+void SD_Termo::Send_to_server_log(void) 
+{   unsigned char * MsgOut;
+    int  i, l, ln,n;
+    struct Msg1 *msg;
+    char *pstr=NULL;
+    int maxlen = 20;
+    i = pSerial_db->ind;
+    l = 0;  
+    if(pSerial_db->pmsg)
+    {   if(pSerial_db->pmsg[i])
+        {   pstr = pSerial_db->pmsg[i];
+            if(pstr)
+            {   l = strlen(pstr);
+            }
+        }
+    }
+    if(l == 0)
+        return;
+
+    n = l;
+    if(l > maxlen )
+    {   ln = pSerial_db->ls + maxlen;
+        if(ln > l) ln = l;
+        n = ln - pSerial_db->ls;
+        pstr += pSerial_db->ls;
+    } else {
+        pSerial_db->ls = 0;
+        ln = l;
+    }
+
+    TcpServer_Lsend = 6 + 14 + n;	
+
+    MsgOut =  server_get_buf(TcpServer_Lsend);
+    msg  = (struct Msg1 *)MsgOut;
+    
+    msg->cmd0 = 0x22;
+    msg->cmd  = CCMD_SEND_LOG_S;
+    msg->ind = indcmd++;
+    
+    memcpy((void *)&msg->Buf[0],(void *) &ClientId,4); 
+
+    memcpy((void *)&msg->Buf[4],(void *) &pSerial_db->ind,2); //message index to send
+    memcpy((void *)&msg->Buf[6],(void *) &pSerial_db->sp_n,2); //total number of messages 
+    memcpy((void *)&msg->Buf[8],(void *) &pSerial_db->ls,2); //start index to send
+    memcpy((void *)&msg->Buf[10],(void *) &n,2);  //number of chars to send
+    memcpy((void *)&msg->Buf[12],(void *) &l,2);  //total length of string to send
+    memcpy((void *)&msg->Buf[14],(void *) pstr, n);  //n chars to send pstr=pSerial_db->pmsg[pSerial_db->ind]
+    
+    pSerial_db->ls_s = pSerial_db->ls + n;
+//    if(pSerial_db->) 
+//    
+//    Serial.printf("CCMD_SEND_LOG_S ind %d, %d byes from %d >%s< total %d\n", msg->ind,  n, l, pstr, TcpServer_Lsend );
+
+    TCPserver_rc = 0;
+    TCPserver_close_on_send = 0; //wait answer
+}
+
+//SCMD_SEND_LOG_C = CCMD_SEND_LOG_S answer
+int SD_Termo::server_answerLog( U8 *bf, int len)
+{   unsigned short int tmp2;
+    int  i, l,  rc = 0;
+    char *pstr=NULL;
+    memcpy((void *)&tmp2,(void *)&bf[6],2);
+
+    if(tmp2 == pSerial_db->ls)
+    {
+        i = pSerial_db->ind;
+        l = 0;
+        if(pSerial_db->pmsg)
+        {   if(pSerial_db->pmsg[i])
+            {   pstr = pSerial_db->pmsg[i];
+                if(pstr)
+                {   l = strlen(pstr);
+                }
+            }
+        }
+        if(l == 0)
+            return 0;
+
+//        Serial.printf("pSerial_db->ls_s %d l %d pstr = %s ind %d n %d\n", pSerial_db->ls_s, l, pstr, pSerial_db->ind,pSerial_db->sp_n);
+        
+        if(pSerial_db->ls_s == l)
+        { 
+            
+  //          Serial.printf("0 pstr =%p pSerial_db->pmsg[pSerial_db->ind] = %p\n", pstr, pSerial_db->pmsg[pSerial_db->ind] );
+            free(pstr);
+            pstr = NULL;
+    //        Serial.printf("1 pstr =%p pSerial_db->pmsg[pSerial_db->ind] = %p\n", pstr, pSerial_db->pmsg[pSerial_db->ind] );
+            pSerial_db->sp_l -= l;
+            pSerial_db->pmsg[pSerial_db->ind] = NULL;
+            pSerial_db->ls = 0;
+      //      Serial.printf("2 pstr =%p pSerial_db->pmsg[pSerial_db->ind] = %p\n", pstr, pSerial_db->pmsg[pSerial_db->ind] );
+            pSerial_db->ind++;
+            if(pSerial_db->ind == pSerial_db->sp_n)
+            {   pSerial_db->sp_n = 0;
+                pSerial_db->ind = 0;
+                TCPserver_rc = CCMD_SEND_STS_S;
+            } else {
+                TCPserver_rc = CCMD_SEND_LOG_S;
+                TCPserver_close_on_send = 0; //wait answer
+                rc = 1;
+            }
+        } else {
+            pSerial_db->ls  = pSerial_db->ls_s;
+            TCPserver_rc = CCMD_SEND_LOG_S;
+            rc = 1;
+        }
+    
+    }
+    return rc;
+}
+
+
 #endif //OT_DEBUGLOG
 
 //MCMD_INTRODUCESELF answer
@@ -1454,8 +1605,12 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             }
         }
 #endif    
-
-    }
+    } else if((len == 6+4+2) && remote_cmd == 0x03) {
+        
+            TCPserver_rc = CCMD_SEND_LOG_S;
+            TCPserver_close_on_send = 0; // wait answer
+            rc = 1;
+        }
 
     return rc;
 }
@@ -1961,7 +2116,7 @@ extern OpenTherm ot;
 
     }
 
-//  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
+  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
 //    Serial_db.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
 //                Pressure_present, Toutside_present, RetT_present  ) ;
 //    Serial_db.printf("MaxRelModLevel_present %d  \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting)); 

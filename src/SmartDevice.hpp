@@ -11,7 +11,7 @@
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
 #define MASTER_SUBVERSION1 5
-#define MASTER_REVISION    4
+#define MASTER_REVISION    5
 
 /***************/
 
@@ -173,6 +173,8 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
 virtual void callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 { };
 virtual int  server_answerOTLog( U8 *bf, int len)
+{  return 0; };
+virtual int  server_answerLog( U8 *bf, int len)
 {  return 0; };
 
 #endif

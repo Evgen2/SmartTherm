@@ -295,7 +295,7 @@ extern unsigned int OTcount;
   }
 
 
-   Serial_db.printf("SmOT.useMQTT = %d\n", SmOT.useMQTT);
+   Serial_db.printf("mqtt_setup: SmOT.useMQTT = %d\n", SmOT.useMQTT);
    if(SmOT.useMQTT != 0x03) 
       return;
 
@@ -604,12 +604,12 @@ extern unsigned int OTcount;
 void OnMQTTconnected(void)
 { 
   statemqtt = 1;
-//   Serial_db.printf("OnMQTTconnected %d\n", statemqtt );
+   Serial_db.printf("On MQTTconnected %d\n", statemqtt );
 
 }
 void OnMQTTdisconnected(void)
 { statemqtt = 0;
-//   Serial_db.printf("OnMQTT disconnected %d\n", statemqtt );
+   Serial_db.printf("On MQTT DISconnected %d\n", statemqtt );
 }
 
 void mqtt_start(void)
@@ -658,6 +658,7 @@ if(SmOT.stsMQTT == 0)
     if(mqtt.isConnected())
     {   if(statemqtt != 1)
             Serial.println(F("MQTT connected"));
+
         statemqtt = 1;
         state_mqtt = mqtt._mqtt->state();
     } else {

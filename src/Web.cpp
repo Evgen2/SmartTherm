@@ -86,7 +86,7 @@ ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>",
 ACInput(SetBoilerTemp2,"", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
 #if RELAY_USE
-ACSubmit(RelayOmFf, "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
+ACSubmit(RelayOnFf, "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
 #endif
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_BR);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
@@ -101,7 +101,7 @@ ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_None, AC_Input_Tex
 AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_BR);
 #if RELAY_USE
 AutoConnectCheckbox CtrlChBUseRelay("ChbUseRelay","5", "Реле", false, AC_Behind , AC_Tag_None);
-AutoConnectCheckbox CtrlChBStartRelaySts("ChbStertRelay","6", "Вкл при старте", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox CtrlChBStartRelaySts("ChbStartRelay","6", "Вкл при старте", false, AC_Behind , AC_Tag_BR);
 #endif
 #if MQTT_USE
 AutoConnectCheckbox CtrlChbUseMQTT("ChbUseMQTT","7", "MQTT", false, AC_Behind , AC_Tag_DIV);
@@ -193,7 +193,7 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 // AutoConnectAux for the custom Web page.
 
 #if RELAY_USE
-AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, RelayOmFf,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, RelayOnFf,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 #else
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 #endif 
@@ -373,7 +373,7 @@ void setup_web_common(void)
   webServer.on("/", onRoot);  // Register the root page redirector.
 //  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
-    Serial_db.printf("WiFi Not connected");
+    Serial_db.printf("WiFi Not connected\n");
     WiFi.setAutoReconnect(true);
   }  
   
@@ -402,8 +402,15 @@ void setup_web_common(void)
 
 }
 
+#include "esp_sntp.h"
+
+void time_sync_notification_cb(struct timeval *tv) {
+    Serial.printf("*********  Время обновлено (колбэк)! Unix-время: %ld\n", tv->tv_sec);
+}
+
 int setup_web_common_onconnect(void)
 { static int init = 0;
+  int rc;
 
   //Serial_db.printf("setup_web_common_onconnect init %d\n", init);
 
@@ -449,13 +456,17 @@ const char*  const _ntp2 = "pool.ntp.org";
 // default ntp update  1 hour
 // it can be redefined via uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 #elif defined(ARDUINO_ARCH_ESP32)
+//  sntp_set_sync_interval(60000); 
 Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
 #endif
-
+   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 
 #if MQTT_USE
 
-   SmOT.Read_mqtt_fs();
+ Serial_db.printf("=====  Read_mqtt_fs:\n");
+   rc = SmOT.Read_mqtt_fs();
+  SmOT.stsMQTTcfg = rc;
+  Serial_db.printf(" SmOT.Read_mqtt_fs() rc = %d\n", rc);
 //     mqtt_setup();
 //mqtt_setup is called from mqtt_loop()
 #endif
@@ -469,6 +480,8 @@ Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
 
 void onConnect(IPAddress& ipaddr) 
 { int rc;
+
+  Serial_db.printf("onConnect %s portalStatus = %d\n", ipaddr.toString().c_str(), portal.portalStatus());
   rc = setup_web_common_onconnect();
   if(rc)
   {
@@ -563,7 +576,7 @@ extern int minRamFree;
 #if PID_USE
     if(SmOT.usePID)
     { 
-       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f\n",
+       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f",
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
       Info6.value += str;
@@ -589,6 +602,11 @@ extern int minRamFree;
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
       sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
   Info7.value = str;
+#if MQTT_USE
+  sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
+  Info7.value += str;
+#endif
+
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -1408,17 +1426,17 @@ if(SmOT.useMQTT)
 #if  RELAY_USE
   if(SmOT.Relay_present)
   {
-      RelayOmFf.enable = true;
+      RelayOnFf.enable = true;
       if(SmOT.Relay_sts )
       { strcpy(str0,"Реле вЫкл");
 
       } else {
          strcpy(str0,"Реле Вкл");
       }
-      RelayOmFf.value = str0;
+      RelayOnFf.value = str0;
 
   } else {
-      RelayOmFf.enable = false;
+      RelayOnFf.enable = false;
   }
  
 #endif
@@ -1580,7 +1598,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
    short int iv;
    float v;
 
-//   Serial_db.printf(PGM_P)F("onSetPID\n"));
+//   Serial_db.printf((PGM_P)F("onSetPID\n"));
 
   if( UsePID.checked) 
   {  icheck = 1;
@@ -2027,7 +2045,7 @@ static unsigned long t0=0;
 //        Serial_db.printf("WiFi: t %d stsOT %d %d %d\n", millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
 
         if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
-        {   Serial_db.printf("WiFi status chage to connected");
+        {   Serial_db.printf("WiFi status chage to connected\n");
             needStopAP = 1;
             t0 = millis();
         }
@@ -2057,7 +2075,7 @@ static unsigned long t0=0;
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
 #if SERIAL_DEBUG      
-      Serial_db.printf(PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
+      Serial_db.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
       Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
 #endif      
