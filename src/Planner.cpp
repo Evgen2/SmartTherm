@@ -235,15 +235,15 @@ M0:
 		switch(plan.mask & (MODE_IDLE|MODE_CH|MODE_HW))
 		{	case MODE_IDLE: // IDLE -> HW || CH
 			
-		if(
+		if(HotWater_present && (BoilerStatus & 0x04))
+			plan.SetMode(MODE_HW);
+		else  if(
 #if PID_USE
 		enable_CentralHeating_real
 #else 
 		enable_CentralHeating
 #endif
 		)	plan.SetMode(MODE_CH);
-		else  if(HotWater_present && (BoilerStatus & 0x04))
-			plan.SetMode(MODE_HW);
 
 				break;
 
@@ -251,11 +251,11 @@ M0:
 		if(HotWater_present && (BoilerStatus & 0x04))
             plan.SetMode(MODE_HW);
 		else if(!
-				#if PID_USE
+#if PID_USE
 				enable_CentralHeating_real
-				#else 
+#else 
 				enable_CentralHeating
-				#endif
+#endif
 				)	plan.SetMode(MODE_IDLE);
 		
 				break;

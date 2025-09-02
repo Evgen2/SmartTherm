@@ -237,7 +237,6 @@ void check_fs(void);
 int setup_web_common_onconnect(void);
 void loop_web(void);
 void onRoot(void);
-void loadParam(String fileName);
 void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
   extern void mqtt_setup(void);
