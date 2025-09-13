@@ -88,7 +88,7 @@ ACInput(SetDHWTemp,   "", "Температура горячей воды:<br>",
 ACInput(SetBoilerTemp2,"", "Температура CH2:<br>"); // Boiler CH2 Control setpoint
 
 #if RELAY_USE
-ACSubmit(RelayOmFf, "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
+ACSubmit(RelayOnFf, "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
 #endif
 ACSubmit(Apply, "Обновить", INFO_URI, AC_Tag_BR);
 ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
@@ -190,7 +190,7 @@ ACText(About_0, "<b>About:</b>", "", "", AC_Tag_DIV);
 // AutoConnectAux for the custom Web page.
 
 #if RELAY_USE
-AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, RelayOmFf,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
+AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7, RelayOnFf,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 #else
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 #endif 
@@ -649,7 +649,8 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 
 // goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0,  redir = 0, v;
+{ int isChange=0,  redir = 0, iv;
+  float fv;
    bool check;
 
   if( CtrlChB1.checked) check = true;
@@ -690,17 +691,17 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SmOT.init(2);
   }
 
-  v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
-  if(v != SmOT.umax)
-  { SmOT.umax = v;
+  fv = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
+  if(fv != SmOT.umax)
+  { SmOT.umax = fv;
     SmOT.need_set_MaxTSet = 2;    
     isChange = 1;
   }
 
-  v = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
-  if( v > SmOT.umax - 1.)  v = SmOT.umax -1.;
-  if(v != SmOT.umin)
-  { SmOT.umin = v;
+  fv = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
+  if( fv > SmOT.umax - 1.)  fv = SmOT.umax -1.;
+  if(fv != SmOT.umin)
+  { SmOT.umin = fv;
     isChange = 1;
   }
 
@@ -767,16 +768,16 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
        strcpy(SmOT.MQTT_topic,str0);      
     }
 
-    v = SetMQTT_interval.value.toInt();
-    if((unsigned int)v !=SmOT.MQTT_interval )
+    iv = SetMQTT_interval.value.toInt();
+    if((unsigned int) iv !=SmOT.MQTT_interval )
     { isChangeMQTT++;
-       SmOT.MQTT_interval = v;
+       SmOT.MQTT_interval = iv;
     }
 
-    v = SetMQTT_port.value.toInt();
-    if((unsigned int)v !=SmOT.MQTT_port )
+    iv = SetMQTT_port.value.toInt();
+    if((unsigned int) iv !=SmOT.MQTT_port )
     { isChangeMQTT++;
-       SmOT.MQTT_port = v;
+       SmOT.MQTT_port = iv;
     }
 
    }
@@ -811,10 +812,10 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
         {   SmOT.Use_MaxRelModLevel = 0;
             isChange++; 
         } else {
-            v = SetMaxMod.value.toInt();
-            if(v != int(SmOT.MaxRelModLevelSetting+0.5))
+            iv = SetMaxMod.value.toInt();
+            if(iv != int(SmOT.MaxRelModLevelSetting+0.5))
             {   isChange++;
-                SmOT.MaxRelModLevelSetting = (float)v;
+                SmOT.MaxRelModLevelSetting = (float)iv;
                 SmOT.need_set_MaxRelModLevel = 2;
             }
         }
@@ -1340,17 +1341,17 @@ if(SmOT.useMQTT)
 #if  RELAY_USE
   if(SmOT.Relay_present)
   {
-      RelayOmFf.enable = true;
+      RelayOnFf.enable = true;
       if(SmOT.Relay_sts )
       { strcpy(str0,"Реле вЫкл");
 
       } else {
          strcpy(str0,"Реле Вкл");
       }
-      RelayOmFf.value = str0;
+      RelayOnFf.value = str0;
 
   } else {
-      RelayOmFf.enable = false;
+      RelayOnFf.enable = false;
   }
  
 #endif
@@ -1402,6 +1403,9 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
       CtrlChB1.checked = true;
   else
       CtrlChB1.checked = false;
+
+  Info1.value ="";
+
 /*********************************/      
  if (SmOT.stsOT >= 0)
  {
@@ -1420,19 +1424,6 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   else
      CtrlChB3.enable  = false;
 
-  Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
-
-  sprintf(str,"%.2f",SmOT.umax);
-  SetTmaxPID.value = str;
-  sprintf(str,"%.2f",SmOT.umin);
-  SetTminPID.value = str;
-         
-  if(SmOT.Use_remoteTCPserver)
-    CtrlChB_UseRemoteControl.checked = true;
-  else
-    CtrlChB_UseRemoteControl.checked = false;
-
-  Info1.value ="";
 
   Ctrl2.value = "Котёл: "; 
   pstr = GetOTVendorName(SmOT.OTmemberCode);
@@ -1449,9 +1440,21 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
  } else {
     CtrlChB2.enable  = false;
     CtrlChB3.enable  = false;
-    Info1.value ="";
     Ctrl2.value = ""; 
  }
+ 
+    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+
+    sprintf(str,"%.2f",SmOT.umax);
+    SetTmaxPID.value = str;
+    sprintf(str,"%.2f",SmOT.umin);
+    SetTminPID.value = str;
+          
+    if(SmOT.Use_remoteTCPserver)
+      CtrlChB_UseRemoteControl.checked = true;
+    else
+      CtrlChB_UseRemoteControl.checked = false;
+
  
 #if MQTT_USE
   CtrlChbUseMQTT.enable  = true;
