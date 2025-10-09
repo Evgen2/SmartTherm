@@ -207,9 +207,9 @@ CtrlChBUseRelay, CtrlChBStartRelaySts,
 #else
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
- CtrlChBUseRelay,
+ CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
-  CtrlChBStartRelaySts, CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});  
+ CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});  
 #endif // MQTT_USE
 
 
@@ -672,8 +672,9 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 
 // goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0,  redir = 0, v;
-   bool check;
+{ int isChange=0,  redir = 0, iv;
+  float fv;
+  bool check;
 
   if( CtrlChB1.checked) check = true;
   else                  check = false;
@@ -713,17 +714,17 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     SmOT.init(2);
   }
 
-  v = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
-  if(v != SmOT.umax)
-  { SmOT.umax = v;
+  fv = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
+  if(fv != SmOT.umax)
+  { SmOT.umax = fv;
     SmOT.need_set_MaxTSet(2);    
     isChange = 1;
   }
 
-  v = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
-  if( v > SmOT.umax - 1.)  v = SmOT.umax -1.;
-  if(v != SmOT.umin)
-  { SmOT.umin = v;
+  fv = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
+  if( fv > SmOT.umax - 1.)  fv = SmOT.umax -1.;
+  if(fv != SmOT.umin)
+  { SmOT.umin = fv;
     isChange = 1;
   }
 
@@ -790,16 +791,16 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
        strcpy(SmOT.MQTT_topic,str0);      
     }
 
-    v = SetMQTT_interval.value.toInt();
-    if((unsigned int)v !=SmOT.MQTT_interval )
+    iv = SetMQTT_interval.value.toInt();
+    if((unsigned int) iv !=SmOT.MQTT_interval )
     { isChangeMQTT++;
-       SmOT.MQTT_interval = v;
+       SmOT.MQTT_interval = iv;
     }
 
-    v = SetMQTT_port.value.toInt();
-    if((unsigned int)v !=SmOT.MQTT_port )
+    iv = SetMQTT_port.value.toInt();
+    if((unsigned int) iv !=SmOT.MQTT_port )
     { isChangeMQTT++;
-       SmOT.MQTT_port = v;
+       SmOT.MQTT_port = iv;
     }
 
    }
@@ -834,10 +835,10 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
         {   SmOT.Use_MaxRelModLevel = 0;
             isChange++; 
         } else {
-            v = SetMaxMod.value.toInt();
-            if(v != int(SmOT.MaxRelModLevelSetting+0.5))
+            iv = SetMaxMod.value.toInt();
+            if(iv != int(SmOT.MaxRelModLevelSetting+0.5))
             {   isChange++;
-                SmOT.MaxRelModLevelSetting = (float)v;
+                SmOT.MaxRelModLevelSetting = (float)iv;
                 SmOT.need_set_MaxRelModLevel(2);
             }
         }
@@ -1417,6 +1418,7 @@ if(SmOT.useMQTT)
     {   SetDHWTemp.enable = false;
         SetBoilerTemp2.enable = false;
         SetBoilerTemp.enable = false;
+        SetNewBoilerTemp.enable = false;
     }
   }
 
@@ -1487,7 +1489,10 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
       CtrlChB1.checked = true;
   else
       CtrlChB1.checked = false;
-/*********************************/      
+
+  Info1.value ="";
+
+ /*********************************/      
   if (SmOT.stsOT >= 0)
   {
     if(SmOT.HotWater_present) 
@@ -1505,19 +1510,6 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
     else
       CtrlChB3.enable  = false;
 
-    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
-
-    sprintf(str,"%.2f",SmOT.umax);
-    SetTmaxPID.value = str;
-    sprintf(str,"%.2f",SmOT.umin);
-    SetTminPID.value = str;
-          
-    if(SmOT.Use_remoteTCPserver)
-      CtrlChB_UseRemoteControl.checked = true;
-    else
-      CtrlChB_UseRemoteControl.checked = false;
-
-    Info1.value ="";
 
     Ctrl2.value = "Котёл: "; 
     pstr = GetOTVendorName(SmOT.OTmemberCode);
@@ -1534,9 +1526,21 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
  } else {
     CtrlChB2.enable  = false;
     CtrlChB3.enable  = false;
-    Info1.value ="";
     Ctrl2.value = ""; 
  }
+
+    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+
+    sprintf(str,"%.2f",SmOT.umax);
+    SetTmaxPID.value = str;
+    sprintf(str,"%.2f",SmOT.umin);
+    SetTminPID.value = str;
+          
+    if(SmOT.Use_remoteTCPserver)
+      CtrlChB_UseRemoteControl.checked = true;
+    else
+      CtrlChB_UseRemoteControl.checked = false;
+
  
 #if MQTT_USE
   CtrlChbUseMQTT.enable  = true;
@@ -1622,7 +1626,7 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     iv = SetTempSrcPID.value.toInt();
     if(iv > MAX_PID_SRC)
         iv = MAX_PID_SRC;
-        else if (iv < -1)
+    else if (iv < -1)
         iv = -1;
 
 //    Serial_db.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
@@ -1641,12 +1645,14 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     else if (iv < -1)
       iv = -1;
   
+
     if(iv != SmOT.srcText)
     { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
       { SmOT.srcText = iv;
         isChange = 1;
       }
     }
+
     v = SetKpPID.value.toFloat();
     if(v != SmOT.mypid.Kp)
     { SmOT.mypid.Kp = v;

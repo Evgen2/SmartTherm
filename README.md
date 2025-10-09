@@ -21,6 +21,9 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+0.8.5.6
+* bugfix + pidcontrol bugfix
+
 0.8.5.5
 * bugfix in [AutoConnect](https://github.com/Evgen2/AutoConnect)
 * remote logging testing
