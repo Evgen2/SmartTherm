@@ -31,8 +31,7 @@ class dstack
   }
   
    void get( float &_d,  unsigned long int &_t)
-   {  int i;
-      if( n < NB)
+   {  if( n < NB)
       { if(n == 0)
          {  _d = 0.f;
             _t = 0;
@@ -41,7 +40,7 @@ class dstack
             _t = t[0];
          }
       } else {
-         i = ind;
+         int i = ind;
          if(i >= NB) i = 0;
          _d = d[i];
          _t = t[i];
@@ -122,6 +121,7 @@ class pid
       Ki = 0.004;
       Ku = 1.;
       x = xTag = 0.;
+      y = 0.;
       t_interval = 30;
       Kidiss = 0.010 * t_interval / 60.f;
       u0 = 40.;
@@ -144,6 +144,8 @@ class pid
    int Pid(float _x, float u0);
    void Set_NewTag( float _NewTag, float _OldTag, float _CurrentT);
 };
+
+float  safeFloat(float v); 
 
 #endif //PID_USE
 #endif //PID_DEFINED

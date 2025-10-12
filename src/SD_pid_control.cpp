@@ -77,6 +77,8 @@ void SD_Termo::loop_PID(void)
     } else { //нет внешней температуры
         u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
     } 
+    u0 =  safeFloat( u0); 
+
 
 //   Serial_db.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
 //             is, start, tempoutdoor, u0, mypid.InT );

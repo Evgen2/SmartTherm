@@ -212,17 +212,90 @@ void FreqTest(int _Freq)
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
 
-void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
-  digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
-  
-  Serial.begin(115200);
+void Led_Info_reset(int code)
+{ int i, j;
+  for(j=0; j<3; j++)
+  {
+      digitalWrite(LED_BUILTIN, 1); 
+      delay(1000);
+      digitalWrite(LED_BUILTIN, 0); 
+      delay(1000);
+      for(i=0; i<code; i++)
+      { digitalWrite(LED_BUILTIN, 1); 
+        delay(300);
+        digitalWrite(LED_BUILTIN, 0); 
+        delay(200);
+      }
+      if(j < 2)
+        delay(1000);
+  }
+}
 
+#include <esp_task_wdt.h>
+#define WDT_TIMEOUT 10 // Timeout in seconds
+
+void watchdog_setup(void)
+{
+  // Deinitialize the default watchdog (if enabled by default)
+  esp_task_wdt_deinit();
+ 
+  // Initialize the Task Watchdog
+  esp_err_t err = esp_task_wdt_init(WDT_TIMEOUT, true);
+  if (err != ESP_OK) {
+    Serial_db.printf("WDT Init failed: %s\n", esp_err_to_name(err));
+    return;
+  }
+
+  // Add the current task (Arduino loop) to the watchdog watch list
+  esp_task_wdt_add(NULL); 
+  Serial_db.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
+}
+
+#include "esp32/rom/rtc.h"
+//https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
+/*
+1:	Vbat power on reset
+3:	Software reset digital core
+4:	Legacy watch dog reset digital core
+5:	Deep Sleep reset digital core
+6:	Reset by SLC module, reset digital core
+7:	Timer Group0 Watch dog reset digital core
+8:	Timer Group1 Watch dog reset digital core
+9:	RTC Watch dog Reset digital core
+10:	Instrusion tested to reset CPU
+11:	Time Group reset CPU
+12:	Software reset CPU
+13:	RTC Watch dog Reset CPU
+14:	for APP CPU, reset by PRO CPU
+15:	Reset when the vdd voltage is not stable
+16:	RTC Watch dog reset digital core and rtc module
+*/
+/* 1, 14 |12,12 |*/
+void check_reset(void)
+{ int rr0, rr1;
+  rr0 = rtc_get_reset_reason(0);
+  rr1 = rtc_get_reset_reason(1);
+ Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
+    if(rr0 != 1 && rr0 != 12)
+  { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
+    Led_Info_reset(rr0);
+  }
+}
+
+void setup() {
+  uint32_t brown_reg_temp = READ_PERI_REG(RTC_CNTL_BROWN_OUT_REG); //save brownout register
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector  
+
+  pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
+  LedSts=1;
+  digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
+
+  Serial.begin(115200);
+  
   Serial.println(IDENTIFY_TEXT);
   Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
-
-  LedSts=1;
-  digitalWrite(LED_BUILTIN, LedSts);   
+  check_reset();
+  watchdog_setup();
 
   setup_read_config();
 
@@ -274,6 +347,7 @@ void setup() {
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
 #endif	
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
 
 }
 
@@ -1212,7 +1286,6 @@ void loop(void)
   }
 #endif
 
-
    t = millis();
    dt = t - t0;
 
@@ -1383,6 +1456,9 @@ static int mday_prev = 0;
   now = time(nullptr);
   if(now == prev)
       return;
+
+  esp_task_wdt_reset();
+
 //test 
 #if 0     
 { static int raz=0;

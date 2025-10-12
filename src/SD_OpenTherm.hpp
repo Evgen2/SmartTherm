@@ -18,7 +18,7 @@ class x_mean
    int canfilter;
    int can_report;
    x_mean(void)
-   { x = xold = 0.f;
+   { x = xold = x0 = 0.f;
      init(0);
      isset = -1;
      canfilter = 0;
@@ -357,6 +357,8 @@ public:
       TroomTarget = 18.f;
       IsSetTemp = 0;
       PID_PWMperiod = 15*60; //15 мин 
+    _U0start = 0;
+    InTstartset = 0;
 #endif
       UseID2 = 0;
       ID2masterID = 0;
@@ -373,8 +375,6 @@ public:
       MaxTSetUB = MAX_CH_TEMP;
       MaxTSetLB = umin;
     start_sts = 1;
-    _U0start = 0;
-    InTstartset = 0;
     oldTroomSetpoint = 0.;
     src_lastSetPointChange = -1;
 #if ST_VERS == 2

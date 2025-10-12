@@ -21,6 +21,12 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+0.8.5.7
+* watchdog
+* disable brownout detector at startup
+* reset_reason led indicator at sturtup, work if reset is not power/reset or sowtware reset
+* check for nan and inf in pid
+
 0.8.5.6
 * bugfix + pidcontrol bugfix
 

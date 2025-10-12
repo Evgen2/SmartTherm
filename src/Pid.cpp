@@ -4,6 +4,10 @@
 #include "Smart_Config.h"
 #if PID_USE
 #include "pid.hpp"
+
+float  safeFloat(float v) 
+{ return (isnan(v) || isinf(v)) ? 0.0f : v; };
+
 /* 
  U(Xtag) = U(Xtag0) + Ku*(Xtag-Xtag0)
  U0(Text) = U0(Text0) + K0 * (Text - Text0)
@@ -87,6 +91,8 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
             break;  
    }
 
+   InTnew = safeFloat(InTnew);
+
    Serial_db.printf("_NewTag %g _OldTag %g  InTnew  %g InTold %g \n", _NewTag, _OldTag, InTnew , InTold);
 
 
@@ -143,7 +149,8 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
    if(_Kidiss > 0.5) _Kidiss = 0.5;
 
-   InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
+   InT = safeFloat(InT * (1.f - _Kidiss) + xerr * dtf); // grad * sec
+
 #if SERIAL_DEBUG 
 //   Serial_db.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
 //          dt , xerr, InT, dX); 
@@ -182,8 +189,8 @@ int IncrCalculateMatrixYfX2(float x, float y, int *Np);
 int CalculateMNKYfX2(float coeff[],int *Np);
 
 int dstack::calcD(float xerr, unsigned long int tt, float &diff)
-{  int i, ii;
-   unsigned long int  t0, tmid;  
+{  int i=0, ii;
+   unsigned long int  t0=0, tmid;  
    float dmid, xm, ym;
    int Np;
    float coeff[N_X];

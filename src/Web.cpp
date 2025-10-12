@@ -1673,6 +1673,8 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     }
 
     v = SetIdissPID.value.toFloat();
+    if(v > 0.5) v = 0.5; /* 0. < Kidiss < 1. */
+    else if(v < 0.000001) v = 0.000001;
     if(v != SmOT.mypid.Kidiss)
     { SmOT.mypid.Kidiss = v;
       isChange = 1;
