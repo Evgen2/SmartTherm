@@ -27,7 +27,11 @@ size_t Serial_Debug::printf(const char *_format, ...)
 	vsnprintf(sp_buffer, sizeof(sp_buffer),_format, args);
     va_end(args);
 	l = strlen(sp_buffer);
+	if(l>=sizeof(sp_buffer))
+	{	Serial.printf("Serial_Debug::printf Error: need buff %d\n", l);	
+	}
 
+//	if(0)
 	{	int free;
 		char *pm;
 		free = ESP.getFreeHeap();

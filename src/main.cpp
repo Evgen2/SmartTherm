@@ -231,6 +231,7 @@ void Led_Info_reset(int code)
   }
 }
 
+/*********** watchdog ******************/
 #include <esp_task_wdt.h>
 #define WDT_TIMEOUT 10 // Timeout in seconds
 
@@ -251,6 +252,18 @@ void watchdog_setup(void)
   Serial_db.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
 }
 
+void onOTAstart(void)
+{ //Serial.println("OTA started");
+  esp_task_wdt_delete(NULL);
+  esp_task_wdt_deinit();
+}
+
+void exitOTAError(uint8_t err) {
+//  Serial.printf("OTA error occurred %d\n", err);
+   watchdog_setup();
+}
+
+/*****************************/
 #include "esp32/rom/rtc.h"
 //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
 /*
@@ -291,7 +304,8 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
 
   Serial.begin(115200);
-  
+
+  heap_caps_check_integrity_all(true);
   Serial.println(IDENTIFY_TEXT);
   Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
   check_reset();
@@ -347,8 +361,8 @@ void setup() {
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
 #endif	
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
 
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
 }
 
 
@@ -1275,7 +1289,8 @@ void loop(void)
 {   static unsigned long t0=0; // t1=0;
     unsigned long t;
     int dt;
-#if T_DEBUG 
+
+    #if T_DEBUG 
   static int count=0, told=0;
   int dt1;
   t = millis();

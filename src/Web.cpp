@@ -268,6 +268,9 @@ String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args);
 String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 #endif
 
+extern void onOTAstart(void);
+extern void exitOTAError(uint8_t err); 
+
 
 String utc_time_jc;
 
@@ -348,7 +351,9 @@ void setup_web_common(void)
     portal.join({SendBLORPage});
 #if ST_VERS == 2
     portal.join({OTslave_Page,SetOTslave_Page});
-#endif    
+#endif
+    portal.onOTAStart(onOTAstart);
+    portal.onOTAError(exitOTAError);
 
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;

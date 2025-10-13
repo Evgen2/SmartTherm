@@ -52,6 +52,8 @@
 #define  CCMD_SEND_OTLOG_S	0x55 // controller send server OT log (controller send to server)
 #define  SCMD_SEND_OTLOG_C	0x56 // server send answer to controller OT log (server send to controller)
 
+#define  CCMD_SEND_LOG_S	0x57 // controller send log to server (controller send to server)
+#define  SCMD_SEND_LOG_C	0x58 // server send answer to controller log (server send to controller)
 
 
 #endif //SMART_COMMANDS
