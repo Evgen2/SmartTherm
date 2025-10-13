@@ -309,9 +309,10 @@ void setup() {
   Serial.println(IDENTIFY_TEXT);
   Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
   check_reset();
-  watchdog_setup();
 
   setup_read_config();
+
+  watchdog_setup();
 
   Serial.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
   if(SmOT.useCPU_freq > 0)
