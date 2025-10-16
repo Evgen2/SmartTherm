@@ -233,10 +233,16 @@ void Led_Info_reset(int code)
 
 /*********** watchdog ******************/
 #include <esp_task_wdt.h>
+#include "soc/rtc_cntl_reg.h"
+#include "soc/rtc_wdt.h"
+
 #define WDT_TIMEOUT 10 // Timeout in seconds
+// Define WTC Watchdog Timer in milliseconds
+#define RTC_WDT_TIME_MS (1300)
 
 void watchdog_setup(void)
 {
+//wdt  
   // Deinitialize the default watchdog (if enabled by default)
   esp_task_wdt_deinit();
  
@@ -250,12 +256,22 @@ void watchdog_setup(void)
   // Add the current task (Arduino loop) to the watchdog watch list
   esp_task_wdt_add(NULL); 
   Serial_db.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
+
+//rtc_wdt
+  rtc_wdt_protect_off(); // Disable RTC WDT write protection
+  rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC); // Set action on timeout
+  rtc_wdt_set_time(RTC_WDT_STAGE0, WDT_TIMEOUT*1000 + 100 ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
+  rtc_wdt_enable(); // Start the RTC WDT timer
+  rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
 
 void onOTAstart(void)
 { //Serial.println("OTA started");
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
+  rtc_wdt_protect_off(); // Disable RTC WDT write protection
+  rtc_wdt_disable(); // Start the RTC WDT timer
+  rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
 
 void exitOTAError(uint8_t err) {
@@ -288,8 +304,7 @@ void check_reset(void)
 { int rr0, rr1;
   rr0 = rtc_get_reset_reason(0);
   rr1 = rtc_get_reset_reason(1);
- Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
-    if(rr0 != 1 && rr0 != 12)
+  if(rr0 != 1 && rr0 != 12)
   { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
     Led_Info_reset(rr0);
   }
@@ -1472,22 +1487,11 @@ static int mday_prev = 0;
   now = time(nullptr);
   if(now == prev)
       return;
-
+//watchdogs reset      
   esp_task_wdt_reset();
+  rtc_wdt_feed();         
 
-//test 
-#if 0     
-{ static int raz=0;
-  static time_t prev00 = 0;
-  dt = now - prev00;
-  if((dt%2) == 0 )    /*12345678901234567890 */
-  {  Serial_db.printf( "time raz %d %d %d %d\n", raz, raz, raz, raz);
-     raz++;
-     prev00 = now;
-  }
-}
-#endif
-  nowtime = localtime(&prev);
+ nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
   nowtime = localtime(&now);
   year = nowtime->tm_year;
