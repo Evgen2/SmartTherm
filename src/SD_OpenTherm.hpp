@@ -177,6 +177,7 @@ public:
 //  byte need_set_MaxRelModLevel;
   byte need_send_Blor;
   byte need_write_f; 
+  unsigned long t_need_write_config;
 //..  byte need_set_MaxTSet;
 
   int TestCmd;
@@ -312,6 +313,8 @@ public:
 //      need_set_MaxTSet = 1;
 /********************************/      
       need_write_f = 0;
+      t_need_write_config = 0;
+
       RetT = 0.;
       dhw_t = 0.;
       TdhwSetUB = 60.f;

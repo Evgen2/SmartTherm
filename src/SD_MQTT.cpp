@@ -126,17 +126,17 @@ void OnMQTTdisconnected(void);
 void MQTTsenddata(void);
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
+  int is_change = 0;  
     float temperatureFloat = temperature.toFloat();
     if(sender == &hvacDHW)
     {
       SmOT.TdhwSet = temperatureFloat;
       SmOT.need_set_dhwT(2);
 #if SERIAL_DEBUG      
-    Serial.print("DHW Target temperature: ");
-    Serial.println(temperatureFloat);
+    Serial_db.printf("DHW Target temperature: %f\n", temperatureFloat);
 #endif    
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
-
+      is_change = 1;
 #if PID_USE
     } else if (sender == &hvacPID) {
 //    Serial.print("PID Target temperature: ");
@@ -144,18 +144,21 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
 
     SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
     SmOT.TroomTarget = temperatureFloat;
-   Serial_db.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
-
-//todo    
+    Serial_db.printf("MQTT Set_NewTag: %f xTag: %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
+      is_change = 1;
 #endif
     } else {
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T(2);
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
+      is_change = 1;
 #if SERIAL_DEBUG      
-    Serial.print("CH Target temperature: ");
-    Serial.println(temperatureFloat);
+    Serial_db.printf("CH Target temperature: %f\n", temperatureFloat);
 #endif    
+    }
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
     }
 }
 
@@ -168,13 +171,16 @@ void onPowerCommand(bool state, HAHVAC* sender) {
 }
 
 void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
+  int is_change = 0;  
 //PID_USE todo    
-    Serial.print("Mode: ");
+//    Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
-        Serial.println(F("off"));
+//        Serial.println(F("off"));
+        if(SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = false;
     } else if (mode == HAHVAC::HeatMode) {
-        Serial.println("heat");
+//        Serial.println("heat");
+        if(!SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = true;
 
 #if 0        
@@ -190,33 +196,52 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     }
 
     sender->setMode(mode); // report mode back to the HA panel
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 void onModeCommandPID(HAHVAC::Mode mode, HAHVAC* sender) {
-    Serial.print("Mode: ");
+  int is_change = 0;  
+//    Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
-        Serial.println(F("PID off"));
+//        Serial.println(F("PID off"));
+        if(SmOT.usePID) is_change = 1;
         SmOT.usePID = 0;
     } else if (mode == HAHVAC::AutoMode) {
-        Serial.println("PID on");
+//        Serial.println("PID on");
+        if(!SmOT.usePID) is_change = 1;
         SmOT.usePID = 1;
     }
 
     sender->setMode(mode); // report mode back to the HA panel
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 void onModeCommandDHW(HAHVAC::Mode mode, HAHVAC* sender) {
-    Serial.print("Mode: ");
+  int is_change = 0;  
+//    Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
-        Serial.println(F("DHW off"));
+//        Serial.println(F("DHW off"));
+        if(SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = false;
     } else if (mode == HAHVAC::HeatMode) {
-        Serial.println("DHW heat");
+//        Serial.println("DHW heat");
+        if(!SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = true;
     }
 
     sender->setMode(mode); // report mode back to the HA panel
     Serial_db.printf("SmOT.enable_HotWater %d\n", SmOT.enable_HotWater);
+
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 #if PID_USE
