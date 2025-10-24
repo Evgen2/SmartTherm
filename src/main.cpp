@@ -140,8 +140,116 @@ void init_ot_slave(void)
 
 }
 
+/*******************************/
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
+//RTC_DATA_ATTR
+RTC_NOINIT_ATTR  int bootCount, bootSts;
+
+void Led_Info_reset(int code)
+{ int i, j;
+  for(j=0; j<2; j++)
+  {
+      digitalWrite(LED_BUILTIN, 1); 
+      delay(1000);
+      digitalWrite(LED_BUILTIN, 0); 
+      delay(1000);
+      for(i=0; i<code; i++)
+      { digitalWrite(LED_BUILTIN, 1); 
+        delay(300);
+        digitalWrite(LED_BUILTIN, 0); 
+        delay(200);
+      }
+      if(j < 1)
+        delay(1000);
+      Serial.printf("%d bootSts=%d\n", j, bootSts);
+  }
+}
+
+/*********** watchdog ******************/
+#include <esp_task_wdt.h>
+#include "soc/rtc_cntl_reg.h"
+#include "soc/rtc_wdt.h"
+
+#define WDT_TIMEOUT 20 // Timeout in seconds
+// Define WTC Watchdog Timer in milliseconds
+#define RTC_WDT_TIME_MS (WDT_TIMEOUT *1100 + 1000)
+
+void watchdog_setup(void)
+{
+//wdt  
+  // Deinitialize the default watchdog (if enabled by default)
+  esp_task_wdt_deinit();
+ 
+  // Initialize the Task Watchdog
+  esp_err_t err = esp_task_wdt_init(WDT_TIMEOUT, true);
+  if (err != ESP_OK) {
+    Serial.printf("WDT Init failed: %s\n", esp_err_to_name(err));
+    return;
+  }
+
+  // Add the current task (Arduino loop) to the watchdog watch list
+  esp_task_wdt_add(NULL); 
+  Serial.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
+
+//rtc_wdt
+  rtc_wdt_protect_off(); // Disable RTC WDT write protection
+  rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC); // Set action on timeout
+  rtc_wdt_set_time(RTC_WDT_STAGE0, RTC_WDT_TIME_MS ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
+  rtc_wdt_enable(); // Start the RTC WDT timer
+  rtc_wdt_protect_on(); // Enable RTC WDT write protection  
+}
+
+void onOTAstart(void)
+{ //Serial.println("OTA started");
+  esp_task_wdt_delete(NULL);
+  esp_task_wdt_deinit();
+  rtc_wdt_protect_off(); // Disable RTC WDT write protection
+  rtc_wdt_disable(); // Start the RTC WDT timer
+  rtc_wdt_protect_on(); // Enable RTC WDT write protection  
+}
+
+void exitOTAError(uint8_t err) {
+//  Serial.printf("OTA error occurred %d\n", err);
+   watchdog_setup();
+}
+
+/*****************************/
+
+#include "esp32/rom/rtc.h"
+//https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
+/*
+1:	Vbat power on reset
+3:	Software reset digital core
+4:	Legacy watch dog reset digital core
+5:	Deep Sleep reset digital core
+6:	Reset by SLC module, reset digital core
+7:	Timer Group0 Watch dog reset digital core
+8:	Timer Group1 Watch dog reset digital core
+9:	RTC Watch dog Reset digital core
+10:	Instrusion tested to reset CPU
+11:	Time Group reset CPU
+12:	Software reset CPU
+13:	RTC Watch dog Reset CPU
+14:	for APP CPU, reset by PRO CPU
+15:	Reset when the vdd voltage is not stable
+16:	RTC Watch dog reset digital core and rtc module
+*/
+/* 1, 14 |12,12 |*/
+void check_reset(void)
+{ int rr0, rr1;
+  rr0 = rtc_get_reset_reason(0);
+  rr1 = rtc_get_reset_reason(1);
+  if(rr0 != 1 && rr0 != 12)
+  { Serial.printf("reset_reason %d %d\n", rr0, rr1);
+    Led_Info_reset(rr0);
+  }
+  if(rr0 == 1)
+  {
+    bootCount = bootSts = 0;
+  }
+}
+
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
@@ -149,6 +257,11 @@ void setup() {
   
   delay(2);
   Serial.begin(115200);
+
+   ++bootCount;
+  Serial.print("Boot count: ");
+  Serial.println(bootCount);
+
   Serial.println(IDENTIFY_TEXT);
   Serial.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
@@ -159,6 +272,9 @@ void setup() {
   digitalWrite(LED_BUILTIN, LedSts);   
 
   setup_read_config();
+
+  watchdog_setup();
+
   SmOT.RelayInit();
 /*******************************************/
 
@@ -1556,6 +1672,10 @@ static int mday_prev = 0;
   now = time(nullptr);
   if(now == prev)
       return;
+
+//watchdogs reset      
+  esp_task_wdt_reset();
+  rtc_wdt_feed();         
 
 
   nowtime = localtime(&prev);

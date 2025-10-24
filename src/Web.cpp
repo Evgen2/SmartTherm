@@ -204,9 +204,9 @@ CtrlChBUseRelay, CtrlChBStartRelaySts,
 #else
 AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
- CtrlChBUseRelay,
+ CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
-  CtrlChBStartRelaySts, CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});  
+ CtrlChB_UseRemoteControl,  ApplyAdd, ApplyChB});  
 #endif // MQTT_USE
 
 
@@ -265,6 +265,9 @@ String onSetRelay(AutoConnectAux& aux, PageArgument& args);
 String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args);
 String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 #endif
+
+extern void onOTAstart(void);
+extern void exitOTAError(uint8_t err); 
 
 
 String utc_time_jc;
@@ -348,6 +351,9 @@ void setup_web_common(void)
     portal.join({OTslave_Page,SetOTslave_Page});
 #endif    
 
+    portal.onOTAStart(onOTAstart);
+    portal.onOTAError(exitOTAError);
+
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
@@ -359,7 +365,8 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial.printf("WiFi psk=%s\n", config.psk.c_str());
+  Serial.printf("WiFi AP SSID %s psk=%s\n",
+		config.apid.c_str(), config.psk.c_str());
   
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
@@ -399,13 +406,20 @@ void setup_web_common(void)
 
 }
 
+#include "esp_sntp.h"
+
+void time_sync_notification_cb(struct timeval *tv) {
+    Serial.printf("******  Time updated, Unix time: %ld\n", tv->tv_sec);
+}
+
 int setup_web_common_onconnect(void)
 { static int init = 0;
 
   //Serial.printf("setup_web_common_onconnect init %d\n", init);
 
-  Serial.print(F("WiFi connected, IP address: "));
-  Serial.println(WiFi.localIP());
+  Serial.printf("WiFi connected, SSID: %s IP address: %s\n",
+		WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
   Serial.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
@@ -450,6 +464,7 @@ const char*  const _ntp2 = "pool.ntp.org";
   Serial.print("Sync time in ms: ");
   Serial.println(sntp_get_sync_interval());  
 #endif
+   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 
 
 #if MQTT_USE
@@ -1333,6 +1348,7 @@ if(SmOT.useMQTT)
     {   SetDHWTemp.enable = false;
         SetBoilerTemp2.enable = false;
         SetBoilerTemp.enable = false;
+        SetNewBoilerTemp.enable = false;
     }
   }
 

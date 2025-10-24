@@ -33,8 +33,6 @@ void MQTT_pub_Eff_Mod_h(void);
 void MQTT_pub_relay(void);
 #endif
 
-extern WiFiClient tcp_client;
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 extern  SD_Termo SmOT;
@@ -551,18 +549,23 @@ extern unsigned int OTcount;
     sensorPID_P.setAvailability(true);
     sensorPID_P.setNameUniqueIdStr(SmOT.MQTT_topic,"dP", "pid_dp");
     sensorPID_P.setDeviceClass(temperature_str); 
+    sensorPID_P.setUnitOfMeasurement("°C");
     sensorPID_D.setAvailability(true);
     sensorPID_D.setNameUniqueIdStr(SmOT.MQTT_topic,"dD", "pid_dd");
     sensorPID_D.setDeviceClass(temperature_str); 
+    sensorPID_D.setUnitOfMeasurement("°C");
     sensorPID_I.setAvailability(true);
     sensorPID_I.setNameUniqueIdStr(SmOT.MQTT_topic,"dI", "pid_di");
     sensorPID_I.setDeviceClass(temperature_str); 
+    sensorPID_I.setUnitOfMeasurement("°C");
     sensorPID_U.setAvailability(true);
     sensorPID_U.setNameUniqueIdStr(SmOT.MQTT_topic,"U", "pid_u");
     sensorPID_U.setDeviceClass(temperature_str); 
+    sensorPID_U.setUnitOfMeasurement("°C");
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
     sensorPID_U0.setDeviceClass(temperature_str); 
+    sensorPID_U0.setUnitOfMeasurement("°C");
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
 //    Serial.printf("sensorPID_U0 =%s\n", str);
@@ -597,12 +600,12 @@ extern unsigned int OTcount;
 void OnMQTTconnected(void)
 { 
   statemqtt = 1;
-//   Serial.printf("OnMQTTconnected %d\n", statemqtt );
+   Serial.printf("OnMQTTconnected %d\n", statemqtt );
 
 }
 void OnMQTTdisconnected(void)
 { statemqtt = 0;
-//   Serial.printf("OnMQTT disconnected %d\n", statemqtt );
+   Serial.printf("OnMQTT disconnected %d\n", statemqtt );
 }
 
 void mqtt_start(void)
