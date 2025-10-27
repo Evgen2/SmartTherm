@@ -122,9 +122,11 @@ void OnMQTTconnected(void);
 void OnMQTTdisconnected(void);
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
+    int is_change = 0;  
     float temperatureFloat = temperature.toFloat();
     if(sender == &hvacDHW)
     {
+      if(SmOT.TdhwSet != temperatureFloat) is_change = 1;
       SmOT.TdhwSet = temperatureFloat;
       SmOT.need_set_dhwT = 2;
 #if SERIAL_DEBUG      
@@ -137,14 +139,13 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     } else if (sender == &hvacPID) {
 //    Serial.print("PID Target temperature: ");
 //    Serial.println(temperatureFloat);
-
-    SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
-    SmOT.TroomTarget = temperatureFloat;
-   Serial.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
-
-//todo    
+      if(SmOT.TroomTarget != temperatureFloat) is_change = 1;
+      SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
+      SmOT.TroomTarget = temperatureFloat;
+      Serial.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
 #endif
     } else {
+      if(SmOT.Tset != temperatureFloat) is_change = 1;
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T = 2;
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
@@ -152,6 +153,10 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     Serial.print("CH Target temperature: ");
     Serial.println(temperatureFloat);
 #endif    
+    }
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
     }
 }
 
@@ -164,13 +169,16 @@ void onPowerCommand(bool state, HAHVAC* sender) {
 }
 
 void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
+  int is_change = 0;  
 //PID_USE todo    
     Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
         Serial.println(F("off"));
+        if(SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = false;
     } else if (mode == HAHVAC::HeatMode) {
         Serial.println("heat");
+        if(!SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = true;
 
 #if 0        
@@ -186,33 +194,51 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     }
 
     sender->setMode(mode); // report mode back to the HA panel
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 void onModeCommandPID(HAHVAC::Mode mode, HAHVAC* sender) {
+  int is_change = 0;  
     Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
         Serial.println(F("PID off"));
+        if(SmOT.usePID) is_change = 1;
         SmOT.usePID = 0;
     } else if (mode == HAHVAC::AutoMode) {
         Serial.println("PID on");
+        if(!SmOT.usePID) is_change = 1;
         SmOT.usePID = 1;
     }
 
     sender->setMode(mode); // report mode back to the HA panel
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 void onModeCommandDHW(HAHVAC::Mode mode, HAHVAC* sender) {
+  int is_change = 0;  
     Serial.print("Mode: ");
     if (mode == HAHVAC::OffMode) {
         Serial.println(F("DHW off"));
+        if(SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = false;
     } else if (mode == HAHVAC::HeatMode) {
         Serial.println("DHW heat");
+        if(!SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = true;
     }
 
     sender->setMode(mode); // report mode back to the HA panel
     Serial.printf("SmOT.enable_HotWater %d\n", SmOT.enable_HotWater);
+    if(is_change)
+    { SmOT.need_write_f |= 0x11; 
+      SmOT.t_need_write_config = millis();
+    }
 }
 
 #if PID_USE

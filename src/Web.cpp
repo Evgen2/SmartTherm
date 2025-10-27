@@ -268,6 +268,7 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 
 extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err); 
+extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1; //  состояние в момент старта
 
 
 String utc_time_jc;
@@ -597,7 +598,8 @@ extern int minRamFree;
     }
 #endif   
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
-      sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+      sprintf(str,"reset reason: %d %d (%d %d %d %d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), _bootCount, _bootReason, _bootSts, _bootSts1);
+
   Info7.value = str;
 #if 0   
    {  int i;

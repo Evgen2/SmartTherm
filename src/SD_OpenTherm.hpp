@@ -171,8 +171,9 @@ public:
   byte need_set_MaxRelModLevel;
   byte need_set_RemoteRequest;
   byte need_send_Blor;
-  byte need_write_f; 
   byte need_set_MaxTSet;
+  byte need_write_f; 
+  unsigned long t_need_write_config;
 
   int TestCmd;
   int TestId;
@@ -301,6 +302,7 @@ public:
       need_set_MaxTSet = 1;
 /********************************/      
       need_write_f = 0;
+      t_need_write_config = 0;
       RetT = 0.;
       dhw_t = 0.;
       Toutside = 0.;
@@ -341,6 +343,8 @@ public:
       tempindoor =  tempoutdoor = 0.;
       TroomTarget = 18.f;
       IsSetTemp = 0;
+    _U0start = 0;
+    InTstartset = 0;
 #endif
       UseID2 = 0;
       ID2masterID = 0;
@@ -355,8 +359,6 @@ public:
       umax = 80;
       MaxTSet = umax;
     start_sts = 1;
-    _U0start = 0;
-    InTstartset = 0;
     oldTroomSetpoint = 0.;
     src_lastSetPointChange = -1;
 #if ST_VERS == 2

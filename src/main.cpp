@@ -144,7 +144,9 @@ void init_ot_slave(void)
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
 //RTC_DATA_ATTR
-RTC_NOINIT_ATTR  int bootCount, bootSts;
+RTC_NOINIT_ATTR  unsigned short int bootCount, bootReason, bootSts, bootSts1;
+unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1; // сохраняем состояние в момент старта
+
 
 void Led_Info_reset(int code)
 { int i, j;
@@ -190,7 +192,7 @@ void watchdog_setup(void)
 
   // Add the current task (Arduino loop) to the watchdog watch list
   esp_task_wdt_add(NULL); 
-  Serial.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
+  Serial.printf("Watchdog Timeout set to: %d sec\n", WDT_TIMEOUT);
 
 //rtc_wdt
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
@@ -198,6 +200,7 @@ void watchdog_setup(void)
   rtc_wdt_set_time(RTC_WDT_STAGE0, RTC_WDT_TIME_MS ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
   rtc_wdt_enable(); // Start the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
+  Serial.printf("RTC Watchdog Timeout set to: %d msec\n", RTC_WDT_TIME_MS);
 }
 
 void onOTAstart(void)
@@ -244,10 +247,22 @@ void check_reset(void)
   { Serial.printf("reset_reason %d %d\n", rr0, rr1);
     Led_Info_reset(rr0);
   }
+    // сохраняем состояние в момент старта
+  _bootReason = bootReason;
+  _bootCount = bootCount;
+  _bootSts = bootSts;
+  _bootSts1 = bootSts1;
+
   if(rr0 == 1)
   {
     bootCount = bootSts = 0;
   }
+  bootReason = rr0;
+
+}
+
+void set_rtc_flag(int sts)
+{ bootSts1  = sts;
 }
 
 

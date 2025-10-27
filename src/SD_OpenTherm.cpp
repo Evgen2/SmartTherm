@@ -598,13 +598,19 @@ void SD_Termo::loop(void)
         Serial.printf("Write_fs rc=%d  dt %d ms", rc, dt);
         need_write_f = 0;
 #else
-        if(need_write_f & 0x01)
-        {   Write_ot_fs();
-            need_write_f &= ~0x01;
-        }
-        if(need_write_f & 0x02)
-        {   Write_mqtt_fs();
-            need_write_f &= ~0x02;
+        if(need_write_f & 0x10) //10 sec delay to write config
+        {   if((millis() - t_need_write_config) > 10000) 
+            {   need_write_f &= ~0x10;
+            }
+        } else {
+            if(need_write_f & 0x01)
+            {   Write_ot_fs();
+                need_write_f &= ~0x01;
+            }
+            if(need_write_f & 0x02)
+            {   Write_mqtt_fs();
+                need_write_f &= ~0x02;
+            }
         }
 #endif // SERIAL_DEBUG      
      
