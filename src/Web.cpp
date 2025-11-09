@@ -237,8 +237,6 @@ void onRoot(void);
 void loadParam(String fileName);
 void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
-  extern void mqtt_setup(void);
-  extern void mqtt_loop(void);
   extern void mqtt_start(void);
   extern int MQTT_pub_usePID(void);
 #endif
@@ -268,6 +266,8 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 
 extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err); 
+extern void OTloop_callback(void);
+
 extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1; //  состояние в момент старта
 
 
@@ -369,6 +369,9 @@ void setup_web_common(void)
   Serial.printf("WiFi AP SSID %s psk=%s\n",
 		config.apid.c_str(), config.psk.c_str());
   
+  portal.max_time_use = 200;
+  portal.callback_at_maxtime = OTloop_callback;
+
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
@@ -471,8 +474,6 @@ const char*  const _ntp2 = "pool.ntp.org";
 #if MQTT_USE
 
    SmOT.Read_mqtt_fs();
-//     mqtt_setup();
-//mqtt_setup is called from mqtt_loop()
 #endif
 }
 /****************************************************/
@@ -1956,11 +1957,6 @@ static unsigned long t0=0;
          }
     }
   }
-
-#if MQTT_USE
-  if(rc ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
-         mqtt_loop();
-#endif
 
 }
 

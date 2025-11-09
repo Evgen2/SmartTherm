@@ -11,7 +11,7 @@
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
 #define MASTER_SUBVERSION1 4
-#define MASTER_REVISION    5
+#define MASTER_REVISION    6
 
 /***************/
 

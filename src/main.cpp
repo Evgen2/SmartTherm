@@ -40,6 +40,8 @@ void OTlogDelLast(void);
 #endif
 
 void loop_time(void);
+void loop_LED(void);
+void OTloop_callback(void);
 
 #if MQTT_USE 
  #if RELAY_USE
@@ -47,6 +49,7 @@ void loop_time(void);
  #endif
  extern int MQTT_pub_cmdCH(int on);
  extern void MQTT_pub_Eff_Mod_h(void);
+ extern void mqtt_loop(void);
 #endif
 
 
@@ -323,6 +326,7 @@ void setup() {
       OTstartSts_MAX = 2;
 
 #if SERVER_DEBUG
+#if 0
   SmOT.TCPserver_sts = 2;  /* статус сервера */
 //  SmOT.TCPserver_sts2 = 1; 
   SmOT.TCPserver_t = millis();
@@ -332,7 +336,7 @@ void setup() {
   SmOT.tcp_remoteIP.fromString("80.237.33.121");
 
   Serial.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
-
+#endif
 #endif	
 
 }
@@ -731,6 +735,7 @@ bit: description [ clear/0, set/1]
         SmOT.Tset_r = t;
         if(SmOT.Tset_r == SmOT.Tset)
                 SmOT.need_set_T = 0;
+//       Serial.printf("SmOT.Tset %g Tset_r %g\n", SmOT.Tset, SmOT.Tset_r);
 
         break;
         
@@ -810,6 +815,12 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
+/************************************/
+        if((fabs(SmOT.BoilerT-SmOT.Tset) > 3.) && (SmOT.need_set_T == 0))
+        { SmOT.need_set_T = 1;
+  //        Serial.printf("SmOT.BoilerT %g SmOT.Tset %g\n", SmOT.BoilerT, SmOT.Tset);
+        }
+/************************************/
         break;
 
     case OpenThermMessageID::Tdhw: //26
@@ -1506,10 +1517,19 @@ M00:
 }
 
 #define OT_CICLE_TIME 300
+static unsigned long OTloopUpdate_t0 =0; 
+
+//loop_callback for MQTT and web portal
+void OTloop_callback(void)
+{   if( OTloop() ) 
+       OTloopUpdate_t0 = millis();
+//  Serial.printf("OTloop_callback %ld\n", millis());
+    loop_LED();
+    loop_time();
+} 
 
 void loop(void)
-{   static unsigned long t0=0; // t1=0;
-    unsigned long t;
+{   unsigned long t;
     int dt;
 #if T_DEBUG 
   static int count=0, told=0;
@@ -1524,7 +1544,7 @@ void loop(void)
 
 
    t = millis();
-   dt = t - t0;
+   dt = t - OTloopUpdate_t0;
 
 #if ST_VERS == 2
   { int dtm = OT_CICLE_TIME;
@@ -1535,7 +1555,7 @@ void loop(void)
     if(dt < dtm)
     {  loop2();
     } else  if( OTloop() ) {
-        t0 = millis();
+        OTloopUpdate_t0 = millis();
     }  else {
         loop2();
     }      
@@ -1546,7 +1566,7 @@ void loop(void)
   {  loop2();
   } else  if( OTloop() ) {
 //   Serial.printf("raz=%d\n", raz);
-      t0 = millis();
+       OTloopUpdate_t0 = millis();
   }  else {
      loop2();
   }
@@ -1558,10 +1578,8 @@ int minRamFree=-1;
 /* web, udp, DS1820 */
 void loop2(void)
 {   static int irot = 0;
-    static unsigned long  t0=0; // t1=0;
-    unsigned long t, dt;
-     t = millis();
-     dt = t - t0;
+#if 0
+
 #if defined(ARDUINO_ARCH_ESP8266)
      if(!LedSts) //быстро моргаем раз в мсек
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -1599,6 +1617,7 @@ void loop2(void)
         }
 //        
      }
+#endif //0
 
     switch(irot)
     {  case 0: 
@@ -1669,11 +1688,73 @@ void loop2(void)
 
         case 5:
         loop_time();
-          irot = 0;
+          irot = 6;
         break;
+
+        case 6:
+#if MQTT_USE
+    if( WiFi.status()  ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
+         mqtt_loop();
+#endif
+        irot = 7;
+          break;
+
+        case 7:
+          loop_LED();
+          irot = 0;
+          break;
+
     }
 }
 
+void loop_LED(void)
+{
+  static unsigned long  t0=0; 
+  unsigned long t, dt;
+  unsigned int wt;
+  t = millis();
+  dt = t - t0;
+#if defined(ARDUINO_ARCH_ESP8266)
+  if(!LedSts) //быстро моргаем раз в мсек
+#elif defined(ARDUINO_ARCH_ESP32)
+  if(LedSts) //быстро моргаем раз в мсек
+#endif
+  {  wt = 10;
+    if(SmOT.stsOT > 0) wt = 1000;
+    if(dt >= wt)
+    { LedSts = (LedSts+1)&0x01;
+      digitalWrite(LED_BUILTIN, LedSts);   
+      //t0 = t;
+      t0 += wt;
+      return;
+    }
+  } else {
+    wt = 500;
+    if(SmOT.stsOT == 0) wt = 2000;
+    else if(SmOT.stsOT > 0) wt = 1000;
+    if(dt >= wt)
+    { LedSts = (LedSts+1)&0x01;
+      digitalWrite(LED_BUILTIN, LedSts);   
+      t0 += wt;
+//        t0 = t;        
+/************************/ 
+//test for lost OT connection
+      {  time_t now = time(nullptr);
+        double dt;
+        dt = difftime(now,SmOT.t_lastwork);
+        if(dt > 10.)
+        {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
+            if(OTstartSts == OTstartSts_MAX)
+            {   OTstartSts = 0;  // init start sequence
+                SmOT.HotWater_present = false;
+                SmOT.enable_CentralHeating2  = false; 
+            }
+        }
+      }
+/************************/                 
+    }
+  }
+}
 
 void loop_time(void)
 { time_t now;

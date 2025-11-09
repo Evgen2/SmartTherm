@@ -32,6 +32,7 @@ void MQTT_pub_Eff_Mod_h(void);
 #if RELAY_USE
 void MQTT_pub_relay(void);
 #endif
+extern void OTloop_callback(void);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -321,7 +322,11 @@ extern unsigned int OTcount;
    if(SmOT.useMQTT != 0x03) 
       return;
 
-  
+  mqtt.max_time_use = 200;
+  mqtt.callback_at_maxtime = OTloop_callback;
+  if(mqtt.ReconnectInterval < SmOT.MQTT_interval*1000)
+      mqtt.ReconnectInterval = SmOT.MQTT_interval*1000;
+
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
@@ -587,11 +592,11 @@ extern unsigned int OTcount;
     sensorPID_U.setAvailability(true);
     sensorPID_U.setNameUniqueIdStr(SmOT.MQTT_topic,"U", "pid_u");
     sensorPID_U.setDeviceClass(temperature_str); 
-    sensorPID_U.setUnitOfMeasurement("°C");
+//    sensorPID_U.setUnitOfMeasurement("°C");
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
     sensorPID_U0.setDeviceClass(temperature_str); 
-    sensorPID_U0.setUnitOfMeasurement("°C");
+//    sensorPID_U0.setUnitOfMeasurement("°C");
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
 //    Serial.printf("sensorPID_U0 =%s\n", str);
