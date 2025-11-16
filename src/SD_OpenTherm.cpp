@@ -2113,7 +2113,7 @@ extern OpenTherm ot;
 
     }
 
-  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
+//  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
 //    Serial_db.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
 //                Pressure_present, Toutside_present, RetT_present  ) ;
 //    Serial_db.printf("MaxRelModLevel_present %d  \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting)); 

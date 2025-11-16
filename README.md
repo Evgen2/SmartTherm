@@ -21,6 +21,15 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+
+0.8.5.10
+ 
+* AutoConnect lib change to v. 1.4.7, arduino-home-assistant lib change to 2.1.1
+** changing the synchronous behavior of the Wi-Fi connection and scan process to partially asynchronous via using callback in AutoConnect, similar changes with MQTT and arduino-home-assistant lib.
+This increases the stability of OpenTherm and eliminates watchdogs from being triggered when reconnecting to WiFi with a poor signal, as well as when scanning WiFi (menu items "Configure new AP" and "Open SSIDs")
+* Periodic set of OpenThermMessageID::TSet fix
+* fix for using CH2 for DHW
+
 0.8.5.9
 * delayed write config to flash after MQTT change mode or target temperature
 

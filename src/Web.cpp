@@ -43,6 +43,8 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 #endif
 
 extern  SD_Termo SmOT;
+extern OpenTherm ot;
+
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
@@ -240,7 +242,7 @@ void onRoot(void);
 void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
   extern void mqtt_setup(void);
-  extern void mqtt_loop(void);
+//  extern void mqtt_loop(void);
   extern void mqtt_start(void);
   extern int MQTT_pub_usePID(void);
 #endif
@@ -270,6 +272,11 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 
 extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err); 
+extern int ST_setCpuFrequencyMhz(int code);
+extern void OTloop_callback(void);
+
+extern RTC_NOINIT_ATTR unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2; //  состояние в момент старта
 
 
 String utc_time_jc;
@@ -364,10 +371,13 @@ void setup_web_common(void)
   // Enable saved past credential by autoReconnect option,
   // even once it is disconnected.
   config.autoReconnect = true;
-  config.reconnectInterval = 2; //1;
+  config.reconnectInterval = 1; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
-  
+   Serial_db.printf("WiFi AP SSID %s psk=%s\n",config.apid.c_str(), config.psk.c_str());
+   
+  portal.max_time_use = 200;
+  portal.callback_at_maxtime = OTloop_callback;
+
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
@@ -409,7 +419,7 @@ void setup_web_common(void)
 #include "esp_sntp.h"
 
 void time_sync_notification_cb(struct timeval *tv) {
-    Serial.printf("*********  Время обновлено (колбэк)! Unix-время: %ld\n", tv->tv_sec);
+    Serial_db.printf("Time updated, Unix time: %ld\n", tv->tv_sec);
 }
 
 int setup_web_common_onconnect(void)
@@ -418,8 +428,9 @@ int setup_web_common_onconnect(void)
 
   //Serial_db.printf("setup_web_common_onconnect init %d\n", init);
 
-  Serial_db.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
+  Serial_db.printf("WiFi connected, SSID: %s IP address: %s\n",  WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
+
   Serial_db.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
     return 1;
@@ -467,12 +478,10 @@ Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
 
 #if MQTT_USE
 
- Serial_db.printf("=====  Read_mqtt_fs:\n");
+ Serial_db.printf("Read_mqtt_fs:\n");
    rc = SmOT.Read_mqtt_fs();
   SmOT.stsMQTTcfg = rc;
-  Serial_db.printf(" SmOT.Read_mqtt_fs() rc = %d\n", rc);
-//     mqtt_setup();
-//mqtt_setup is called from mqtt_loop()
+  Serial_db.printf("SmOT.Read_mqtt_fs() rc = %d\n", rc);
 #endif
 }
 /****************************************************/
@@ -603,8 +612,13 @@ extern int minRamFree;
 
     }
 #endif   
+ 
+      sprintf(str,"%d", bootSts1);
+  
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
-      sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+      sprintf(str,"reset reason: %d %d (%d %d %d %d %d|%d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), 
+          _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2, bootSts2);
+
   Info7.value = str;
 #if MQTT_USE
   sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
@@ -652,6 +666,11 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
       { isChange = 1;
         SmOT.TdhwSet = v;
         SmOT.need_set_dhwT(1);
+        if(SmOT.CH2_present && (ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
+        { SmOT.Tset2 = SmOT.TdhwSet;
+          SmOT.need_set_T_CH2(1);
+        }             
+
       }
     }
 
@@ -878,19 +897,20 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     }
 
     if(SmOT.HotWater_present)
-    { if(SmOT.enable_HotWater) //Горячая вода Вкл
-      {   SmOT.need_set_dhwT(1);
+    { if(SmOT.enable_HotWater) //Горячая вода Вкл TdhwSet
+      { SmOT.need_set_dhwT(1);
+        if(SmOT.CH2_present && (ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
+        { SmOT.Tset2 = SmOT.TdhwSet;
+          SmOT.need_set_T_CH2(1);
+        }             
       } else {
          //Горячая вода вЫкл
       }
     }
 
-    if(SmOT.CH2_present)
-    { if(SmOT.enable_CentralHeating2) //CentralHeating2 Вкл
-      { SmOT.need_set_T_CH2(1);
-      } else {
-        //CentralHeating2 вЫкл
-      }
+    if(SmOT.CH2_present)      //CentralHeating2 On
+    { if(SmOT.enable_CentralHeating2)
+        SmOT.need_set_T_CH2(1);             
     }
 
 // redirect/transition to the INFO_URI.
@@ -1061,7 +1081,6 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[256];
-extern OpenTherm ot;
 
    switch(SmOT.stsOT)
    {  case -1:
@@ -1284,7 +1303,7 @@ if(SmOT.useMQTT)
       }
       Info4.value += "<br>";
 
-      if(SmOT.enable_CentralHeating2)
+      if((SmOT.enable_CentralHeating2) || (SmOT.CH2_present && ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
       {  Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
       }
 
@@ -1388,9 +1407,9 @@ if(SmOT.useMQTT)
  
 #if ST_VERS == 2
 
-  Info7.value = "OT2: ";
   if(SmOT.OT_slave_present)
   {
+    Info7.value = "OT2: ";
     switch(SmOT.ot_slave_stsOT)
     {   case -2:
         case -1:
@@ -1978,7 +1997,11 @@ extern int LedSts;
 void loop_web()
 {  int rc,  dt;
 static unsigned long t0=0;
+unsigned long _t0;
 
+_t0 = millis();
+
+ bootSts1 = 1;
 //  portal.handleClient();
 
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте 
@@ -2003,6 +2026,8 @@ static unsigned long t0=0;
     int mode = WiFi.getMode();
     int ch = WiFi.channel();
 
+ bootSts1 = 2;
+
     if(rc == WL_CONNECTION_LOST)
     {  if((rc != oldstatus) && (SmOT.stsOT == 2))
        { 
@@ -2012,16 +2037,21 @@ static unsigned long t0=0;
 /*************************************************/ 
         } 
     }
+ bootSts1 = 102;
 
     if(rc == WL_CONNECTION_LOST || rc == WL_IDLE_STATUS)
     {
 /******************* test for crasy state ********/ 
+ bootSts1 = 3;
       if(portal._ac_wifi_scan_sc != -100)
       { if(portal._ac_wifi_scan_sc  == 0) // при поиске WiFi не найдено сетей
         { if(SmOT.stsOT == 2) //связь OT пропала
           { 
+ bootSts1 = 4;
             Serial_db.printf("crasy state detected\n");
-            if(SmOT.useCPU_freq == 0 )
+  ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
+/*
+            if(SmOT.useCPU_freq == 0 ) //??
               setCpuFrequencyMhz(160);
             else 
               setCpuFrequencyMhz(240);
@@ -2034,6 +2064,8 @@ static unsigned long t0=0;
             else
               setCpuFrequencyMhz(80);
             delay(10);
+*/            
+ bootSts1 = 5;
 
             Serial_db.printf("crasy state %d setCpuFrequencyMhz %d\n", SmOT.CrasyState_count, getCpuFrequencyMhz() );
             SmOT.CrasyState_count++; 
@@ -2045,6 +2077,10 @@ static unsigned long t0=0;
       }
 /*************************************************/ 
     }
+ bootSts1 = 6;
+
+    if((millis()-_t0) > 400 )
+      Serial_db.printf("loop_web (1) dt=%ld\n", millis()-_t0);
 
     if((rc != oldstatus) || mode != oldmode)
     {
@@ -2063,6 +2099,7 @@ static unsigned long t0=0;
         }
         oldmode = mode;
         oldstatus = rc;
+ bootSts1 = 7;
     } else if(needStopAP) {
       if(millis()-t0 > 20000)
       {   needStopAP = 0;
@@ -2076,7 +2113,33 @@ static unsigned long t0=0;
     }
   }
 
-  portal.handleClient();
+ bootSts1 = 8;
+
+ {   static unsigned long t_h = 0;
+    unsigned long dt_h, dt_p;
+    dt_h = millis() - t_h;
+    dt_p = millis() - portal._portalAccessPeriod;
+    
+    if(dt_p < 1000 || (dt_p < 5000 && dt_h > 10)  || dt_h > 100 )
+    { 
+//      Serial_db.printf("portal.handleClient dt_h %ld  %ld\n", dt_h, millis() - portal._portalAccessPeriod  );
+      
+      portal.handleClient();
+      t_h = millis();
+    }
+}
+
+//  portal.handleClient();
+  { static int old_status = 0;
+    if( portal.portalStatus() !=  old_status)
+    {  old_status = portal.portalStatus();
+      Serial_db.printf("Portal Status changed %d (%x)\n", old_status, old_status );
+    }
+  }
+ bootSts1 = 9;
+
+ if((millis()-_t0) > 600 )
+    Serial_db.printf("loop_web(2) loop_web dt=%d\n", millis()-_t0);
 
    if(rc != WiFists)
   { 
@@ -2102,6 +2165,7 @@ static unsigned long t0=0;
     WiFists = rc;
   }
 
+ bootSts1 = 10;
 
   if(rc ==  WL_CONNECTED)
   {  dt = millis() - t0;
@@ -2119,10 +2183,16 @@ static unsigned long t0=0;
     }
   }
 
-#if MQTT_USE
-  if(rc ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
-         mqtt_loop();
-#endif
+/*  
+if((millis()-_t0) > 500 )
+{    Serial_db.printf("loop_web (2) dt=%ld |", millis()-_t0);
+  for(i=0; i<9; i++) 
+  {
+    Serial.printf(" %d", dtw[i]);
+  }
+    Serial.printf("\n");
+}
+*/
 
 }
 

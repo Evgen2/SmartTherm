@@ -43,13 +43,18 @@ void OTlogDelLast(void);
 #endif
 
 void loop_time(void);
+void loop_LED(void);
+void OTloop_callback(void);
+
+int ST_setCpuFrequencyMhz(int code);
 
 #if MQTT_USE 
  #if RELAY_USE
   extern void MQTT_pub_relay(void);
  #endif
- extern int MQTT_pub_cmdCH(int on);
- extern void MQTT_pub_Eff_Mod_h(void);
+  extern int MQTT_pub_cmdCH(int on);
+  extern void MQTT_pub_Eff_Mod_h(void);
+  extern void mqtt_loop(void);
 #endif
 
 
@@ -137,84 +142,16 @@ void init_ot_slave(void)
 }
 
 /*******************************/
-#if 0
-void FreqInfo(void) 
-{
-rtc_cpu_freq_config_t out_config;
-/*            
-            typedef enum {
-              RTC_CPU_FREQ_SRC_XTAL,  //!< XTAL
-              RTC_CPU_FREQ_SRC_PLL,   //!< PLL (480M or 320M)
-              RTC_CPU_FREQ_SRC_8M,    //!< Internal 8M RTC oscillator
-              RTC_CPU_FREQ_SRC_APLL   //!< APLL
-          } rtc_cpu_freq_src_t;
-          
-            typedef struct rtc_cpu_freq_config_s {
-              rtc_cpu_freq_src_t source;      //!< The clock from which CPU clock is derived
-              uint32_t source_freq_mhz;       //!< Source clock frequency
-              uint32_t div;                   //!< Divider, freq_mhz = source_freq_mhz / div
-              uint32_t freq_mhz;              //!< CPU clock frequency
-          } rtc_cpu_freq_config_t;
-          
-*/
-            rtc_clk_cpu_freq_get_config(&out_config);
-//            delay(100);
-//            Serial_db.printf("cpu_freq_get_config  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
-//            Serial.printf("cpfgc  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
-              Serial.printf("%d %d %d %d\n",
-                out_config.source, out_config.source_freq_mhz, out_config.div, out_config.freq_mhz );
-} 
-
-void FreqTest(int _Freq) 
-{ int fr;
-  int Freq;
-//setCpuFrequencyMhz(10);
-  if(_Freq > 0)
-    setCpuFrequencyMhz(_Freq);
-
-  Freq = getCpuFrequencyMhz();
-  delay(10);
-
-  if (Freq < 80) {
-    fr = 80 / Freq * 115200;
-  }
-  else {
-    fr = 115200;
-  }
-  if(fr > 0) 
-  { 
-    Serial.end();
-    delay(100);
-    Serial.begin(fr);  
-    delay(100);
-  }
-
-/*  
-  Serial.print(">");
-  Serial.print("CPU Freq = ");
-  Serial.print(Freq);
-  Serial.println(" MHz");
-  Freq = getXtalFrequencyMhz();
-  Serial.print("XTAL Freq = ");
-  Serial.print(Freq);
-  Serial.println(" MHz");
-  Freq = getApbFrequency();
-  Serial.print("APB Freq = ");
-  Serial.print(Freq);
-  Serial.println(" Hz");
-*/
-  FreqInfo();  
-}
-
-#endif //0
-
-/*******************************/
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
+//RTC_DATA_ATTR
+RTC_NOINIT_ATTR  unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2; // сохраняем состояние в момент старта
 
 void Led_Info_reset(int code)
 { int i, j;
-  for(j=0; j<3; j++)
+//  for(j=0; j<3000; j++)
+  for(j=0; j<2; j++)
   {
       digitalWrite(LED_BUILTIN, 1); 
       delay(1000);
@@ -228,6 +165,8 @@ void Led_Info_reset(int code)
       }
       if(j < 2)
         delay(1000);
+      Serial.printf("%d resetReason %d bootCount %d prevReason %d bootSts=%d bootSts1=%d bootSts2=%d\n",
+           j, code,  bootCount, bootReason, bootSts, bootSts1, bootSts2);
   }
 }
 
@@ -236,16 +175,15 @@ void Led_Info_reset(int code)
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_wdt.h"
 
-#define WDT_TIMEOUT 10 // Timeout in seconds
+#define WDT_TIMEOUT 20 // Timeout in seconds
 // Define WTC Watchdog Timer in milliseconds
-#define RTC_WDT_TIME_MS (1300)
+#define RTC_WDT_TIME_MS (WDT_TIMEOUT *1100 + 10000)
 
 void watchdog_setup(void)
 {
 //wdt  
   // Deinitialize the default watchdog (if enabled by default)
   esp_task_wdt_deinit();
- 
   // Initialize the Task Watchdog
   esp_err_t err = esp_task_wdt_init(WDT_TIMEOUT, true);
   if (err != ESP_OK) {
@@ -260,9 +198,10 @@ void watchdog_setup(void)
 //rtc_wdt
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
   rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC); // Set action on timeout
-  rtc_wdt_set_time(RTC_WDT_STAGE0, WDT_TIMEOUT*1000 + 100 ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
+  rtc_wdt_set_time(RTC_WDT_STAGE0, RTC_WDT_TIME_MS ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
   rtc_wdt_enable(); // Start the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
+  Serial_db.printf("RTC Watchdog Timeout set to: %d ms\n", RTC_WDT_TIME_MS);
 }
 
 void onOTAstart(void)
@@ -270,7 +209,7 @@ void onOTAstart(void)
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
-  rtc_wdt_disable(); // Start the RTC WDT timer
+  rtc_wdt_disable(); // stop the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
 
@@ -280,6 +219,7 @@ void exitOTAError(uint8_t err) {
 }
 
 /*****************************/
+
 #include "esp32/rom/rtc.h"
 //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
 /*
@@ -305,9 +245,25 @@ void check_reset(void)
   rr0 = rtc_get_reset_reason(0);
   rr1 = rtc_get_reset_reason(1);
   if(rr0 != 1 && rr0 != 12)
-  { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
+  { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);  
     Led_Info_reset(rr0);
   }
+  // сохраняем состояние в момент старта
+  _bootReason = bootReason;
+  _bootCount = bootCount;
+  _bootSts = bootSts;
+  _bootSts1 = bootSts1;
+  _bootSts2 = bootSts2;
+  if(rr0 == 1)
+  {
+    bootCount = bootSts = bootSts2 = 0;
+     bootSts1 = -1;
+  }
+  bootReason = rr0;
+}
+
+void set_rtc_flag(int sts)
+{ bootSts1  = sts;
 }
 
 void setup() {
@@ -320,8 +276,12 @@ void setup() {
 
   Serial.begin(115200);
 
+ ++bootCount;
+//  Serial.print("Boot count: ");
+//  Serial.println(bootCount);
+
   heap_caps_check_integrity_all(true);
-  Serial.println(IDENTIFY_TEXT);
+  Serial_db.printf("%s ", IDENTIFY_TEXT);
   Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
   check_reset();
 
@@ -371,11 +331,8 @@ void setup() {
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
   SmOT.TCPserver_report_period = 10000;
-//  SmOT.tcp_remoteIP.fromString("192.168.10.112");
-  SmOT.tcp_remoteIP.fromString("80.237.33.121");
-
+  SmOT.tcp_remoteIP.fromString("192.168.10.112");
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
-
 #endif	
 
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
@@ -877,6 +834,9 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
+        if(fabs(SmOT.BoilerT-SmOT.Tset) > 5.) 
+        { SmOT.need_set_T(1);
+        }          
         break;
 
     case OpenThermMessageID::Tdhw: //26
@@ -1300,25 +1260,25 @@ unsigned int SD_Termo::buildRequest(int ot_id)
 }
 
 #define OT_CICLE_TIME 300
+static unsigned long OTloopUpdate_t0 =0; 
+
+//loop_callback for MQTT and web portal
+void OTloop_callback(void)
+{   if( OTloop() ) 
+       OTloopUpdate_t0 = millis();
+//  Serial.printf("OTloop_callback %ld\n", millis());
+          loop_LED();
+          loop_time();
+} 
+
 
 void loop(void)
-{   static unsigned long t0=0; // t1=0;
+{   
     unsigned long t;
     int dt;
 
-    #if T_DEBUG 
-  static int count=0, told=0;
-  int dt1;
-  t = millis();
-  dt1 = t-told;
-  if(dt1 > 1000)
-  { told = t;
-   Serial_db.printf("loop=%d dt=%d\n", count++, dt1);
-  }
-#endif
-
    t = millis();
-   dt = t - t0;
+   dt = t - OTloopUpdate_t0;
 
 #if ST_VERS == 2
   { int dtm = OT_CICLE_TIME;
@@ -1329,7 +1289,7 @@ void loop(void)
     if(dt < dtm)
     {  loop2();
     } else  if( OTloop() ) {
-        t0 = millis();
+        OTloopUpdate_t0 = millis();
     }  else {
         loop2();
     }      
@@ -1340,7 +1300,7 @@ void loop(void)
   {  loop2();
   } else  if( OTloop() ) {
 //   Serial_db.printf("raz=%d\n", raz);
-      t0 = millis();
+      OTloopUpdate_t0 = millis();
   }  else {
      loop2();
   }
@@ -1352,52 +1312,28 @@ int minRamFree=-1;
 /* web, udp, DS1820 */
 void loop2(void)
 {   static int irot = 0;
-    static unsigned long  t0=0; // t1=0;
-    unsigned long t, dt;
-    int wt;
-    t = millis();
-     dt = t - t0;
-#if defined(ARDUINO_ARCH_ESP8266)
-     if(!LedSts) //быстро моргаем раз в мсек
-#elif defined(ARDUINO_ARCH_ESP32)
-     if(LedSts) //быстро моргаем раз в мсек
-#endif
-     {  wt = 10;
-        if(SmOT.stsOT > 0) wt = 1000;
-        if(dt > wt)
-        { LedSts = (LedSts+1)&0x01;
-          digitalWrite(LED_BUILTIN, LedSts);   
-          t0 = t;
-        }
-     } else {
-        wt = 500;
-        if(SmOT.stsOT == 0) wt = 2000;
-        else if(SmOT.stsOT > 0) wt = 1000;
-        if(dt > (unsigned long)wt)
-        { LedSts = (LedSts+1)&0x01;
-          digitalWrite(LED_BUILTIN, LedSts);   
-          t0 = t;   
+ //   static unsigned long  t0=0; // t1=0;
+//    unsigned long t;
 
-/************************/ 
-//test for lost OT connection
-      {  time_t now = time(nullptr);
-        double dt;
-        dt = difftime(now,SmOT.t_lastwork);
-        if(dt > 10.)
-        {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
-//          if(OTstartSts == OTstartSts_MAX)
-            if(SmOT.plan.mask != MODE_START)
-            {  // OTstartSts = 0;  
-                SmOT.HotWater_present = false;
-                SmOT.enable_CentralHeating2  = false; 
-                SmOT.plan.SetMode(MODE_START); // init start sequence
-            }
-        }
-      }
-/************************/                 
-        }
-//        
-     }
+//    t = millis();
+//     dt = t - t0;
+ //Serial_db.printf("l2 %d %d\n", irot, t);
+ //test debug
+  bootSts = irot;
+
+ #if T_DEBUG 
+  {
+    static int count=0, told=0;
+    int dt1;
+    t = millis();
+    dt1 = t-told;
+    if(dt1 > 1000 && told!= 0 )
+    { 
+      Serial_db.printf("loop2=%d dt=%d, irot %d\n", count++, dt1, irot);
+    } 
+    told = t;
+  }
+#endif
 
     switch(irot)
     {  case 0: 
@@ -1468,12 +1404,84 @@ void loop2(void)
 
         case 5:
         loop_time();
-        irot = 0;
+        irot = 6;
+          break;
+        
+        case 6:
+
+#if MQTT_USE
+    if( WiFi.status()  ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
+         mqtt_loop();
+#endif
+
+        irot = 7;
           break;
 
+        case 7:
+          loop_LED();
+          irot = 0;
+
+          break;
     }
 }
 
+void loop_LED(void)
+{
+    static unsigned long  t0=0; 
+    unsigned long t, dt;
+    unsigned int wt;
+    t = millis();
+     dt = t - t0;
+#if defined(ARDUINO_ARCH_ESP8266)
+     if(!LedSts) //быстро моргаем раз в мсек
+#elif defined(ARDUINO_ARCH_ESP32)
+     if(LedSts) //быстро моргаем раз в мсек
+#endif
+     {  wt = 10;
+        if(SmOT.stsOT > 0) wt = 1000;
+        if(dt >= wt)
+        { LedSts = (LedSts+1)&0x01;
+          digitalWrite(LED_BUILTIN, LedSts);   
+          //t0 = t;
+          t0 += wt;
+          return;
+        }
+     } else {
+        wt = 500;
+        if(SmOT.stsOT == 0) wt = 2000;
+        else if(SmOT.stsOT > 0) wt = 1000;
+        if(dt >= wt)
+        { LedSts = (LedSts+1)&0x01;
+          digitalWrite(LED_BUILTIN, LedSts);   
+          t0 += wt;
+//          t0 = t;   
+     
+#if 1
+/************************/ 
+//test for lost OT connection
+      {  time_t now = time(nullptr);
+        double dt;
+        dt = difftime(now,SmOT.t_lastwork);
+        if(dt > 10.)
+        {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
+//          if(OTstartSts == OTstartSts_MAX)
+            if(SmOT.plan.mask != MODE_START)
+            {  // OTstartSts = 0;  
+                SmOT.HotWater_present = false;
+                SmOT.enable_CentralHeating2  = false; 
+                SmOT.plan.SetMode(MODE_START); // init start sequence
+            }
+        }
+      }
+#endif //0      
+/************************/                 
+          return; 
+        }
+//        
+     }
+
+
+}
 
 void loop_time(void)
 { time_t now;
@@ -1490,7 +1498,10 @@ static int mday_prev = 0;
 //watchdogs reset      
   esp_task_wdt_reset();
   rtc_wdt_feed();         
+/**************************/  
+  ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
 
+/*******************************/
  nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
   nowtime = localtime(&now);
@@ -1809,3 +1820,27 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
  }   
 
 #endif
+
+int ST_setCpuFrequencyMhz(int code)
+{   int i, frset = 240;
+    int cpuf = getCpuFrequencyMhz();
+    if(code == 1)
+      frset = 160;
+    else if(code == 2)
+      frset = 160;
+     
+    if(cpuf != frset)
+    {  bootSts2++;  _bootSts2++;  
+
+      for(i=0;i<10;i++)
+      { setCpuFrequencyMhz(frset);
+        delay(10+i*2);
+        cpuf = getCpuFrequencyMhz();
+        if(cpuf !=  frset)
+        {   Serial.printf("%d CPQ FREQ set %d, get %d", i,frset, cpuf );
+            delay(10+i*2);
+        } else break;
+      }
+    }
+    return 0;
+}

@@ -244,7 +244,8 @@ M0:
 		enable_CentralHeating
 #endif
 		)	plan.SetMode(MODE_CH);
-
+		else if(HotWater_present && (BoilerStatus & 0x08)) 
+			plan.SetMode(MODE_HW); //HW off, CH off, Flame on ==> indirect heating boiler heat on
 				break;
 
 			case MODE_CH: // CH -> HW | IDLE

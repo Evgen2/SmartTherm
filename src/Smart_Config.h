@@ -14,6 +14,7 @@
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define SERVER_DEBUG 0
+#define CLIENT_DEBUG 0
 #define T_DEBUG 0
 
 #define OT_DEBUGLOG 1 //default
