@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.8.4.6
+Version 0.8.4.7
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
 
@@ -19,6 +19,9 @@ Features:
 * [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.8.4.7
+* bugfix
 
 0.8.4.6
 * AutoConnect lib change to  v. 1.4.7, arduino-home-assistant lib change to 2.1.1

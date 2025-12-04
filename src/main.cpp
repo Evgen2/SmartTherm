@@ -211,7 +211,7 @@ void onOTAstart(void)
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
-  rtc_wdt_disable(); // Start the RTC WDT timer
+  rtc_wdt_disable(); // stop the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
 
@@ -247,19 +247,20 @@ void check_reset(void)
   rr0 = rtc_get_reset_reason(0);
   rr1 = rtc_get_reset_reason(1);
   if(rr0 != 1 && rr0 != 12)
-  { Serial.printf("reset_reason %d %d\n", rr0, rr1);
-    Led_Info_reset(rr0);
+  { Led_Info_reset(rr0);
   }
-    // сохраняем состояние в момент старта
+
+  if(rr0 == 1)
+  {  bootReason = bootCount = bootSts = bootSts1 = 0;
+  } else {
+    Serial.printf("reset_reason %d %d bootCount %d sts %d %d\n", rr0, rr1, bootCount, bootSts, bootSts1);
+  }
+  // сохраняем состояние в момент старта, если не rr0 == 1
   _bootReason = bootReason;
   _bootCount = bootCount;
   _bootSts = bootSts;
   _bootSts1 = bootSts1;
 
-  if(rr0 == 1)
-  {
-    bootCount = bootSts = 0;
-  }
   bootReason = rr0;
 
 }
@@ -273,18 +274,14 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
   
-  delay(2);
+  delay(1);
   Serial.begin(115200);
-
-   ++bootCount;
-  Serial.print("Boot count: ");
-  Serial.println(bootCount);
 
   Serial.println(IDENTIFY_TEXT);
   Serial.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
-// Serial.printf((PGM_P)F("Vers %d.%d build %s\n"),SmOT.Vers, SmOT.SubVers, SmOT.BiosDate);
-//  Serial.printf("IRAM free: %6d bytes\n", ESP.getFreeHeap());
+  check_reset();
+   ++bootCount;
 
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
@@ -1801,9 +1798,44 @@ static int mday_prev = 0;
 #endif
 
 #if ST_VERS == 2
- #if OT_SLAVE_DEBUG 
-  { extern int nslaveint;
-    Serial.printf("v = %d", nslaveint);
+ #if OT2_SLAVE_DEBUG 
+  { //extern int nslaveint;
+extern otst otst_d[128];
+extern int Notst;
+extern int Flag_otst; 
+    int i;
+
+//    Serial.printf("v = %d %d %x %d\n", nslaveint, ot_slave.status, ot_slave.getLastResponse(), digitalRead(inPinSlave));
+
+    if(Flag_otst)
+    {
+      if(Notst > 0)
+      {
+        Serial.printf("OT data\n");
+        for(i=0; i<Notst; i++)
+        {
+            if(i > 0)
+              Serial.printf("%d %d %ld %x %d %x\n", i,  otst_d[i].state, otst_d[i].t - otst_d[i-1].t,  otst_d[i].status, otst_d[i].ind, otst_d[i].resp);
+            else 
+              Serial.printf("%d %d 0 %x %d %x\n", i,  otst_d[i].state,   otst_d[i].status, otst_d[i].ind, otst_d[i].resp) ;
+				        }
+      }
+      Notst = 0;
+      Flag_otst = 0;
+    }
+/*
+    if(nslaveint > 0 && ot_slave.status == 1)
+    {
+      for(i=0; i<Notst; i++)
+      {
+          if(i > 0)
+            Serial.printf("%d %d %ld %x\n", i,  otst_d[i].state, otst_d[i].t - otst_d[i-1].t,  otst_d[i].status);
+          else 
+            Serial.printf("%d %d 0 %x\n", i,  otst_d[i].state,   otst_d[i].status);
+      }
+      Notst = 0;
+    }
+*/      
   }
  #endif 
 #endif 

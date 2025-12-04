@@ -58,7 +58,7 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
 static int timeOutcounter = 0;
 
 #if  OT_SLAVE_DEBUG
-    Serial.printf("Slave processRequest: request %x status %x\n", request, status); 
+    Serial.printf("Slave processRequest: request %lx status %x\n", request, status); 
 #endif
     if (status == OpenThermResponseStatus::SUCCESS) {
         ot_SlaveSts = 0;

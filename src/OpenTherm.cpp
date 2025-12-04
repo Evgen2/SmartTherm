@@ -7,6 +7,7 @@ OpenTherm.cpp - OpenTherm Communication Library For Arduino, ESP8266
 Copyright 2018, Ihor Melnyk
 */
 
+#include "Smart_Config.h"
 #include "OpenTherm.h"
 
 OpenTherm::OpenTherm(int inPin, int outPin, bool isSlave):
@@ -149,8 +150,35 @@ OpenThermResponseStatus OpenTherm::getLastResponseStatus()
 	return responseStatus;
 }
 
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+	otst otst_d[128];
+	int Notst = 0;
+	int Flag_otst = 0;
+#endif
+
 void IRAM_ATTR OpenTherm::handleInterrupt()
 {
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+ #if OT_MASTER_DEBUG
+	if(isSlave == 0)
+ #elif OT2_SLAVE_DEBUG 
+	if(isSlave)
+ #endif
+	{	if(Flag_otst == 0)
+		{	
+			otst_d[Notst].status =  status;
+			otst_d[Notst].state =  readState();
+			otst_d[Notst].t =  micros();
+			otst_d[Notst].ind = responseBitIndex; 
+			otst_d[Notst].resp = response;
+			if(Notst < 128 && responseBitIndex < 32 ) Notst++;
+			else 
+				Flag_otst = 1;
+		}
+ 	}
+
+#endif
+	
 	if (isReady())
 	{
 		if (isSlave && readState() == HIGH) {
@@ -162,6 +190,7 @@ void IRAM_ATTR OpenTherm::handleInterrupt()
 	}
 
 	unsigned long newTs = micros();
+
 	if (status == OpenThermStatus::RESPONSE_WAITING) {
 		if (readState() == HIGH) {
 			status = OpenThermStatus::RESPONSE_START_BIT;
@@ -206,6 +235,7 @@ void OpenTherm::process()
 	interrupts();
 
 	if (st == OpenThermStatus::READY) return;
+
 	unsigned long newTs = micros();
 	if (st != OpenThermStatus::NOT_INITIALIZED && st != OpenThermStatus::DELAY && (newTs - ts) > 1000000) {
 		status = OpenThermStatus::READY;
@@ -587,19 +617,21 @@ int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 OpenThermVendor OTvendorList[] =
 {	1,  "Baxi Fourtech/Luna 3",
     2,  "AWB/Brink/Viessmann",
-	4,  "Baxi Slim",
+	4,  "Baxi Slim", //    4:    "ATAG/Baxi/Brötje/ELCO/GEMINOX",
     5,  "Itho Daalderop",
     6,  "IDEAL",
     8,  "Buderus/Bosch/Hoval",
 	9,  "Ferrolli",
-	11, "Remeha",
+    11, "Remeha/De Dietrich",
+	13, "Lamborghini", // sb f24
 	16, "Unical",
 	24, "Vaillant/Bulex",
-	27, "Baxi Eco4s/Luna Duo-Tec P67=0",
+	27, "Baxi Eco4s/Luna Duo-Tec P67=0", //Baxi Nuvola B40
 	29, "Itho Daalderop",
 	33, "Viessmann",
 	41, "Italtherm/Radiant",
 	56,	"Baxi Luna Duo-Tec P67=2",
+	125, "Kotitonttu", // Toivo Т24 OK with OpenTherm
 	131, "Nefit",
     148, "Navien",
     173, "Intergas",

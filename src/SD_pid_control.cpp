@@ -76,6 +76,10 @@ void SD_Termo::loop_PID(void)
         u0 = _U0start;
     } 
 
+    if(u0 < 0.f)
+        u0 = 0.f;
+    else if(u0 > umax)
+        u0 = umax;
 //   Serial.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
 //             is, start, tempoutdoor, u0, mypid.InT );
 
