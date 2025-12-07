@@ -18,6 +18,7 @@
 #define T_DEBUG 0
 
 #define OT_DEBUGLOG 1 //default
+#define OT_MASTER_DEBUG 0
 
 #if ST_VERS == 0
   #if defined(ARDUINO_ARCH_ESP8266)
@@ -36,6 +37,7 @@
   #define RELAY_USE 1
   #define CONFIG_VERSION (CONFIG_VERSIONBASE|0x8000)
   #define OT_SLAVE_DEBUG 0
+  #define OT2_SLAVE_DEBUG 1
 #else 
   error
 #endif

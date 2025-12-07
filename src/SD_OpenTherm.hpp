@@ -248,6 +248,7 @@ public:
   float oldTroomSetpoint; 
   float umin; //минимальная температура теплоносителя
   float umax; //максимальная температура теплоносителя
+  int useCPU_freq; //0 =240, 1=160, 2=80
 
   SD_Termo(void)
   {	  
@@ -367,6 +368,7 @@ public:
     ot_slave_stsOT = -2; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
     ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
 #endif
+    useCPU_freq = -1; //2;
 
   }
   void RelayInit(void);

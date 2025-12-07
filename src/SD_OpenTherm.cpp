@@ -55,6 +55,7 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
             sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::umax) + sizeof(SD_Termo::umin) + sizeof(SD_Termo::mypid.u0) +
             sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss)
 #endif
+            + sizeof(SD_Termo::useCPU_freq) 
     ;
 
 #if MQTT_USE
@@ -191,6 +192,9 @@ int SD_Termo::Read_ot_fs(void)
 
 #endif //PID_USE
 
+    memcpy((void *) &useCPU_freq, &Buff[n], sizeof(useCPU_freq));
+    n += sizeof(useCPU_freq);
+    if(n >= nw) goto END;
 
 END:
 
@@ -446,8 +450,9 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(mypid.y1);
     memcpy(&Buff[n],(void *) &mypid.Kidiss , sizeof(mypid.Kidiss));
     n += sizeof(mypid.Kidiss);
-
 #endif
+    memcpy(&Buff[n],(void *) &useCPU_freq , sizeof(useCPU_freq));
+    n += sizeof(useCPU_freq);
 
 
 #if SERIAL_DEBUG      

@@ -43,6 +43,8 @@ void loop_time(void);
 void loop_LED(void);
 void OTloop_callback(void);
 
+int ST_setCpuFrequencyMhz(int code);
+
 #if MQTT_USE 
  #if RELAY_USE
   extern void MQTT_pub_relay(void);
@@ -147,8 +149,8 @@ void init_ot_slave(void)
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
 //RTC_DATA_ATTR
-RTC_NOINIT_ATTR  unsigned short int bootCount, bootReason, bootSts, bootSts1;
-unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1; // сохраняем состояние в момент старта
+RTC_NOINIT_ATTR  unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2; // сохраняем состояние в момент старта
 
 
 void Led_Info_reset(int code)
@@ -167,7 +169,8 @@ void Led_Info_reset(int code)
       }
       if(j < 1)
         delay(1000);
-      Serial.printf("%d bootSts=%d\n", j, bootSts);
+      Serial.printf("%d resetReason %d bootCount %d prevReason %d bootSts=%d bootSts1=%d bootSts2=%d\n",
+           j, code,  bootCount, bootReason, bootSts, bootSts1, bootSts2);
   }
 }
 
@@ -251,7 +254,7 @@ void check_reset(void)
   }
 
   if(rr0 == 1)
-  {  bootReason = bootCount = bootSts = bootSts1 = 0;
+  {  bootReason = bootCount = bootSts = bootSts1 = bootSts2 = 0;
   } else {
     Serial.printf("reset_reason %d %d bootCount %d sts %d %d\n", rr0, rr1, bootCount, bootSts, bootSts1);
   }
@@ -260,6 +263,7 @@ void check_reset(void)
   _bootCount = bootCount;
   _bootSts = bootSts;
   _bootSts1 = bootSts1;
+  _bootSts2 = bootSts2;
 
   bootReason = rr0;
 
@@ -289,6 +293,15 @@ void setup() {
   setup_read_config();
 
   watchdog_setup();
+
+  Serial.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
+  if(SmOT.useCPU_freq > 0)
+  { int v = 80;
+    if(SmOT.useCPU_freq == 1) v = 160;
+    setCpuFrequencyMhz(v);
+
+    Serial.printf("Set CPU Freq to %d\n", v);
+  }
 
   SmOT.RelayInit();
 /*******************************************/
@@ -420,7 +433,7 @@ void loopDS1820(void)
         if(rc)
         { t = Tsensor1.getTempC();
           SmOT.status &= ~0x04; // сброс бита таймаута
-          if (t == DEVICE_CRC_ERROR)
+          if (t == DEVICE_CRC_ERROR || t == DEVICE_DISCONNECTED)
           { SmOT.stsT1 = 2;
             SmOT.status |= 0x10;
 #if SERIAL_DEBUG 
@@ -469,7 +482,7 @@ void loopDS1820(void)
         {  SmOT.status &= ~0x0400; // сброс бита таймаута
 
           t = Tsensor2.getTempC();
-          if (t == DEVICE_CRC_ERROR)
+          if (t == DEVICE_CRC_ERROR || t == DEVICE_DISCONNECTED)
           { SmOT.stsT2 = 2;
             SmOT.status |= 0x1000;
       #if SERIAL_DEBUG 
@@ -1770,6 +1783,7 @@ static int mday_prev = 0;
   esp_task_wdt_reset();
   rtc_wdt_feed();         
 
+  ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
 
   nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
@@ -1919,6 +1933,30 @@ void SD_Termo::RelayOnOff(bool onoff)
 #endif   
 
 #endif  
+}
+
+int ST_setCpuFrequencyMhz(int code)
+{   int i, frset = 240;
+    int cpuf = getCpuFrequencyMhz();
+    if(code == 1)
+      frset = 160;
+    else if(code == 2)
+      frset = 160;
+     
+    if(cpuf != frset)
+    {  bootSts2++;  _bootSts2++;  
+
+      for(i=0;i<10;i++)
+      { setCpuFrequencyMhz(frset);
+        delay(10+i*2);
+        cpuf = getCpuFrequencyMhz();
+        if(cpuf !=  frset)
+        {   Serial.printf("%d CPQ FREQ set %d, get %d", i,frset, cpuf );
+            delay(10+i*2);
+        } else break;
+      }
+    }
+    return 0;
 }
 
 #if OT_DEBUGLOG

@@ -6,10 +6,10 @@
 #include "pid.hpp"
 
 void  pid::Set_NewTag( float _Tag, float _x)
-{  float dtag, _xerr, _xerrnew;
+{  float dtag,  _xerrnew;
    
 //   Serial.printf("**** Set_NewTag: xTag = %f I = %f I*Ki=%f\n", xTag, InT, InT * Ki );
-   _xerr = xTag - _x;
+//   _xerr = xTag - _x;
    _xerrnew = _Tag - _x;
    dtag = _Tag - xTag;
    xTag = _Tag;

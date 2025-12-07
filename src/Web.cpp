@@ -134,14 +134,16 @@ AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2
 AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лето/зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox UseCPU_FREQ_ChB("CPUFREQ","", "CPU FREQ", false, AC_Behind, AC_Tag_None);
+ACInput(CPU_FREQ,"", " ","", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
 
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, ApplyAddpar, SetupPID, Info1, SendBLOR });
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, ApplyAddpar, SetupPID, Info1, SendBLOR });
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, ApplyAddpar, Info1, SendBLOR});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, ApplyAddpar, Info1, SendBLOR});
 #endif //#if PID_USE
 
 
@@ -268,7 +270,8 @@ extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err); 
 extern void OTloop_callback(void);
 
-extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1; //  состояние в момент старта
+extern RTC_NOINIT_ATTR unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2; //  состояние в момент старта
 
 
 String utc_time_jc;
@@ -599,7 +602,8 @@ extern int minRamFree;
     }
 #endif   
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
-      sprintf(str,"reset reason: %d %d (%d %d %d %d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), _bootCount, _bootReason, _bootSts, _bootSts1);
+      sprintf(str,"reset reason: %d %d (%d %d %d %d %d|%d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), 
+          _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2, bootSts2);
 
   Info7.value = str;
 #if 0   
@@ -895,8 +899,9 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 }
 
 // SetAddParPage 
+// SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0;
+{  int isChange=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -947,11 +952,36 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
      SmOT.Immergas_fix_flag = icheck;
   }
 
+  if( UseCPU_FREQ_ChB.checked) icheck = true;
+  else                         icheck = false;
+  if(icheck)
+  { if(SmOT.useCPU_freq == -1)
+    {   redir = 1;  
+        SmOT.useCPU_freq = 0;
+    } else {
+      int v=0;
+      v2 = CPU_FREQ.value.toInt();
+      if(v2 == 240) v = 0;
+      else if(v2 == 160) v = 1;
+      else if(v2 == 80)  v = 2;
+      if(v != SmOT.useCPU_freq)
+      { SmOT.useCPU_freq = v;
+        isChange = 1;
+      }
+    }
+  } else {
+    SmOT.useCPU_freq = -1;
+    isChange = 1;
+  }
 
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
 
-  aux.redirect(SETUP_URI);
+  if(redir)
+        aux.redirect(SETUP_ADD_URI);
+  else
+        aux.redirect(SETUP_URI);
+
   return String();
 }
 
@@ -990,6 +1020,23 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
       Immergas_fix_ChB.checked = true;
   else
       Immergas_fix_ChB.checked = false;
+
+  if(SmOT.useCPU_freq >=0)
+      UseCPU_FREQ_ChB.checked = true;
+  else
+      UseCPU_FREQ_ChB.checked = false;
+
+  if( UseCPU_FREQ_ChB.checked) 
+  {   CPU_FREQ.enable = true;
+    if(SmOT.useCPU_freq < 1)  strcpy(str,"240");
+    else if(SmOT.useCPU_freq == 1)  strcpy(str,"160");
+    else  strcpy(str,"80");
+    CPU_FREQ.value = str;
+    Info2.value ="<small>Частота процессора: 240/160/80</small>";
+  } else {
+    CPU_FREQ.enable = false;
+    Info2.value ="";
+  }
 
   if(SmOT.RemoteRequest_present)
   {   SendBLOR.enable = true;
@@ -1178,9 +1225,19 @@ if(SmOT.useMQTT)
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура ";
         if(SmOT.stsT1 >= 0)
-          Info3.value += "T1 " + String(SmOT.t1) + " ";
+        { if(SmOT.stsT1 == 2)
+          { Info3.value += "T1 Err "; 
+          } else {
+            Info3.value += "T1 " + String(SmOT.t1) + " ";
+          }
+        }
         if(SmOT.stsT2 >= 0)
-          Info3.value += "T2 " + String(SmOT.t2) ;
+        { if(SmOT.stsT2 == 2)
+          { Info3.value += "T2 Err "; 
+          } else {
+            Info3.value += "T2 " + String(SmOT.t2);
+          }
+        }
         Info3.value += "<br>";
     } else {
         Info3.value = "";
