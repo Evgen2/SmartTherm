@@ -141,9 +141,9 @@ ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
 
 #if PID_USE
 ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, ApplyAddpar, SetupPID, Info1, SendBLOR });
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, SetupPID, Info1, SendBLOR });
 #else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, ApplyAddpar, Info1, SendBLOR});
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2,  ApplyAddpar, Info1, SendBLOR});
 #endif //#if PID_USE
 
 
