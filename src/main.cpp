@@ -41,7 +41,9 @@ void OTlog(unsigned int reqresp, int sts);
 void OTlogErr(int status, int sts);
 void OTlogDelLast(void);
 #endif
-
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+void ot_debug_print(void);
+#endif
 void loop_time(void);
 void loop_LED(void);
 void OTloop_callback(void);
@@ -245,20 +247,22 @@ void check_reset(void)
   rr0 = rtc_get_reset_reason(0);
   rr1 = rtc_get_reset_reason(1);
   if(rr0 != 1 && rr0 != 12)
-  { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);  
-    Led_Info_reset(rr0);
+  { Led_Info_reset(rr0);
   }
-  // сохраняем состояние в момент старта
+
+  if(rr0 == 1)
+  {  bootReason = bootCount = bootSts = bootSts1 = bootSts2 = 0;
+  } else {
+    Serial.printf("reset_reason %d %d bootCount %d sts %d %d\n", rr0, rr1, bootCount, bootSts, bootSts1);
+  }
+  
+// сохраняем состояние в момент старта, если не rr0 == 1
   _bootReason = bootReason;
   _bootCount = bootCount;
   _bootSts = bootSts;
   _bootSts1 = bootSts1;
   _bootSts2 = bootSts2;
-  if(rr0 == 1)
-  {
-    bootCount = bootSts = bootSts2 = 0;
-     bootSts1 = -1;
-  }
+
   bootReason = rr0;
 }
 
@@ -281,8 +285,8 @@ void setup() {
 //  Serial.println(bootCount);
 
   heap_caps_check_integrity_all(true);
-  Serial_db.printf("%s ", IDENTIFY_TEXT);
-  Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
+  Serial_db.printf((PGM_P)F("%s Vers %d.%d.%d.%d build %s\n"),
+       IDENTIFY_TEXT, SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
   check_reset();
 
   setup_read_config();
@@ -346,11 +350,11 @@ void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
  //  Serial.println(DS18B20_LIB_VERSION);
 
-  SmOT.status = 0x0;
+  SmOT.statusDS18b20 = 0x0;
 
   if(Tsensor1.begin() == false)
   {   SmOT.stsT1 = -1;
-      SmOT.status |= 0x02;
+      SmOT.statusDS18b20 |= 0x02;
       Serial_db.printf((PGM_P)F("ERROR: No DS18b20(1) found on pin %i\n"), DS1820_1);
       delay(100);
       if(Tsensor1.begin() )
@@ -360,7 +364,7 @@ void setupDS1820(void)
 
   }  else {
 M1:      SmOT.stsT1 = 0;
-      SmOT.status |= 0x01;
+      SmOT.statusDS18b20 |= 0x01;
 
       Tsensor1.setResolution(12);
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
@@ -369,7 +373,7 @@ M1:      SmOT.stsT1 = 0;
 
   if(Tsensor2.begin() == false)
   {   SmOT.stsT2 = -1;
-      SmOT.status |= 0x0200;
+      SmOT.statusDS18b20 |= 0x0200;
       Serial_db.printf((PGM_P)F("ERROR: No DS18b20(2) found on pin %i\n"), DS1820_2);
       delay(100);
       if(Tsensor2.begin() )
@@ -379,7 +383,7 @@ M1:      SmOT.stsT1 = 0;
 
   }  else {
 M2:   SmOT.stsT2 = 0;
-      SmOT.status |= 0x0100;
+      SmOT.statusDS18b20 |= 0x0100;
       Tsensor2.setResolution(12);
       Tsensor2.setConfig(DS18B20_CRC);  // or 1
       Serial_db.printf((PGM_P)F("DS18b20(2) found on pin %i\n"), DS1820_2);
@@ -395,7 +399,7 @@ void loopDS1820(void)
 //  Serial_db.printf("loopDS1820 nd %i %li\n", nd, millis());
   switch(nd)
   {   case 0:
-        if(SmOT.status&0x01)
+        if(SmOT.statusDS18b20&0x01)
         { Tsensor1.requestTemperatures();
           nd = 1;
           start = millis();
@@ -407,7 +411,7 @@ void loopDS1820(void)
         if(millis()-start > 900)
         {   rc = Tsensor1.isConversionComplete();
             if(!rc)
-            { SmOT.status |= 0x04;
+            { SmOT.statusDS18b20 |= 0x04;  //бит таймаута
               nd = 2;
 #if SERIAL_DEBUG 
               Serial.println(F("ERROR: DS1 timeout or disconnect"));
@@ -419,15 +423,23 @@ void loopDS1820(void)
         }
         if(rc)
         { t = Tsensor1.getTempC();
-          SmOT.status &= ~0x04; // сброс бита таймаута
-          if (t == DEVICE_CRC_ERROR)
-          { SmOT.stsT1 = 2;
-            SmOT.status |= 0x10;
+          SmOT.statusDS18b20 &= ~0x04; // сброс бита таймаута
+          if(t == DEVICE_DISCONNECTED)
+          {
+            SmOT.stsT1 = 4;
+            SmOT.statusDS18b20 |= 0x20;
+#if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS1 Disconnected"));
+#endif            
+
+          } else if (t == DEVICE_CRC_ERROR) {
+            SmOT.stsT1 = 2;
+            SmOT.statusDS18b20 |= 0x10;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
           } else {
-            SmOT.status &= ~0x10; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
@@ -436,13 +448,13 @@ void loopDS1820(void)
             SmOT.OnChangeT(t,0);    
 //            Serial_db.printf("SmOT T1= %f\n",   SmOT.t1);
           }
-          SmOT.status &= ~0x04;
+          SmOT.statusDS18b20 &= ~0x04;
           nd = 2;
         }
         break;
 
       case 2:
-        if(SmOT.status&0x0100)
+        if(SmOT.statusDS18b20&0x0100)
         { Tsensor2.requestTemperatures();
           nd = 3;
           start = millis();
@@ -455,7 +467,7 @@ void loopDS1820(void)
         if(millis()-start > 900) //900
         { rc = Tsensor2.isConversionComplete();
           if(!rc)
-          { SmOT.status |= 0x0400;
+          { SmOT.statusDS18b20 |= 0x0400;//бит таймаута
             nd = 0;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 timeout or disconnect"));
@@ -466,17 +478,25 @@ void loopDS1820(void)
           rc = Tsensor2.isConversionComplete();
         }
         if(rc)
-        {  SmOT.status &= ~0x0400; // сброс бита таймаута
+        {  SmOT.statusDS18b20 &= ~0x0400; // сброс бита таймаута
 
           t = Tsensor2.getTempC();
-          if (t == DEVICE_CRC_ERROR)
-          { SmOT.stsT2 = 2;
-            SmOT.status |= 0x1000;
+          if(t == DEVICE_DISCONNECTED)
+          {
+            SmOT.stsT2 = 4;
+            SmOT.statusDS18b20 |= 0x2000;
+#if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS1 Disconnected"));
+#endif            
+
+          } else  if (t == DEVICE_CRC_ERROR)  {
+             SmOT.stsT2 = 2;
+            SmOT.statusDS18b20 |= 0x1000;
       #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
           } else {
-            SmOT.status &= ~0x1000; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
 
             if(SmOT.stsT2 == 1)
                 SmOT.t2 = (SmOT.t2 + t) * 0.5;
@@ -1073,8 +1093,8 @@ unsigned int SD_Termo::buildRequest(int ot_id)
 {  static int old_CH = -1;
   if(old_CH != enable_CentralHeating_real)
     {
-      if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && enable_CentralHeating_real)
-         need_set_MaxRelModLevel(2); 
+      if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting) && enable_CentralHeating_real && Use_MaxRelModLevel)
+        need_set_MaxRelModLevel(2); 
 
 // Serial_db.printf("enable_CentralHeating_real  %d %d\n",enable_CentralHeating_real, old_CH );
 #if MQTT_USE 
@@ -1543,6 +1563,10 @@ Serial_db.printf( "%02d.%02d.%d %d:%02d:%02d\n",
 #endif
 */      
 
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+  ot_debug_print();
+#endif
+
   if(hour_prev != nowtime->tm_hour)
   { hour_prev = nowtime->tm_hour;
     SmOT.Bstat.NflameOn_h_prev = SmOT.Bstat.NflameOn_h;
@@ -1844,3 +1868,36 @@ int ST_setCpuFrequencyMhz(int code)
     }
     return 0;
 }
+
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+void ot_debug_print(void)
+{
+  extern otst otst_d[128];
+  extern int Notst;
+  extern int Flag_otst; 
+  int i;
+
+  if(Flag_otst)
+  {
+    if(Notst > 0)
+    {
+#if OT_MASTER_DEBUG 
+      Serial.printf("OT master data\n");
+#elif OT2_SLAVE_DEBUG 
+      Serial.printf("OT slave  data\n");
+#endif      
+      Serial.printf("N state dt_mks status bitIndex  responce_hex\n");
+      for(i=0; i<Notst; i++)
+      {
+          if(i > 0)
+            Serial.printf("%d %d %ld %x %d %x\n", i,  otst_d[i].state, otst_d[i].t - otst_d[i-1].t,  otst_d[i].status, otst_d[i].ind, otst_d[i].resp);
+          else 
+            Serial.printf("%d %d 0 %x %d %x\n", i,  otst_d[i].state,   otst_d[i].status, otst_d[i].ind, otst_d[i].resp) ;
+              }
+    }
+    Notst = 0;
+    Flag_otst = 0;
+  }
+
+}
+#endif

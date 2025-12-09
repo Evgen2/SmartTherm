@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.8.5.9
+Version 0.8.5.11
 
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
@@ -21,6 +21,11 @@ Features:
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
 
+
+0.8.5.11
+* DS18B20 disconnect detection, update robtillaart/DS18B20 version lib to 0.2.4
+* OpenTherm debug udate
+* small fixes
 
 0.8.5.10
  

@@ -339,5 +339,15 @@ struct OpenThermVendor
 
 const char * GetOTVendorName(int id);
 
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
 
+struct otst
+{	unsigned int status;
+	unsigned int state;
+	unsigned long t;
+    int ind;
+    int resp;
+};
+
+#endif //OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
 #endif // OpenTherm_h

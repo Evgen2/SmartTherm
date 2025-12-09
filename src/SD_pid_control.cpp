@@ -78,6 +78,10 @@ void SD_Termo::loop_PID(void)
         u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
     } 
     u0 =  safeFloat( u0); 
+    if(u0 < 0.f)
+        u0 = 0.f;
+    else if(u0 > umax)
+        u0 = umax;
 
 
 //   Serial_db.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
@@ -271,9 +275,6 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
         {
             if(t_mean[srcText].isset >= 0)
             {   tempoutdoor = t_mean[srcText].x; 
-#if DEBUG_WITH_EMULATOR  //translate to emulator tempoutdoor as TdhwSet
-                need_set_dhwT = 1;
-#endif
                 is |= 2;
                 IsSetTemp |= 0x02;
             }

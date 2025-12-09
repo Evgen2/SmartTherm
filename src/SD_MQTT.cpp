@@ -452,7 +452,7 @@ extern unsigned int OTcount;
 
     hvac.setMinTemp(SmOT.umin);
     hvac.setMaxTemp(SmOT.umax);
-    hvac.setTempStep(1.);
+    hvac.setTempStep(0.1);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
     #if  PID_USE
     if(SmOT.enable_CentralHeating_real)
@@ -476,7 +476,7 @@ extern unsigned int OTcount;
         hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
       hvacDHW.setMinTemp(30);
       hvacDHW.setMaxTemp(80);
-      hvacDHW.setTempStep(1.);
+      hvacDHW.setTempStep(0.1);
 
       hvacDHW.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
 

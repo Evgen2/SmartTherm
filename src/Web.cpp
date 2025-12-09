@@ -1227,9 +1227,11 @@ if(SmOT.useMQTT)
         break;
   }
   
+  Info1.value += "<br>";
+  
 } else {
    if(SmOT.CapabilitiesDetected == 0)
-          Info1.value += "<br>Тест котла";
+          Info1.value += "Тест котла";
 }
 #else 
    if(SmOT.CapabilitiesDetected == 0)
@@ -1237,7 +1239,7 @@ if(SmOT.useMQTT)
 #endif // MQTT_USE 
 #if PID_USE
     if(SmOT.usePID && SmOT.enable_CentralHeating)
-    {   Info1.value += "<br>управление по PID";
+    {   Info1.value += "управление по PID";
         if(SmOT.usePID & 0x02)
               Info1.value += "без ограничений";
       Info1.value += " Tindoor " + String(SmOT.tempindoor) + " ";
@@ -1252,9 +1254,24 @@ if(SmOT.useMQTT)
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура ";
         if(SmOT.stsT1 >= 0)
-          Info3.value += "T1 " + String(SmOT.t1) + " ";
+        { if(SmOT.stsT1 == 4)
+          { Info3.value += "T1 Disconnect "; 
+          } else  if(SmOT.stsT1 == 2) { 
+            Info3.value += "T1 Crc Err "; 
+          } else {
+            Info3.value += "T1 " + String(SmOT.t1) + " ";
+          }
+        }
         if(SmOT.stsT2 >= 0)
-          Info3.value += "T2 " + String(SmOT.t2) ;
+        { if(SmOT.stsT2 == 4)
+          { Info3.value += "T2 Disconnect "; 
+          } else  if(SmOT.stsT2 == 2) { 
+            Info3.value += "T2 Crc Err "; 
+          } else {
+            Info3.value += "T2 " + String(SmOT.t2) + " ";
+          }
+        }
+
         Info3.value += "<br>";
     } else {
         Info3.value = "";
@@ -1279,12 +1296,12 @@ if(SmOT.useMQTT)
       } else  if(SmOT.HotWater_present) {
          if(SmOT.enable_HotWater)
          {  if(SmOT.Dhw_t_present)
-                Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+                Info2.value +=  "<br>Горячая вода " + String(SmOT.dhw_t);
 //DHW on or off less than 10 sec
 //todo??    if((SmOT.BoilerStatus & 0x0200)|| ((time(nullptr) - SmOT.Bstat.t_HW_off) < 10))
-            if(SmOT.DHWFlowRate_present)
+            if(SmOT.DHWFlowRate_present && SmOT.DHWFlowRate > 0.f)
             {
-                Info1.value += " Расход "  + String(SmOT.DHWFlowRate);
+                Info2.value += " Расход "  + String(SmOT.DHWFlowRate);
             }
          }
       }
@@ -1434,16 +1451,13 @@ if(SmOT.useMQTT)
     }
 
     if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
-          Info7.value +=  ", управление от панели";
-    else 
-          Info7.value +=  ", управление от контроллера";
-
-    if(SmOT.OT_slave_mode == 1)
     {   SetDHWTemp.enable = false;
         SetBoilerTemp2.enable = false;
         SetBoilerTemp.enable = false;
         SetNewBoilerTemp.enable = false;
-    }
+        Info7.value +=  ", управление от панели";
+    } else 
+          Info7.value +=  ", управление от контроллера";
   }
 
 #endif

@@ -3,7 +3,7 @@
 #define SMART_CONFIG
 
 #include "DeviceType.h"
-#include "SmartDebug.h"
+//#include "SmartDebug.h"
 
 #define CONFIG_VERSIONBASE 0x1003
 
@@ -18,6 +18,7 @@
 #define T_DEBUG 0
 
 #define OT_DEBUGLOG 1 //default
+#define OT_MASTER_DEBUG 0
 
 #if ST_VERS == 0
   #if defined(ARDUINO_ARCH_ESP8266)
@@ -35,7 +36,8 @@
   #define MQTT_USE  1
   #define RELAY_USE 1
   #define CONFIG_VERSION (CONFIG_VERSIONBASE|0x8000)
-  #define OT_SLAVE_DEBUG 0
+  #define OT_SLAVE_DEBUG 0  //test debug mode
+  #define OT2_SLAVE_DEBUG 0
 #else 
   error
 #endif
