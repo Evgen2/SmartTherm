@@ -1588,56 +1588,20 @@ int minRamFree=-1;
 /* web, udp, DS1820 */
 void loop2(void)
 {   static int irot = 0;
-#if 0
 
-#if defined(ARDUINO_ARCH_ESP8266)
-     if(!LedSts) //быстро моргаем раз в мсек
-#elif defined(ARDUINO_ARCH_ESP32)
-     if(LedSts) //быстро моргаем раз в мсек
-#endif
-     {  if(dt > 2)
-        { LedSts = (LedSts+1)&0x01;
-          digitalWrite(LED_BUILTIN, LedSts);   
-//   Serial.printf("dt=%d\n", dt);
-          t0 = t;
-        }
-     } else {
-        int wt = 500;
-        if(SmOT.stsOT == 0) wt = 2000;
-        else if(SmOT.stsOT > 0) wt = 1000;
-        if(dt > (unsigned long)wt)
-        { LedSts = (LedSts+1)&0x01;
-          digitalWrite(LED_BUILTIN, LedSts);   
-          t0 = t;   
-/************************/ 
-//test for lost OT connection
-      {  time_t now = time(nullptr);
-        double dt;
-        dt = difftime(now,SmOT.t_lastwork);
-        if(dt > 10.)
-        {         //sprintf(str0, "Потеря связи с котлом %.f сек назад", dt);
-            if(OTstartSts == OTstartSts_MAX)
-            {   OTstartSts = 0;  // init start sequence
-                SmOT.HotWater_present = false;
-                SmOT.enable_CentralHeating2  = false; 
-            }
-        }
-      }
-/************************/                 
-        }
-//        
-     }
-#endif //0
+    bootSts = irot;
 
     switch(irot)
     {  case 0: 
        loop_web();
           irot++;
         break;
+        
         case 1:
          SmOT.loop();
           irot++;
         break;
+
         case 2:
    
 //Serial.printf("loop_udp\n");
