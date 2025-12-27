@@ -70,29 +70,7 @@ void onConnect(IPAddress& ipaddr);
   extern void mqtt_start(void);
   extern int MQTT_pub_usePID(void);
 #endif
-String onInfo(AutoConnectAux& aux, PageArgument& args);
-String on_Setup(AutoConnectAux& aux, PageArgument& args);
-String on_SetupAdd(AutoConnectAux& aux, PageArgument& args);
-String onSetTemp(AutoConnectAux& aux, PageArgument& args);
-String onSetPar(AutoConnectAux& aux, PageArgument& args);
-String onSetAddPar(AutoConnectAux& aux, PageArgument& args);
-String onDebug(AutoConnectAux& aux, PageArgument& args);
-String onAbout(AutoConnectAux& aux, PageArgument& args);
-String onSendBlor(AutoConnectAux& aux, PageArgument& args);
-
-#if PID_USE
-String onSetupPID(AutoConnectAux& aux, PageArgument& args);
-String onSetPID(AutoConnectAux& aux, PageArgument& args);
-#endif
-
-#if RELAY_USE
-String onSetRelay(AutoConnectAux& aux, PageArgument& args);
-#endif
-
-#if ST_VERS == 2
-String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args);
-String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
-#endif
+// Handlers are implemented in the dedicated src/Web/*Page.cpp modules now
 
 extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err); 
@@ -274,7 +252,7 @@ int OutUTCtime(time_t now);
 //#include "esp32/rom/rtc.h"
 // All page handlers moved to src/Web/Pages.cpp
 
-#if 0 // Moved to src/Web/Pages.cpp
+#if 0 // Moved to src/Web/*Page.cpp files
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[256];
