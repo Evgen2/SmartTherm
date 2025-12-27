@@ -3,6 +3,7 @@
 #pragma once
 
 #include <AutoConnect.h>
+#include "Smart_Config.h"
 
 // URIs (shared across pages)
 extern const char INFO_URI[];
