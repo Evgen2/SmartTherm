@@ -1,12 +1,9 @@
-/* Pages.hpp - AutoConnect web pages API */
+/* Pages.hpp - AutoConnect web pages API (aggregator) */
 
 #pragma once
 
 #include <AutoConnect.h>
+#include "Shared.hpp"  // URIs and shared controls
 
-// Export the Info URI so Web.cpp can redirect to it from root
-extern const char INFO_URI[];
-
-// Register all pages (create controls, pages, attach handlers, join to portal)
+// Register all pages (create controls, attach handlers, join to portal)
 void RegisterWebPages(AutoConnect& portal);
-
