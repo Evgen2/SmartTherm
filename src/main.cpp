@@ -293,7 +293,7 @@ void setup() {
 
   watchdog_setup();
 
-  Serial.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
+  Serial.printf("SmOT.useCPU_freq %d remote control %d\n", SmOT.useCPU_freq, SmOT.Use_remoteTCPserver);
   if(SmOT.useCPU_freq > 0)
   { int v = 80;
     if(SmOT.useCPU_freq == 1) v = 160;
@@ -330,6 +330,7 @@ void setup() {
         ot.Immergas_fix = true;
 
 #if SERVER_DEBUG
+#if 0
   SmOT.TCPserver_sts = 2;  /* статус сервера */
 //  SmOT.TCPserver_sts2 = 1; 
   SmOT.TCPserver_t = millis();
@@ -337,6 +338,7 @@ void setup() {
   SmOT.TCPserver_report_period = 10000;
   SmOT.tcp_remoteIP.fromString("192.168.10.112");
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
+#endif	
 #endif	
 
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
@@ -1662,10 +1664,9 @@ void OTlogErr(int status, int sts)
 void OTlog(unsigned int reqresp, int sts)
 { unsigned int b[2];
   unsigned long t = millis();
-  int lb;
+  int lb, rc;
+static unsigned long t0 = 0; 
 
-return;
-//todo test  
   if(!SmOT.Use_remoteTCPserver)
     return;
     
@@ -1674,11 +1675,22 @@ return;
   if(SmOT.nOTlog < 1024 && lb > 1)
   { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff)); //  
     
+{
+  unsigned long t1;
+  t1 = t & 0xffffff;
+  if((t1-t0) > 1000 ) 
+    Serial_db.printf("==>+dt %ld t1=%ld, t0=%ld\n", t1-t0, t1, t0);
+  t0 = t1;
+}    
 //    Serial_db.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
 //        SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
     b[1] =  reqresp;
 
-    SmOT.OTlogBuf.Add( b);
+    rc = SmOT.OTlogBuf.Add( b);
+    if(rc == 0)
+        Serial_db.printf("==>SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
+              SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
+
     SmOT.nOTlog++;
     
   } else if(lb <= 1) { //нет места в буфере

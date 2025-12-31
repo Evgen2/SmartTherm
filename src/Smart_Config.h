@@ -10,7 +10,7 @@
 //ST_VERS 0   SmartTherm32
 //ST_VERS 1   SmartTherm = SmartTherm32 + Relay
 //ST_VERS 2   SmartTherm 2 = SmartTherm32 + Relay + 2 OpenTherm (master+slave)
-#define ST_VERS 0
+#define ST_VERS 2
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define SERVER_DEBUG 0
@@ -62,7 +62,7 @@
 #define IDENTIFY_TYPE     DS_OPENTHERM
 #define IDENTIFY_SUBTYPE  ST_VERS
 /* TCP/UDP buffer size in bytes */
-#define UDP_TSP_BUFSIZE 128
+#define UDP_TSP_BUFSIZE 134
 
 //есть датчик температуры
 #define USE_SENSOR_T 1

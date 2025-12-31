@@ -419,7 +419,7 @@ void setup_web_common(void)
 #include "esp_sntp.h"
 
 void time_sync_notification_cb(struct timeval *tv) {
-    Serial_db.printf("Time updated, Unix time: %ld\n", tv->tv_sec);
+//    Serial_db.printf("Time updated, Unix time: %ld\n", tv->tv_sec);
 }
 
 int setup_web_common_onconnect(void)
@@ -613,7 +613,6 @@ extern int minRamFree;
     }
 #endif   
  
-      sprintf(str,"%d", bootSts1);
   
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
       sprintf(str,"reset reason: %d %d (%d %d %d %d %d|%d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), 
@@ -1227,11 +1226,11 @@ if(SmOT.useMQTT)
         break;
   }
   
-  Info1.value += "<br>";
-  
+  Info1.value += "<br>";  
 } else {
-   if(SmOT.CapabilitiesDetected == 0)
-          Info1.value += "Тест котла";
+  Info1.value += "<br>";
+  if(SmOT.CapabilitiesDetected == 0)
+    Info1.value += "Тест котла";
 }
 #else 
    if(SmOT.CapabilitiesDetected == 0)

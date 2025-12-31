@@ -16,6 +16,7 @@ typedef WebServer WEBServer;
 #include "SmartDevice.hpp"
 #include "Smart_commands.h"
 #include "As_TCP.h"
+#include "SmartDebug.h"
 
 /************************************/
 
@@ -523,11 +524,9 @@ void loop_servertcp(void)
 #if SERIAL_DEBUG
 	static int ols_sts=-1;
 	if(tcp_serversts != ols_sts)
-	{
-//		Serial_db.printf("tcp_serversts=%d\n",  tcp_serversts);
+	{	Serial.printf("tcp_serversts=%d %d\n",  tcp_serversts, TcpServer_Lsend);
 		ols_sts = tcp_serversts;
 	}
-
 #endif		
 	
 	switch(tcp_serversts)
@@ -546,7 +545,6 @@ void loop_servertcp(void)
 			} else {
 #if SERVER_DEBUG
 				Serial_db.printf("(%d) Connect to server IP: %s port %d ", asTCPserver.id, p_sd->tcp_remoteIP.toString().c_str(), p_sd->TCPserver_port);
-
 #endif					
 				t00_server = millis();
 				rc = asTCPserver.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,5000); //todo 500 ->timeout
@@ -645,15 +643,18 @@ void loop_servertcp(void)
 				rc = net_ServerCallback((U8 *)tcpudp_incomingPacket, tcpudp_incomingPacket_Len, TCP_server_MsgOut, TcpServer_Lsend, UDP_TSP_BUFSIZE, server_get_buf);
 				if(rc == 0)
 				{	tcp_serversts = 0;
+#if SERVER_DEBUG
+//    			Serial_db.printf("net_ServerCallback closeTCP, time used %ld ms\n", millis()-t00_server);
+#endif				
 					asTCPserver.closeTCP();
 				} else {
+#if SERVER_DEBUG
+//    			Serial_db.printf("net_ServerCallback keepTCP, time used %ld ms\n", millis()-t00_server);
+#endif				
+					t00_server = millis();
 					tcp_serversts = 5;
 				}
-#if SERVER_DEBUG
-    			Serial_db.printf("case 8,  time used %ld ms\n", millis()-t00_server);
-#endif				
 					break;
-
 
 	}
 }
@@ -882,8 +883,8 @@ int As_TCP::connect_a(void)
     } else if (res == 0) {
 		if(millis() - _t0 > _timeout)
         {
-#if SERIAL_DEBUG
-//			   Serial_db.printf("(%d) connect_a returned due to timeout %d ms for fd %d, nraz %d\n", id, _timeout, sockfd, nraz);
+#if SERVER_DEBUG
+		   Serial_db.printf("(%d) connect_a returned due to timeout %d ms for fd %d, nraz %d\n", id, _timeout, sockfd, nraz);
 #endif			   
 			closeTCP();
 			return 2;
@@ -993,6 +994,9 @@ void As_TCP::closeTCP(void)
 {
 	if(sockfd >= 0)
     {	close(sockfd);
+#if SERVER_DEBUG
+	Serial_db.printf("closeTCP sockfd %d\n", sockfd);
+#endif	
 		sockfd = -1;
 	}
 

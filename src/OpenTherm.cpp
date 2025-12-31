@@ -665,7 +665,8 @@ OpenThermVendor OTvendorList[] =
     148, "Navien",
     173, "Intergas",
     247, "Baxi Ampera",
-    248, "Zota" // Lux-X, mk-s plus
+    248, "Zota", // Lux-X, mk-s plus
+	252, "Zota mk-s" //Zota mk-s (версия 23 года)
 };
 
 const char * GetOTVendorName(int id)
