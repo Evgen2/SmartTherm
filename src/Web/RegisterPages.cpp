@@ -1,7 +1,7 @@
 
 /* RegisterPages.cpp - Aggregate registration for all pages */
 
-#include "Pages.hpp"
+#include "Shared.hpp"
 
 // Forward Register_* from each page module
 void Register_Info(AutoConnect& portal);
@@ -16,7 +16,7 @@ void Register_Relay(AutoConnect& portal);
 void Register_OT2(AutoConnect& portal);
 void Register_SendBLOR(AutoConnect& portal);
 
-// All pages are registered below (Setup, SetupAdd/SetAdd, PID, Relay, OT2, Info, About, Debug, SetTemp, SetPar, SendBLOR)
+// All pages are registered below
 
 void RegisterWebPages(AutoConnect& portal) {
   Register_Info(portal);
@@ -36,5 +36,4 @@ void RegisterWebPages(AutoConnect& portal) {
   Register_SendBLOR(portal);
   Register_SetTemp(portal);
   Register_SetPar(portal);
-  // Remaining page registrations will be added as we split them out
 }

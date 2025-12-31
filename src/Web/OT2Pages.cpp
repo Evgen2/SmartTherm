@@ -1,10 +1,6 @@
 /* OT2Pages.cpp - /ot2 and /setot2 pages (ST_VERS == 2) */
 
-#include <AutoConnect.h>
-#include "Smart_Config.h"
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 #if ST_VERS == 2
 

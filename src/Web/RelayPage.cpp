@@ -1,10 +1,6 @@
 /* RelayPage.cpp - /relay page */
 
-#include <AutoConnect.h>
-#include "Smart_Config.h"
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 #if RELAY_USE
 

@@ -1,10 +1,6 @@
 /* PIDPage.cpp - /pid and /set_pid pages */
 
-#include <AutoConnect.h>
-#include "Smart_Config.h"
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 extern SD_Termo SmOT;
 #if MQTT_USE
@@ -128,4 +124,3 @@ void Register_PID(AutoConnect& portal){
   portal.join({PID_Page}); portal.join({SetPIDPage});
 }
 #endif // PID_USE
-

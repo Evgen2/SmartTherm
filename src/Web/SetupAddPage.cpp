@@ -1,10 +1,6 @@
 /* SetupAddPage.cpp - /setupadd and /add pages */
 
-#include <AutoConnect.h>
-#include "Smart_Config.h"
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 // Controls
 static AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_None);

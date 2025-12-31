@@ -18,7 +18,7 @@ using WiFiWebServer = WebServer;
 #include "OpenTherm.h"
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
-#include "Web/Pages.hpp"
+#include "Web/Shared.hpp"
 
 AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 

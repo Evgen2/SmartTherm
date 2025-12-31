@@ -1,9 +1,6 @@
 /* AboutPage.cpp - /about page */
 
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 static AutoConnectText About_0("About_0", "<b>About:</b>", "", "", AC_Tag_DIV);
 static AutoConnectAux AboutPage(ABOUT_URI, "About", true);

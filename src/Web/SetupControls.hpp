@@ -2,7 +2,6 @@
 
 #pragma once
 #include <AutoConnect.h>
-#include "Smart_Config.h"
 
 extern AutoConnectText Ctrl2;
 extern AutoConnectCheckbox CtrlChB1;

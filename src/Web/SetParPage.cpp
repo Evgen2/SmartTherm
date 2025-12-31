@@ -1,11 +1,7 @@
 /* SetParPage.cpp - /set_par hidden action page */
 
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "OpenTherm.h"
 #include "SetupControls.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 #if MQTT_USE
 extern void mqtt_start(void);

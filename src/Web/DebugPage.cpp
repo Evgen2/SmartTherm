@@ -1,10 +1,6 @@
 /* DebugPage.cpp - /debug page */
 
-#include <time.h>
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 #if defined(ARDUINO_ARCH_ESP32)
 #include "esp32/rom/rtc.h"

@@ -1,11 +1,6 @@
 /* SetupPage.cpp - /setup page */
 
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "SetupControls.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
-#include "OpenTherm.h"
 
 // Controls definitions
 AutoConnectText Ctrl2("Ctrl2", "", "", "", AC_Tag_DIV);

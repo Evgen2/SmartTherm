@@ -1,11 +1,6 @@
 /* InfoPage.cpp - /info page */
 
-#include <time.h>
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "OpenTherm.h"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 // Info page instance
 static AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true);

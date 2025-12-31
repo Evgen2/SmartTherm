@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include "Smart_Config.h"
 #include "OpenTherm.h"
+#include "SmartDevice.hpp"
+#include "SD_OpenTherm.hpp"
 
 // Forward declarations for common globals
 class SD_Termo;
@@ -65,3 +67,6 @@ extern AutoConnectButton RelayOnFf;
 extern AutoConnectButton Apply;
 extern AutoConnectButton SetNewBoilerTemp;
 extern AutoConnectButton SendBLOR;
+
+// Register all pages (create controls, attach handlers, join to portal)
+void RegisterWebPages(AutoConnect& portal);

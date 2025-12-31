@@ -1,9 +1,6 @@
 /* SendBLORPage.cpp - /blor hidden page */
 
-#include <AutoConnect.h>
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 extern SD_Termo SmOT;
 

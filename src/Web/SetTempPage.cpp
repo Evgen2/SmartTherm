@@ -1,10 +1,6 @@
 /* SetTempPage.cpp - /set_t hidden action page */
 
-#include <AutoConnect.h>
-#include "OpenTherm.h"
 #include "Shared.hpp"
-#include "SmartDevice.hpp"
-#include "SD_OpenTherm.hpp"
 
 static AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
 
