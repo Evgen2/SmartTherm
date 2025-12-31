@@ -113,16 +113,16 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
        case 1: Info1.value += " Bad protocol"; break; case 2: Info1.value += " Bad client id"; break;
        case 3: Info1.value += " unavailable"; break; case 4: Info1.value += " Bad credentials"; break;
        case 5: Info1.value += " Unauthorized"; break; }
-  } else {
-     if(SmOT.CapabilitiesDetected == 0) Info1.value += "<br>Тест котла";
   }
+  Info1.value += "<br>";
+  if(!SmOT.useMQTT) { if(SmOT.CapabilitiesDetected == 0) Info1.value += "Тест котла"; }
 #else
-  if(SmOT.CapabilitiesDetected == 0) Info1.value += "<br>Тест котла";
+  if(SmOT.CapabilitiesDetected == 0) Info1.value += "Тест котла";
 #endif
 
 #if PID_USE
   if(SmOT.usePID && SmOT.enable_CentralHeating)
-  {   Info1.value += "<br>управление по PID";
+  {   Info1.value += "управление по PID";
       if(SmOT.usePID & 0x02) Info1.value += "без ограничений";
       Info1.value += " Tindoor " + String(SmOT.tempindoor) + " ";
       Info1.value += " Toutdoor " + String(SmOT.tempoutdoor);
@@ -131,8 +131,14 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
 
   if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
   {   Info3.value = " Температура ";
-      if(SmOT.stsT1 >= 0) Info3.value += "T1 " + String(SmOT.t1) + " ";
-      if(SmOT.stsT2 >= 0) Info3.value += "T2 " + String(SmOT.t2);
+      if(SmOT.stsT1 >= 0)
+      { if(SmOT.stsT1 == 4)      Info3.value += "T1 Disconnect ";
+        else if(SmOT.stsT1 == 2) Info3.value += "T1 Crc Err ";
+        else                      Info3.value += "T1 " + String(SmOT.t1) + " "; }
+      if(SmOT.stsT2 >= 0)
+      { if(SmOT.stsT2 == 4)      Info3.value += "T2 Disconnect ";
+        else if(SmOT.stsT2 == 2) Info3.value += "T2 Crc Err ";
+        else                      Info3.value += "T2 " + String(SmOT.t2) + " "; }
       Info3.value += "<br>";
   } else Info3.value = "";
 
@@ -148,8 +154,8 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
       Info2.value +=  " Бойлер " + String(SmOT.Tstorage);
     else if(SmOT.HotWater_present) {
       if(SmOT.enable_HotWater) {
-        if(SmOT.Dhw_t_present) Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
-        if(SmOT.DHWFlowRate_present) Info1.value += " Расход "  + String(SmOT.DHWFlowRate);
+        if(SmOT.Dhw_t_present) Info2.value +=  "<br>Горячая вода " + String(SmOT.dhw_t);
+        if(SmOT.DHWFlowRate_present && SmOT.DHWFlowRate > 0.f) Info2.value += " Расход "  + String(SmOT.DHWFlowRate);
       }
     }
 
@@ -158,7 +164,8 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
     if(ot.OTid_used(OpenThermMessageID::RelModLevel)) Info4.value += " Flame "  + String(SmOT.FlameModulation);
     if(ot.OTid_used(OpenThermMessageID::CHPressure))  Info4.value += " Pressure " + String(SmOT.Pressure);
     Info4.value += "<br>";
-    if(SmOT.enable_CentralHeating2) Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
+    if((SmOT.enable_CentralHeating2) || (SmOT.CH2_present && ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
+      Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
 
     Info5.value = "Ts "+ String(SmOT.Tset) + " Tsr "+ String(SmOT.Tset_r) + "<br>";
 
@@ -207,9 +214,9 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
   }
 
 #if ST_VERS == 2
-  Info7.value = "OT2: ";
   if(SmOT.OT_slave_present)
   {
+    Info7.value = "OT2: ";
     switch(SmOT.ot_slave_stsOT)
     {   case -2:
         case -1: Info7.value += "<b>Ошибка:</b> не инициализирован"; break;

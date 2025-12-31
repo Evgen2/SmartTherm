@@ -1,11 +1,13 @@
 /* SetTempPage.cpp - /set_t hidden action page */
 
 #include <AutoConnect.h>
+#include "OpenTherm.h"
 #include "Shared.hpp"
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
 extern SD_Termo SmOT;
+extern OpenTherm ot;
 
 static AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
 
@@ -22,7 +24,10 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
     if(SmOT.enable_HotWater)
     { v = SmOT.CHtempLimit(SetDHWTemp.value.toFloat());    
       if(v != SmOT.TdhwSet)
-      { isChange = 1; SmOT.TdhwSet = v; SmOT.need_set_dhwT(1); }
+      { isChange = 1; SmOT.TdhwSet = v; SmOT.need_set_dhwT(1);
+        if(SmOT.CH2_present && (ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
+        { SmOT.Tset2 = SmOT.TdhwSet; SmOT.need_set_T_CH2(1); }
+      }
     }
     if(SmOT.enable_CentralHeating2)
     { v = SmOT.CHtempLimit(SetBoilerTemp2.value.toFloat());

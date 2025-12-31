@@ -14,8 +14,9 @@ void Register_SetupAdd(AutoConnect& portal);
 void Register_PID(AutoConnect& portal);
 void Register_Relay(AutoConnect& portal);
 void Register_OT2(AutoConnect& portal);
+void Register_SendBLOR(AutoConnect& portal);
 
-// TODO: Add remaining pages (SetupAdd, AddPar, PID, Relay, OT2)
+// All pages are registered below (Setup, SetupAdd/SetAdd, PID, Relay, OT2, Info, About, Debug, SetTemp, SetPar, SendBLOR)
 
 void RegisterWebPages(AutoConnect& portal) {
   Register_Info(portal);
@@ -32,6 +33,7 @@ void RegisterWebPages(AutoConnect& portal) {
   #if ST_VERS == 2
   Register_OT2(portal);
   #endif
+  Register_SendBLOR(portal);
   Register_SetTemp(portal);
   Register_SetPar(portal);
   // Remaining page registrations will be added as we split them out

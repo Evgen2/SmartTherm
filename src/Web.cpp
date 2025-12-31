@@ -57,9 +57,9 @@ void setup_web_common(void) {
   config.retainPortal = true;
   config.autoRise = true;
   config.autoReconnect = true;
-  config.reconnectInterval = 2;
+  config.reconnectInterval = 1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-  Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+  Serial_db.printf("WiFi AP SSID %s psk=%s\n", config.apid.c_str(), config.psk.c_str());
 
   portal.config(config);
   portal.onConnect(onConnect);
@@ -92,13 +92,13 @@ void setup_web_common(void) {
 #include "esp_sntp.h"
 
 void time_sync_notification_cb(struct timeval *tv) {
-  Serial.printf("*********  Время обновлено (колбэк)! Unix-время: %ld\n", tv->tv_sec);
+  Serial_db.printf("Time updated, Unix time: %ld\n", tv->tv_sec);
 }
 
 int setup_web_common_onconnect(void) {
   static int init = 0;
   int rc;
-  Serial_db.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
+  Serial_db.printf("WiFi connected, SSID: %s IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
   Serial_db.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
@@ -115,10 +115,10 @@ int setup_web_common_onconnect(void) {
   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 
 #if MQTT_USE
-  Serial_db.printf("=====  Read_mqtt_fs:\n");
+  Serial_db.printf("Read_mqtt_fs:\n");
   rc = SmOT.Read_mqtt_fs();
   SmOT.stsMQTTcfg = rc;
-  Serial_db.printf(" SmOT.Read_mqtt_fs() rc = %d\n", rc);
+  Serial_db.printf("SmOT.Read_mqtt_fs() rc = %d\n", rc);
 #endif
 
   init = 1;

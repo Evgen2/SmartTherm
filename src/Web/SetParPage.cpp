@@ -2,11 +2,13 @@
 
 #include <AutoConnect.h>
 #include "Shared.hpp"
+#include "OpenTherm.h"
 #include "SetupControls.hpp"
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
 extern SD_Termo SmOT;
+extern OpenTherm ot;
 
 #if MQTT_USE
 extern void mqtt_start(void);
@@ -80,7 +82,11 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   if(isChangeMQTT) { if(SmOT.useMQTT == 0x03) mqtt_start(); SmOT.need_write_f |= 0x2; }
 #endif
   if(SmOT.enable_CentralHeating) SmOT.need_set_T(1);
-  if(SmOT.HotWater_present && SmOT.enable_HotWater) SmOT.need_set_dhwT(1);
+  if(SmOT.HotWater_present && SmOT.enable_HotWater) {
+    SmOT.need_set_dhwT(1);
+    if(SmOT.CH2_present && (ot.OTid_used(OpenThermMessageID::TflowCH2) && SmOT.CH2_DHW_flag))
+    { SmOT.Tset2 = SmOT.TdhwSet; SmOT.need_set_T_CH2(1); }
+  }
   if(SmOT.CH2_present && SmOT.enable_CentralHeating2) SmOT.need_set_T_CH2(1);
 
   if(redir) aux.redirect(SETUP_URI); else aux.redirect(INFO_URI);
