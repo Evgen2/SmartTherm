@@ -1,4 +1,4 @@
-﻿/* Web.cpp  UTF-8  */
+/* Web.cpp - portal/system glue only; pages are in src/Web/ */
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
@@ -13,229 +13,132 @@ using WiFiWebServer = WebServer;
 #endif
 
 #include <time.h>
+#include <AutoConnect.h>
+#include <AutoConnectFS.h>
 #include "OpenTherm.h"
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
+#include "Web/Pages.hpp"
 
-/*
-  Include AutoConnectFS.h allows the sketch to retrieve the current file
-  system that AutoConnect has selected. It derives a constant
-  AUTOCONNECT_APPLIED_FILESYSTEM according to the definition state of
-  AC_USE_SPIFFS or AC_USE_LITTLEFS in AutoConnectDefs.h.
-  Also, the AutoConnectFS::FS class indicates either SPIFFS or LittleFS
-  and will select the appropriate filesystem class depending on the file
-  system applied to the sketch by the definition AC_USE_SPIFFS or
-  AC_USE_LITTLEFS in AutoConnectDefs.h.
-  You no need to change the sketch due to the file system change, declare
-  the Filesystem object according to the following usage:
-  
-  #include <AutoConnectFS.h>
-  AutoConnectFS::FS& name = AUTOCONNECT_APPLIED_FILESYSTEM;
-  name.begin(AUTOCONNECT_FS_INITIALIZATION);
-*/
-
-#include <AutoConnect.h>
-#include <AutoConnectFS.h>
-#include "Web/Pages.hpp"  // extracted AutoConnect pages & URIs
 AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 
-#if defined(ARDUINO_ARCH_ESP8266)
-char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
-#endif
-
-extern  SD_Termo SmOT;
+extern SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
 
-// All page URIs, controls, and AutoConnectAux pages are defined in src/Web/Pages.cpp
-
 AutoConnectConfig config;
 AutoConnect portal;
 
-
-/************************************/
-//int test_fs(void);
-
-void setup_web_common(void);
-void check_fs(void);
-int setup_web_common_onconnect(void);
-void loop_web(void);
+// Forward
 void onRoot(void);
 void onConnect(IPAddress& ipaddr);
-#if MQTT_USE
-  extern void mqtt_setup(void);
-  extern void mqtt_loop(void);
-  extern void mqtt_start(void);
-  extern int MQTT_pub_usePID(void);
-#endif
-// Handlers are implemented in the dedicated src/Web/*Page.cpp modules now
-
+int setup_web_common_onconnect(void);
+void check_fs(void);
+void loop_web(void);
+int OutUTCtime(time_t now);
 extern void onOTAstart(void);
-extern void exitOTAError(uint8_t err); 
-
+extern void exitOTAError(uint8_t err);
+#if MQTT_USE
+extern void mqtt_loop(void);
+extern void mqtt_start(void);
+#endif
 
 String utc_time_jc;
 
-/************************************/
-unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
-
-
-void setup_web_common(void)
-{   
-//  Serial.println();
-//   Serial.println("setup_web_common");
-
-  // Register and join all pages via extracted module
+void setup_web_common(void) {
   RegisterWebPages(portal);
-    portal.onOTAStart(onOTAstart);
-    portal.onOTAError(exitOTAError);
+  portal.onOTAStart(onOTAstart);
+  portal.onOTAError(exitOTAError);
 
-//  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
-  config.portalTimeout = 1; 
-  config.retainPortal = true; 
+  config.portalTimeout = 1;
+  config.retainPortal = true;
   config.autoRise = true;
-  //config.hostName = AUTOCONNECT_APID;
-  // Enable saved past credential by autoReconnect option,
-  // even once it is disconnected.
   config.autoReconnect = true;
-  config.reconnectInterval = 2; //1;
+  config.reconnectInterval = 2;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
-  
+  Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+
   portal.config(config);
-  portal.onConnect(onConnect);  // Register the ConnectExit function
+  portal.onConnect(onConnect);
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
+  webServer.on("/", onRoot);
 
-  webServer.on("/", onRoot);  // Register the root page redirector.
-//  Serial.println("Web server started:" +WiFi.localIP().toString());
   if (WiFi.status() != WL_CONNECTED)  {
     Serial_db.printf("WiFi Not connected\n");
     WiFi.setAutoReconnect(true);
-  }  
-  
-/* get my MAC*/
+  }
+
 #if defined(ARDUINO_ARCH_ESP8266)
-//    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
-    if(WiFi.getMode() == WIFI_OFF)
-    {
-      wifi_get_macaddr(STATION_IF, SmOT.Mac);
-
-    } else {
-      wifi_get_macaddr(STATION_IF, SmOT.Mac);
-    }
-//    Serial_db.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
+  if(WiFi.getMode() == WIFI_OFF) {
+    wifi_get_macaddr(STATION_IF, SmOT.Mac);
+  } else {
+    wifi_get_macaddr(STATION_IF, SmOT.Mac);
+  }
 #elif defined(ARDUINO_ARCH_ESP32)
-    if(WiFi.getMode() == WIFI_MODE_NULL){
-        esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
-//      Serial_db.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
-    }
-    else{
-        esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
-//      Serial_db.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
-    }  
-#endif //
-//  Serial_db.printf("(20) %d\n", millis());
-
+  if(WiFi.getMode() == WIFI_MODE_NULL){
+    esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
+  }
+  else{
+    esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
+  }
+#endif
 }
 
 #include "esp_sntp.h"
 
 void time_sync_notification_cb(struct timeval *tv) {
-    Serial.printf("*********  Время обновлено (колбэк)! Unix-время: %ld\n", tv->tv_sec);
+  Serial.printf("*********  Время обновлено (колбэк)! Unix-время: %ld\n", tv->tv_sec);
 }
 
-int setup_web_common_onconnect(void)
-{ static int init = 0;
+int setup_web_common_onconnect(void) {
+  static int init = 0;
   int rc;
-
-  //Serial_db.printf("setup_web_common_onconnect init %d\n", init);
-
   Serial_db.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
   Serial_db.printf("WiFi mode = %d\n", WiFi.getMode());
   if(init)
     return 1;
 
-   WiFi.setAutoReconnect(true);
+  WiFi.setAutoReconnect(true);
 
-/****************************************************/    
-{
-
- // Specifying the time zone and assigning NTP.
-// Required to add the correct local time to the export file name of the
-// captured image. This assignment needs to be localized.
-// This sketch works even if you omit the NTP server specification. In that
-// case, the suffix timestamp of the captured image file is the elapsed time
-// since the ESP module was powered on.
-const char*  const _ntp1 = "europe.pool.ntp.org";
-const char*  const _ntp2 = "pool.ntp.org";
-
-#if SERIAL_DEBUG      
-	  time_t  now;
-  now = time(nullptr);
-  Serial_db.printf("1 %s", ctime(&now));
-#endif 
-   // By configuring NTP, the timestamp appended to the capture filename will
-    // be accurate. But this procedure is optional. It does not affect ESP32Cam
-    // execution.
-//    configTzTime(_tz, _ntp1 ,_ntp2);
-    configTzTime("UTC0", _ntp1 ,_ntp2);
-
-    //TZoffset
-//   delay(1000);
-#if SERIAL_DEBUG      
-  now = time(nullptr);
-  Serial_db.printf("2 %s\n", ctime(&now));
-#endif  
-  // uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
-#if defined(ARDUINO_ARCH_ESP8266)
-// default ntp update  1 hour
-// it can be redefined via uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
-#elif defined(ARDUINO_ARCH_ESP32)
-//  sntp_set_sync_interval(60000); 
-Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
+  const char*  const _ntp1 = "europe.pool.ntp.org";
+  const char*  const _ntp2 = "pool.ntp.org";
+  configTzTime("UTC0", _ntp1 ,_ntp2);
+#if defined(ARDUINO_ARCH_ESP32)
+  Serial_db.printf("Sync time in ms: %d\n", sntp_get_sync_interval());
 #endif
-   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+  esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 
 #if MQTT_USE
-
- Serial_db.printf("=====  Read_mqtt_fs:\n");
-   rc = SmOT.Read_mqtt_fs();
+  Serial_db.printf("=====  Read_mqtt_fs:\n");
+  rc = SmOT.Read_mqtt_fs();
   SmOT.stsMQTTcfg = rc;
   Serial_db.printf(" SmOT.Read_mqtt_fs() rc = %d\n", rc);
-//     mqtt_setup();
-//mqtt_setup is called from mqtt_loop()
 #endif
-}
-/****************************************************/
 
-  init  = 1;
+  init = 1;
   return 0;
 }
 
-
-void onConnect(IPAddress& ipaddr) 
-{ int rc;
-
+void onConnect(IPAddress& ipaddr) {
   Serial_db.printf("onConnect %s portalStatus = %d\n", ipaddr.toString().c_str(), portal.portalStatus());
-  rc = setup_web_common_onconnect();
-  if(rc)
-  {
-#if SERIAL_DEBUG      
-  Serial.print(F("onConnect:WiFi connected with "));
-  Serial.print(WiFi.SSID());
-  Serial.print(F(", IP:"));
-  Serial.println(ipaddr.toString());
-#endif  
+  int rc = setup_web_common_onconnect();
+  if(rc) {
+#if SERIAL_DEBUG
+    Serial.print(F("onConnect:WiFi connected with "));
+    Serial.print(WiFi.SSID());
+    Serial.print(F(", IP:"));
+    Serial.println(ipaddr.toString());
+#endif
   }
 }
 
-// Redirects from root to the info page.
+// Redirect from root to INFO_URI
 void onRoot() {
   WiFiWebServer&  webServer = portal.host();
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
@@ -244,1733 +147,108 @@ void onRoot() {
   webServer.client().stop();
 }
 
-float mRSSi = 0.;
+float mRSSi = 0.f;
 int WiFists = -1;
+extern int LedSts;
 
-int OutUTCtime(time_t now);
-
-//#include "esp32/rom/rtc.h"
-// All page handlers moved to src/Web/Pages.cpp
-
-#if 0 // Moved to src/Web/*Page.cpp files
-
-String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[256];
-  // int l;
-extern int minRamFree;
-
-//Serial_db.drop();
-
-//WiFiDebugInfo
-//   sprintf(str,"WiFi statistics:");
-//   Info1.value = str;
-   Info1.value = F("WiFi statistics:");
-   sprintf(str,(PGM_P)F("%d %d  %d %d  %d %d  %d %d"), 
-      WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
-   //l = strlen(str);
-   //Serial_db.printf("4 l=%d\n", l);
-
-   Info4.value = str;
-#if ST_VERS == 2
-    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1))
-    { extern int OTslaveDebugInfo[12];      
-      sprintf(str,(PGM_P)F("<br>OT2: %d %d  %d %d  %d "), 
-      OTslaveDebugInfo[0], OTslaveDebugInfo[1], OTslaveDebugInfo[2], OTslaveDebugInfo[3], OTslaveDebugInfo[4]);
-      Info4.value += str;
-    }
-
-#endif      
-
-  sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
-  Info5.value = str;
-   if(SmOT.CrasyState_count > 0)
-   {  sprintf(str," CSc %d", SmOT.CrasyState_count);
-      Info5.value += str;
-   }
-  
-  {       
-   OutUTCtime(time(nullptr));
-
-    Info5.value += (PGM_P)F("<br>Время:");
-    Info5.value += utc_time_jc;
-
-  }
-
-   snprintf(str,sizeof(str),(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
-          SmOT.Bstat.NflameOn, SmOT.Bstat.NflameOn_h, SmOT.Bstat.NflameOn_h_prev, SmOT.Bstat.NflameOn_day, SmOT.Bstat.NflameOn_day_prev);
-   
-   Info6.value = str;
-   snprintf(str,sizeof(str),(PGM_P)F("<br>Эффективная модуляция:<br>За час %.2f<br>Пред.час %.2f<br>Сутки %.2f<br>Пред.сутки %.2f"), 
-          SmOT.Bstat.Eff_Mod_h, SmOT.Bstat.Eff_Mod_h_prev, SmOT.Bstat.Eff_Mod_d, SmOT.Bstat.Eff_Mod_d_prev);
-
-   Info6.value += str;
-#if PID_USE
-    if(SmOT.usePID)
-    { 
-       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f",
-        SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
-
-      Info6.value += str;
-
-      sprintf(str,"<br>RoomSetpoint change src %d from %f to %f at ", 
-      SmOT.src_lastSetPointChange, SmOT.oldTroomSetpoint, SmOT.mypid.xTag); 
-      Info6.value += str;
-//    t_lastSetPointChange = time(nullptr);
-{
-    struct tm* tm_info;
-  tm_info = localtime(&SmOT.t_lastSetPointChange);
-
-      strftime(str, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
-      str[25] = 0;
-
-}
-
-      Info6.value += str;
-      Info6.value += " UTC";
-
-    }
-#endif   
-  //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
-      sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
-  Info7.value = str;
-#if MQTT_USE
-  sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
-  Info7.value += str;
-#endif
-  return String();
-}
-
-String onSetTemp(AutoConnectAux& aux, PageArgument& args)
-{  float  v;
-   int isChange=0;
-
-    if(SmOT.enable_CentralHeating)
-    { if(SetBoilerTemp.enable)
-      { v = SmOT.CHtempLimit(SetBoilerTemp.value.toFloat());
-        if(v != SmOT.Tset)
-        { isChange = 1;
-          SmOT.Tset = v;
-          //SmOT.need_set_T = 1;
-          SmOT.need_set_T(1);
-        } 
-      }
-    }
-
-    if(SmOT.enable_HotWater)
-    { v = SmOT.CHtempLimit(SetDHWTemp.value.toFloat());    
-      if(v != SmOT.TdhwSet)
-      { isChange = 1;
-        SmOT.TdhwSet = v;
-        SmOT.need_set_dhwT(1);
-      }
-    }
-
-    if(SmOT.enable_CentralHeating2)
-    { v = SmOT.CHtempLimit(SetBoilerTemp2.value.toFloat());
-      if(v != SmOT.Tset2) 
-      {  isChange = 1;
-         SmOT.Tset2 = v;
-         SmOT.need_set_T_CH2(1);
-      }
-    }
-
-    if(isChange)
-        SmOT.need_write_f = 1;
-
-// redirect/transition to the INFO_URI.
-//work only with last false in
-//AutoConnectAux SetTempPagee(SET_PAR_URI, "SetTempPage", false, {}, false);
-  aux.redirect(INFO_URI);
-
-  return String();
-}
-
-// goes here from on_Setup
-String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{ int isChange=0,  redir = 0, iv;
-  float fv;
-  bool check;
-
-  if( CtrlChB1.checked) check = true;
-  else                  check = false;
-  if(check != SmOT.enable_CentralHeating)
-  { isChange++;
-    SmOT.enable_CentralHeating = check;
-#if PID_USE
-    if(SmOT.usePID && !SmOT.enable_CentralHeating)
-    {   
-        SmOT.usePID = 0;
-    }
-#endif // PID_USE 
-
-  }
-
-  if( CtrlChB2.checked) check = true;
-  else                  check = false;
-  if(check != SmOT.enable_HotWater)
-  { isChange++;
-    SmOT.enable_HotWater = check;
-  }
-  
-  if(SmOT.CH2_present) 
-  { if( CtrlChB3.checked) check = true;
-    else                  check = false;
-    if(check != SmOT.enable_CentralHeating2)
-    { isChange++;
-      SmOT.enable_CentralHeating2 = check;
-    }
-  }
-
-  if( CtrlChB_UseRemoteControl.checked) check = true;
-  else                                  check = false;
-  if(check != SmOT.Use_remoteTCPserver)
-  { isChange++;
-    SmOT.Use_remoteTCPserver = check;
-    SmOT.init(2);
-  }
-
-  fv = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
-  if(fv != SmOT.umax)
-  { SmOT.umax = fv;
-    SmOT.need_set_MaxTSet(2);    
-    isChange = 1;
-  }
-
-  fv = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
-  if( fv > SmOT.umax - 1.)  fv = SmOT.umax -1.;
-  if(fv != SmOT.umin)
-  { SmOT.umin = fv;
-    isChange = 1;
-  }
-
-#if MQTT_USE
-  int isChangeMQTT = 0;
-  if( CtrlChbUseMQTT.checked) check = true;
-  else                  check = false;
-
-  if(check)
-  { if(SmOT.useMQTT == 0)
-    { SmOT.useMQTT = 1;
-      redir = 1;  
-    } else if(SmOT.useMQTT == 1) { 
-      SmOT.useMQTT = 0x3;
-      isChangeMQTT++;
-    }
-  } else {
-    if(SmOT.useMQTT != 0)
-    { SmOT.useMQTT = 0;
-      isChangeMQTT++;
-    }
-  }
-
-   if(SmOT.useMQTT && redir== 0)
-   {   char str0[80];
-      int i;
- 
-    SetMQTT_server.value.toCharArray(str0, sizeof(str0));
-    if(strcmp(SmOT.MQTT_server,str0))
-    {  isChangeMQTT++;
-       strcpy(SmOT.MQTT_server,str0);      
-    }
-
-    SetMQTT_user.value.toCharArray(str0, sizeof(str0));
-    if(strcmp(SmOT.MQTT_user,str0))
-    { isChangeMQTT++;
-       strcpy(SmOT.MQTT_user,str0);      
-    }
-    SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
-    if(strcmp(SmOT.MQTT_pwd,str0))
-    { isChangeMQTT++;
-       strcpy(SmOT.MQTT_pwd,str0);      
-    }
-
-    SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
-    if(strcmp(SmOT.MQTT_devname,str0))
-    { isChangeMQTT++;
-       strcpy(SmOT.MQTT_devname,str0);      
-    }
-
-    SetMQTT_topic.value.toCharArray(str0, sizeof(str0));
-    /* check for [a-zA-Z0-9_-] */
-    for(i=0; str0[i]; i++)
-    {  if(str0[i]>='0' && str0[i]<='9' ) continue;
-       if(str0[i]>='A' && str0[i]<='Z' ) continue;
-       if(str0[i]>='a' && str0[i]<='z' ) continue;
-       if(str0[i] =='_'  ) continue;
-       if(str0[i] =='-'  ) continue;
-       str0[i] = 0;
-       break;
-    }
-    if(strcmp(SmOT.MQTT_topic,str0))
-    { isChangeMQTT++;
-       strcpy(SmOT.MQTT_topic,str0);      
-    }
-
-    iv = SetMQTT_interval.value.toInt();
-    if((unsigned int) iv !=SmOT.MQTT_interval )
-    { isChangeMQTT++;
-       SmOT.MQTT_interval = iv;
-    }
-
-    iv = SetMQTT_port.value.toInt();
-    if((unsigned int) iv !=SmOT.MQTT_port )
-    { isChangeMQTT++;
-       SmOT.MQTT_port = iv;
-    }
-
-   }
-
-#endif //MQTT_USE
-
-#if RELAY_USE
-  if( CtrlChBUseRelay.checked) check = true;
-  else                         check = false;
-  if(check != SmOT.Relay_present)
-  { isChange++;
-    if(check && CtrlChBStartRelaySts.enable == false)
-       redir = 1; 
-    SmOT.Relay_present = check;
-  }  
-  if(CtrlChBStartRelaySts.enable == true)
-  { if(CtrlChBStartRelaySts.checked) check = true;
-    else                             check = false;
-    if(check != SmOT.Relay_init_sts)
-    {  isChange++;
-       SmOT.Relay_init_sts = check;
-    }
-  }
-
-#endif
-
-  if(SmOT.MaxRelModLevel_present)
-  {   if(CtrlChBMmod.checked) check = true;
-      else                    check = false;
-      if(SmOT.Use_MaxRelModLevel)
-      { if(!check)
-        {   SmOT.Use_MaxRelModLevel = 0;
-            isChange++; 
-        } else {
-            iv = SetMaxMod.value.toInt();
-            if(iv != int(SmOT.MaxRelModLevelSetting+0.5))
-            {   isChange++;
-                SmOT.MaxRelModLevelSetting = (float)iv;
-                SmOT.need_set_MaxRelModLevel(2);
-            }
-        }
-      } else {
-        if(check)
-        {   SmOT.Use_MaxRelModLevel = 1;
-            redir = 1;
-
-        } else {
-            SmOT.Use_MaxRelModLevel = 0;
-        }
-      }
-  } 
-
-  if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
-
-
-#if MQTT_USE
-    if(isChangeMQTT)
-    { if(SmOT.useMQTT == 0x03)
-            mqtt_start();
-        SmOT.need_write_f |= 0x2;  //need write changes to FS
-    }
-#endif //MQTT_USE
-
-    if(SmOT.enable_CentralHeating) //Отопление Вкл
-    {  //   SmOT.need_set_T = 1;
-        SmOT.need_set_T(1);
-    } else {
-        //Отопление вЫкл
-    }
-
-    if(SmOT.HotWater_present)
-    { if(SmOT.enable_HotWater) //Горячая вода Вкл
-      {   SmOT.need_set_dhwT(1);
-      } else {
-         //Горячая вода вЫкл
-      }
-    }
-
-    if(SmOT.CH2_present)
-    { if(SmOT.enable_CentralHeating2) //CentralHeating2 Вкл
-      { SmOT.need_set_T_CH2(1);
-      } else {
-        //CentralHeating2 вЫкл
-      }
-    }
-
-// redirect/transition to the INFO_URI.
-//work only with last false in
-//AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
-
-  if(redir)
-    aux.redirect(SETUP_URI);
-  else
-    aux.redirect(INFO_URI);
-
-  return String();
-}
-
-// SetAddParPage 
-// SET_ADD_URI
-String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0, redir = 0;
-   unsigned short int icheck;
-   unsigned short int v2;
-
-  if( UseID2ChB.checked) icheck = 1;
-  else                   icheck = 0;
-  if(icheck != SmOT.UseID2)
-  { isChange++;
-     SmOT.UseID2 = icheck;
-  }
-
-  if(UseWinterModeChB.checked)  icheck = 1;
-  else                          icheck = 0;
-  if(icheck != SmOT.UseWinterMode)
-  { isChange++;
-     SmOT.UseWinterMode = icheck;
-  }
-
-  if(UseOTC_ChB.checked)  icheck = 1;
-  else                          icheck = 0;
-  if(icheck != SmOT.Use_OTC)
-  { isChange++;
-     SmOT.Use_OTC = icheck;
-  }
-
-  v2 = ID2MaserID.value.toInt();
-  if(v2 != SmOT.ID2masterID )
-  { isChange++;
-    SmOT.ID2masterID = v2;
-  }
-
-  if( UseCH2_DHW_ChB.checked) icheck = 1;
-  else                   icheck = 0;
-  if(icheck != SmOT.CH2_DHW_flag)
-  { isChange++;
-     SmOT.CH2_DHW_flag = icheck;
-  }
-
-  if(UseID29_DHW_ChB.checked) icheck = 1;
-  else                        icheck = 0;
-  if(icheck != SmOT.Use_ID29_DHW_flag)
-  { isChange++;
-     SmOT.Use_ID29_DHW_flag = icheck;
-  }
-  if(Immergas_fix_ChB.checked) icheck = 1;
-  else                        icheck = 0;
-  if(icheck != SmOT.Immergas_fix_flag)
-  { isChange++;
-     SmOT.Immergas_fix_flag = icheck;
-  }
-
-  if( UseCPU_FREQ_ChB.checked) icheck = true;
-  else                         icheck = false;
-  if(icheck)
-  { if(SmOT.useCPU_freq == -1)
-    {   redir = 1;  
-        SmOT.useCPU_freq = 0;
-    } else {
-      int v=0;
-      v2 = CPU_FREQ.value.toInt();
-      if(v2 == 240) v = 0;
-      else if(v2 == 160) v = 1;
-      else if(v2 == 80)  v = 2;
-      if(v != SmOT.useCPU_freq)
-      { SmOT.useCPU_freq = v;
-        isChange = 1;
-      }
-    }
-  } else {
-    SmOT.useCPU_freq = -1;
-    isChange = 1;
-  }
-  
-
-  if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
-  
-  if(redir)
-        aux.redirect(SETUP_ADD_URI);
-  else
-        aux.redirect(SETUP_URI);
-    
-  return String();
-}
-
-//SETUP_ADD_URI
-String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
-{  char str[40];
-
-  if( SmOT.UseID2)
-      UseID2ChB.checked = true;
-  else
-      UseID2ChB.checked = false;
-    
-  if(SmOT.UseWinterMode)
-      UseWinterModeChB.checked = true;
-  else
-      UseWinterModeChB.checked = false;
-
-  if(SmOT.Use_OTC)
-      UseOTC_ChB.checked = true;
-  else
-      UseOTC_ChB.checked = false;
-
-  sprintf(str,"%d",SmOT.ID2masterID);
-  ID2MaserID.value = str;
-
-  if( SmOT.CH2_DHW_flag)
-      UseCH2_DHW_ChB.checked = true;
-  else
-      UseCH2_DHW_ChB.checked = false;
-
-  if( SmOT.Use_ID29_DHW_flag)
-      UseID29_DHW_ChB.checked = true;
-  else
-      UseID29_DHW_ChB.checked = false;
-
-  if( SmOT.Immergas_fix_flag)
-      Immergas_fix_ChB.checked = true;
-  else
-      Immergas_fix_ChB.checked = false;
-
-  if(SmOT.useCPU_freq >=0)
-      UseCPU_FREQ_ChB.checked = true;
-  else
-      UseCPU_FREQ_ChB.checked = false;
-
-  if( UseCPU_FREQ_ChB.checked) 
-  {   CPU_FREQ.enable = true;
-    if(SmOT.useCPU_freq < 1)  strcpy(str,"240");
-    else if(SmOT.useCPU_freq == 1)  strcpy(str,"160");
-    else  strcpy(str,"80");
-    CPU_FREQ.value = str;
-    Info2.value ="<small>Частота процессора: 240/160/80</small>";
-  } else {
-    CPU_FREQ.enable = false;
-    Info2.value ="";
-  }
-
-  if(SmOT.RemoteRequest_present)
-  {   SendBLOR.enable = true;
-      Info1.value = "Удаленный сброс ошибки (BLOR), я знаю, что я делаю";
-
-  } else {
-     SendBLOR.enable = false;
-  }
-
-  return String();
-}
-
-// Main info page
-String onInfo(AutoConnectAux& aux, PageArgument& args) {
-  char str0[256];
-extern OpenTherm ot;
-
-   switch(SmOT.stsOT)
-   {  case -1:
-        Info1.value =  String(SmOT.stsOT) + ": <b>Ошибка:</b> OT не инициализирован";
-        SetDHWTemp.enable = false;
-        SetBoilerTemp.enable = false;
-        SetBoilerTemp2.enable = false;
-        SetNewBoilerTemp.enable = false;
-        break;
-      case 0:
-      {  char str[40];
-        sprintf(str," (%8x)",SmOT.BoilerStatus );
-        Info1.value =  String(SmOT.stsOT) +  str;
-        /* Если статус ответа не соответсвует статусу запроса, возможно у котла режим readonly  */
-        if((SmOT.BoilerStatus&0xff00) != (SmOT.BoilerStatusRequest&0xff00)) 
-        {    sprintf(str," (Запрос: %8x)",SmOT.BoilerStatusRequest );
-             Info1.value +=  str;
-        }
-
-        if(SmOT.BoilerStatus & 0x01)
-          Info1.value += "<br>Ошибка";
-        if(SmOT.BoilerStatus & 0x02)
-          Info1.value += "<br>Отопление Вкл";
-        else  
-          Info1.value += "<br>Отопление вЫкл";
-
-        if(SmOT.HotWater_present)
-        { if(SmOT.BoilerStatus & 0x04)
-            Info1.value += "<br>Горячая вода Вкл";
-          else  
-            Info1.value += "<br>Горячая вода вЫкл";
-        }
-
-        if(SmOT.BoilerStatus & 0x08)
-          Info1.value += "<br>Горелка Вкл";
-        else  
-          Info1.value += "<br>Горелка вЫкл";
-
-        if(SmOT.CH2_present && SmOT.enable_CentralHeating2)
-        {
-          if(SmOT.BoilerStatus & 0x20)
-            Info1.value += "<br>CH2 Вкл";
-          else  
-            Info1.value += "<br>CH2 вЫкл";
-        }
-
-        if(SmOT.BoilerStatus & 0x40)
-          Info1.value += "<br>Diag";
-
-        if(SmOT.BoilerStatus & 0xff00)
-        { Info1.value += "<br><small>Уставки:";
-          if(SmOT.BoilerStatus & 0x0100)
-            Info1.value += " CH";
-          if(SmOT.BoilerStatus & 0x0200)
-            Info1.value += " DHW";
-          if(SmOT.BoilerStatus & 0x0400)
-            Info1.value += " Cool";
-          if(SmOT.BoilerStatus & 0x0800)
-            Info1.value += " OTC";
-          if(SmOT.BoilerStatus & 0x1000)
-            Info1.value += " CH2";
-          if(SmOT.BoilerStatus & 0x2000)
-            Info1.value += " Summer";
-          if(SmOT.BoilerStatus & 0x4000)
-            Info1.value += " DHWblocking";
-          Info1.value += "</small>";
-        }
-      }
-        break;
-      case 1:
-       Info1.value =  String(SmOT.stsOT) + " Invalid response";
-        break;
-      case 2:
-      {  time_t now = time(nullptr);
-        double dt;
-        dt = difftime(now,SmOT.t_lastwork);
-        if(dt < 3600.)
-        {   snprintf(str0,sizeof(str0), (PGM_P)F("Потеря связи с котлом %.f сек назад"), dt);
-
-        } else {        
-            snprintf(str0, sizeof(str0), (PGM_P)F("Потеря связи связи с котлом %.1f час(ов) назад"), dt);
-        }
-        Info1.value =  String(SmOT.stsOT) + " : <b>Ошибка:</b> ";
-        Info1.value +=  str0;
-      }
-        break;
-   }
-
-/***************************************/
-#if MQTT_USE 
-if(SmOT.useMQTT)
-{  extern int statemqtt;
-   extern int state_mqtt;
-   Info1.value += "<br>";
-
-  switch(statemqtt)
-  {   case -1:
-        Info1.value += "MQTT not connected";
-        if(SmOT.stsMQTT == 0)
-            Info1.value += ", ожидание опроса OT";
-        break;
-      case 0:
-        Info1.value += "MQTT DiSconnected";
-        break;
-      case 1:
-        Info1.value += "MQTT connected";
-        break;
-  }
-  
-  switch(state_mqtt)
-  {  
-      case -1:
-        Info1.value += " disconnected";
-        break;
-
-      case -2:
-        Info1.value += " Connect failed";
-        break;
-
-      case -3:
-        Info1.value += " Connection lost";
-        break;
-      case -4:
-        Info1.value += " Connection timeout";
-        break;
-      case 1:
-        Info1.value += " Bad protocol";
-        break;
-
-      case 2:
-        Info1.value += " Bad client id";
-        break;
-
-      case 3:
-        Info1.value += " unavailable";
-        break;
-
-      case 4:
-        Info1.value += " Bad credentials";
-        break;
-
-      case 5:
-        Info1.value += " Unauthorized";
-        break;
-  }
-  
-} else {
-   if(SmOT.CapabilitiesDetected == 0)
-          Info1.value += "<br>Тест котла";
-}
-#else 
-   if(SmOT.CapabilitiesDetected == 0)
-          Info1.value += "<br>Тест котла";
-#endif // MQTT_USE 
-#if PID_USE
-    if(SmOT.usePID && SmOT.enable_CentralHeating)
-    {   Info1.value += "<br>управление по PID";
-        if(SmOT.usePID & 0x02)
-              Info1.value += "без ограничений";
-      Info1.value += " Tindoor " + String(SmOT.tempindoor) + " ";
-      Info1.value += " Toutdoor " + String(SmOT.tempoutdoor);
-    }
-#endif // PID_USE 
-
-/***************************************/
-
-//  Serial_db.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
-
-    if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
-    {   Info3.value = " Температура ";
-        if(SmOT.stsT1 >= 0)
-          Info3.value += "T1 " + String(SmOT.t1) + " ";
-        if(SmOT.stsT2 >= 0)
-          Info3.value += "T2 " + String(SmOT.t2) ;
-        Info3.value += "<br>";
-    } else {
-        Info3.value = "";
-    }
-    if(ot.OTid_used(OpenThermMessageID::Toutside))
-    {   Info3.value += "Text " + String(SmOT.Toutside) + "<br>";
-    }
-
-  if(SmOT.stsOT != -1)
+void loop_web() {
+  int rc = WiFi.status();
   {
-   Info2.value = " Выходная температура  "  + String(SmOT.BoilerT);
-      if(ot.OTid_used(OpenThermMessageID::Tret))
-      { Info2.value +=  " Обратка " + String(SmOT.RetT);
-      }
-      if(ot.OTid_used(OpenThermMessageID::Texhaust))
-      { sprintf(str0," Выхлоп %.0f", SmOT.Texhaust);
-        Info2.value +=  str0;
-      }
-
-      if(SmOT.Use_ID29_DHW_flag && ot.OTid_used(OpenThermMessageID::Tstorage))
-      {      Info2.value +=  " Бойлер " + String(SmOT.Tstorage);
-      } else  if(SmOT.HotWater_present) {
-         if(SmOT.enable_HotWater)
-         {  if(SmOT.Dhw_t_present)
-                Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
-//DHW on or off less than 10 sec
-//todo??    if((SmOT.BoilerStatus & 0x0200)|| ((time(nullptr) - SmOT.Bstat.t_HW_off) < 10))
-            if(SmOT.DHWFlowRate_present)
-            {
-                Info1.value += " Расход "  + String(SmOT.DHWFlowRate);
-            }
-         }
-      }
-
-      Info2.value += "<br>";
-
-      Info4.value = "";
-    
-      if(ot.OTid_used(OpenThermMessageID::RelModLevel))
-      {  Info4.value += " Flame "  + String(SmOT.FlameModulation) ;
-      }
-
-      if(ot.OTid_used(OpenThermMessageID::CHPressure))
-      {
-           Info4.value += " Pressure " + String(SmOT.Pressure);
-      }
-      Info4.value += "<br>";
-
-      if(SmOT.enable_CentralHeating2)
-      {  Info4.value += "T CH2 " +  String(SmOT.BoilerT2) + "<br>";
-      }
-
-// Info5.value = " MaxRelModLevel "  + String(SmOT.MaxRelModLevelSetting) + "<br>" + "Ts="+ String(SmOT.Tset) + "Tsr="+ String(SmOT.Tset_r) + "<br>";
-   Info5.value = "Ts "+ String(SmOT.Tset) + " Tsr "+ String(SmOT.Tset_r) + "<br>";
-
-
-    if(SmOT.OEMDcode || SmOT.Fault)
-    {  sprintf(str0, "%x %x", SmOT.Fault, SmOT.OEMDcode);
-//      Info5.value = "Fault = " + str0 + "<br>";
-      Info6.value  = "";
-      if(SmOT.Fault)
-      { sprintf(str0, "Fault = %x (HB) %x (LB)<br>", (SmOT.Fault>>8)&0xff, (SmOT.Fault&0xff));
-        Info6.value += str0;
-        if(SmOT.Fault & 0xff00)
-        {    if(SmOT.Fault & 0x0100)
-                 Info6.value += " Service request";
-             if(SmOT.Fault & 0x0200)
-                 Info6.value += " Lockout-reset";
-             if(SmOT.Fault & 0x0400)
-                 Info6.value += " LowWater press";
-             if(SmOT.Fault & 0x0800)
-                 Info6.value += " Gas/flame fault";
-             if(SmOT.Fault & 0x01000)
-                 Info6.value += " Air press fault";
-             if(SmOT.Fault & 0x02000)
-                 Info6.value += " Water over-temp fault";
-            if(SmOT.Fault & 0x00ff)
-              Info6.value += " &";
-        }
-        if(SmOT.Fault & 0x00ff)
-        {    sprintf(str0, (PGM_P)F(" OEM-specific fault/error cod = %d (hex %x)"), (SmOT.Fault&0xff), (SmOT.Fault&0xff));
-            Info6.value += str0;
-        }
-        Info6.value += "<br>";
-      }
-      if(SmOT.OEMDcode)
-      {     sprintf(str0, (PGM_P)F("OEM-specific diagnostic/service code = %d (hex %x)<br>"), SmOT.OEMDcode, SmOT.OEMDcode);
-            Info6.value += str0;
-      }
-    } else {
-      Info6.value = "";
-    }
-    if(OTDebugInfo[0] > 10)
-    {	int v =  (OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
-      if(v > 30)
-      {   sprintf(str0, "Большое количество ошибок OpenTherm: %d%%<br>", v);
-          Info6.value += str0;
-      }
-    }
-//    Info7.value = " MinModLevel="  + String(SmOT.MinModLevel) + "<br>"  + " MaxCapacity="  + String(SmOT.MaxCapacity) + "<br>";
-
-
-    Info7.value = "";
-
-/******************************/  
-#if PID_USE
-    if(SmOT.enable_CentralHeating && !SmOT.usePID)
-      SetBoilerTemp.enable = true;
-#else
-    if(SmOT.enable_CentralHeating)
-      SetBoilerTemp.enable = true;
-#endif      
-    else 
-      SetBoilerTemp.enable = false;
-
-    if(SmOT.CH2_present && SmOT.enable_CentralHeating2)
-        SetBoilerTemp2.enable = true;
-    else 
-      SetBoilerTemp2.enable = false;
-    
-    if( SmOT.enable_HotWater)
-      SetDHWTemp.enable = true;
-    else
-      SetDHWTemp.enable = false;
-
-    if( SmOT.enable_HotWater || SmOT.enable_CentralHeating||SmOT.enable_CentralHeating2)
-        SetNewBoilerTemp.enable = true;
-    else 
-        SetNewBoilerTemp.enable = false;
-    if(SetBoilerTemp.enable)
-    { sprintf(str0,"%.1f",SmOT.Tset);
-      SetBoilerTemp.value = str0;
-    }
-    if(SetDHWTemp.enable)
-    { sprintf(str0,"%.1f",SmOT.TdhwSet);
-      SetDHWTemp.value = str0;
-    }
-    if(SetBoilerTemp2.enable)
-    { sprintf(str0,"%.1f",SmOT.Tset2);
-      SetBoilerTemp2.value = str0;
-    }
-
-  } else {
-        Info2.value = "";
-        Info4.value = "";
-        Info5.value = "";
-        Info6.value = "";
-        Info7.value = "";
-  }
- 
-#if ST_VERS == 2
-
-  Info7.value = "OT2: ";
-  if(SmOT.OT_slave_present)
-  {
-    switch(SmOT.ot_slave_stsOT)
-    {   case -2:
-        case -1:
-          Info7.value += "<b>Ошибка:</b> не инициализирован";
-          break;
-        case 0:
-          Info7.value += "работает";
-          break;
-        case 2:
-        {  time_t now = time(nullptr);
-          double dt;
-          dt = difftime(now,SmOT.ot_slave_t_lastwork);
-          if(dt < 3600.)
-          {   sprintf(str0, (PGM_P)F("Потеря связи %.f сек назад"), dt);
-
-          } else {        
-              sprintf(str0, (PGM_P)F("Потеря связи связи  %.1f час(ов) назад"), dt);
-          }
-          Info7.value +=  str0;
-        }
-          break;
-    }
-
-    if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
-          Info7.value +=  ", управление от панели";
-    else 
-          Info7.value +=  ", управление от контроллера";
-
-    if(SmOT.OT_slave_mode == 1)
-    {   SetDHWTemp.enable = false;
-        SetBoilerTemp2.enable = false;
-        SetBoilerTemp.enable = false;
-        SetNewBoilerTemp.enable = false;
-    }
-  }
-
-#endif
-
-#if  RELAY_USE
-  if(SmOT.Relay_present)
-  {
-      RelayOnFf.enable = true;
-      if(SmOT.Relay_sts )
-      { strcpy(str0,"Реле вЫкл");
-
-      } else {
-         strcpy(str0,"Реле Вкл");
-      }
-      RelayOnFf.value = str0;
-
-  } else {
-      RelayOnFf.enable = false;
-  }
- 
-#endif
-
-/********************/
-  return String();
-}
-
-// SmOT.OTmemberCode
-// see as well on_setpar()
-String on_Setup(AutoConnectAux& aux, PageArgument& args)
-{  const char *pstr; 
-   char str[40]; 
-    
-#if RELAY_USE
-    CtrlChBUseRelay.enable = true;
-    if(SmOT.Relay_present)
-    {   CtrlChBUseRelay.checked = true;
-        CtrlChBStartRelaySts.enable = true;
-        if(SmOT.Relay_init_sts)
-            CtrlChBStartRelaySts.checked = true;
-        else
-            CtrlChBStartRelaySts.checked = false;
-    } else {
-        CtrlChBUseRelay.checked = false;
-        CtrlChBStartRelaySts.enable = false;
-    }
-#endif
-
-//  Serial_db.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
-   
-  if(SmOT.MaxRelModLevel_present)
-  {     CtrlChBMmod.enable = true;
-        if(SmOT.Use_MaxRelModLevel)
-        {   CtrlChBMmod.checked = true;
-            SetMaxMod.enable = true;
-            sprintf(str, "%d",int(SmOT.MaxRelModLevelSetting+0.5));
-            SetMaxMod.value = str;           
-        } else {
-            CtrlChBMmod.checked = false;
-            SetMaxMod.enable = false;
-        }  
-  } else {
-       SetMaxMod.enable = false;
-       CtrlChBMmod.enable = false;
-  }
-
-  if( SmOT.enable_CentralHeating)
-      CtrlChB1.checked = true;
-  else
-      CtrlChB1.checked = false;
-
-  Info1.value ="";
-
- /*********************************/      
-  if (SmOT.stsOT >= 0)
-  {
-    if(SmOT.HotWater_present) 
-    { CtrlChB2.enable  =  true;    
-      if(SmOT.enable_HotWater)
-        CtrlChB2.checked = true;
-      else
-        CtrlChB2.checked = false;
-    } else {
-      CtrlChB2.enable  = false;
-    }
-
-    if(SmOT.CH2_present) 
-      CtrlChB3.enable  = true;
-    else
-      CtrlChB3.enable  = false;
-
-
-    Ctrl2.value = "Котёл: "; 
-    pstr = GetOTVendorName(SmOT.OTmemberCode);
-    if(pstr)
-    {   Ctrl2.value += pstr; 
-    } else {
-        Ctrl2.value +=  "код " + String(SmOT.OTmemberCode);
-    }
-
-    if(SmOT.DHW_tank_present) 
-        Ctrl2.value +=  "\nбойлер косвенного нагрева";
-
-/*********************************/      
- } else {
-    CtrlChB2.enable  = false;
-    CtrlChB3.enable  = false;
-    Ctrl2.value = ""; 
- }
-
-    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
-
-    sprintf(str,"%.2f",SmOT.umax);
-    SetTmaxPID.value = str;
-    sprintf(str,"%.2f",SmOT.umin);
-    SetTminPID.value = str;
-          
-    if(SmOT.Use_remoteTCPserver)
-      CtrlChB_UseRemoteControl.checked = true;
-    else
-      CtrlChB_UseRemoteControl.checked = false;
-
- 
-#if MQTT_USE
-  CtrlChbUseMQTT.enable  = true;
-  if(SmOT.useMQTT) 
-  { if(SmOT.useMQTT == 1) 
-      Info1.value = "проверь после Reset"; 
-    CtrlChbUseMQTT.checked = true;
-    SetMQTT_server.enable  = true;
-    SetMQTT_user.enable  = true;
-    SetMQTT_pwd.enable  = true;
-    SetMQTT_topic.enable  = true;
-    SetMQTT_interval.enable  = true;
-    SetMQTT_devname.enable  = true;
-    SetMQTT_port.enable  = true;
-
-     SetMQTT_user.value = SmOT.MQTT_user;
-     SetMQTT_pwd.value = SmOT.MQTT_pwd;
-
-      SetMQTT_server.value = SmOT.MQTT_server;
-      SetMQTT_topic.value = SmOT.MQTT_topic;
-      sprintf(str, "%d",SmOT.MQTT_interval);
-      SetMQTT_interval.value = str; 
-      sprintf(str, "%d",SmOT.MQTT_port);
-      SetMQTT_port.value = str; 
-
-      SetMQTT_devname.value = SmOT.MQTT_devname;
-    
-  } else {
-    CtrlChbUseMQTT.checked = false;
-    SetMQTT_server.enable  = false;
-    SetMQTT_user.enable  = false;
-    SetMQTT_pwd.enable  = false;
-    SetMQTT_topic.enable  = false;
-    SetMQTT_interval.enable  = false;
-    SetMQTT_devname.enable  = false;
-    SetMQTT_port.enable  = false;
-  }
-#else //MQTT_USE
-
-/*
-    CtrlChbUseMQTT.enable  = false;
-    SetMQTT_server.enable  = false;
-    SetMQTT_user.enable  = false;
-    SetMQTT_pwd.enable  = false;
-    SetMQTT_topic.enable  = false;
-    SetMQTT_interval.enable  = false;
-*/    
-#endif //MQTT_USE
-
-  return String();
-}
-
-#if PID_USE
-
-String onSetPID(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0;
-   unsigned short int icheck, icheck1=0, icheck2=0;
-   short int iv;
-   float v;
-
-//   Serial_db.printf((PGM_P)F("onSetPID\n"));
-
-  if( UsePID.checked) 
-  {  icheck = 1;
-     if(UsePID_NoLimit.checked) icheck1 = 2;
-     if(UsePIDPWM.checked)      icheck2 = 4;
-  }  else  {
-      icheck = 0;
-  }
-
-  if((icheck|icheck1|icheck2) != SmOT.usePID)
-  { SmOT.usePID = icheck|icheck1|icheck2;
-    isChange = 1;
-#if MQTT_USE
-    MQTT_pub_usePID();    
-#endif    
-
-  }
-
-
-  if(SmOT.usePID)
-  { 
-    iv = SetTempSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC)
-        iv = MAX_PID_SRC;
-    else if (iv < -1)
-        iv = -1;
-
-//    Serial_db.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
-//    Serial_db.printf("SetTempSrcPID.value =%d\n", iv);
-
-    if(iv != SmOT.srcTroom)
-    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
-      { SmOT.srcTroom = iv;
-        isChange = 1;
-      }
-    }
-    
-    iv = SetTempExtSrcPID.value.toInt();
-    if(iv > MAX_PID_SRC)
-      iv = MAX_PID_SRC;
-    else if (iv < -1)
-      iv = -1;
-  
-
-    if(iv != SmOT.srcText)
-    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
-      { SmOT.srcText = iv;
-        isChange = 1;
-      }
-    }
-
-    v = SetKpPID.value.toFloat();
-    if(v != SmOT.mypid.Kp)
-    { SmOT.mypid.Kp = v;
-      isChange = 1;
-    }
-    
-    v = SetKdPID.value.toFloat();
-//  Serial_db.printf("*kdPID = %s %f\n", SetKdPID.value.c_str(), v);
-
-    if(v != SmOT.mypid.Kd)
-    { SmOT.mypid.Kd = v;
-      isChange = 1;
-    }
-    v = SetKiPID.value.toFloat();
-    if(v != SmOT.mypid.Ki)
-    { SmOT.mypid.Ki = v;
-      isChange = 1;
-    }
-
-    v = SetIdissPID.value.toFloat();
-    if(v > 0.5) v = 0.5; /* 0. < Kidiss < 1. */
-    else if(v < 0.000001) v = 0.000001;
-    if(v != SmOT.mypid.Kidiss)
-    { SmOT.mypid.Kidiss = v;
-      isChange = 1;
-    }
-    v = Set_CH_GIST.value.toFloat();
-    if(v != SmOT.CH_StartGist)
-    { SmOT.CH_StartGist = v;
-      isChange = 1;
-    }
-      
-//CH_StartGist
-
-    v = SetXtagPID.value.toFloat();
-    if(SmOT.usePID == 1)
-    {   if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
-        else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
-    }
-    if(v != SmOT.mypid.xTag)
-    {
-      SmOT.set_new_PID_setpoint(v, 0); //change mypid.xTag 
-//      SmOT.mypid.xTag = v;
-      SmOT.TroomTarget = v;
-
-      isChange = 1;
-    }
-
-    v = SmOT.CHtempLimit(Set_u0_PID.value.toFloat());    
-    if(v != SmOT.mypid.u0)
-    { SmOT.mypid.u0 = v;
-      isChange = 1;
-    }
-
-    v = Set_t0_PID.value.toFloat();
-    if( v > 40.)  v = 40.;
-    else if(v<-80.) v = -80.;
-    if(v != SmOT.mypid.y0)
-    { SmOT.mypid.y0 = v;
-      isChange = 1;
-    }
-
-    v = SmOT.CHtempLimit(Set_u1_PID.value.toFloat());    
-    if(v != SmOT.mypid.u1)
-    { SmOT.mypid.u1 = v;
-      isChange = 1;
-    }
-
-    v = Set_t1_PID.value.toFloat();
-    if( v > 40.)  v = 40.;
-    else if(v<-80.) v = -80.;
-    if(v != SmOT.mypid.y1)
-    { SmOT.mypid.y1 = v;
-      isChange = 1;
-    }
-
-    v = Set_x0_PID.value.toFloat();
-    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
-    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
-
-    if(v != SmOT.mypid.x0)
-    { SmOT.mypid.x0 = v;
-      isChange = 1;
-    }
-
-    iv = PWM_T_PID.value.toInt();
-    if( iv <  5*60) v = 5*60;
-    else if(iv > 3600) v = 3600;
-    if(iv != SmOT.PID_PWMperiod)
-    { SmOT.PID_PWMperiod = iv;
-      isChange = 1;
-    } 
-  }
-
-  if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
-
-//  Serial_db.printf("isChange %d onSetPID usePID %d srcText %d srcTroom %d\n",
-//         isChange, SmOT.usePID, SmOT.srcText,  SmOT.srcTroom );
-
-  aux.redirect(SETUP_URI);
-  return String();
-}
-
-// PID_Page
-String onSetupPID(AutoConnectAux& aux, PageArgument& args)
-{ char str0[80];
-  if(SmOT.usePID & 0x01) 
-  { UsePID.checked = true;
-  } else {
-    UsePID.checked = false;    
-  }
-  if((SmOT.usePID & 0x03) == 0x03) 
-    UsePID_NoLimit.checked = true;
-  else 
-    UsePID_NoLimit.checked = false;
-
-  if((SmOT.usePID & 0x05) == 0x05) 
-    UsePIDPWM.checked = true;
-  else 
-    UsePIDPWM.checked = false;
-
-
-
-  Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2";
-  if(SmOT.Toutside_present)
-      Info1.value += ", 2=Text";
-
-#if  MQTT_USE 
-  if(SmOT.useMQTT)
-  { Info1.value += ", MQTT/HA:";
-    sprintf(str0,"3=number.%s_t_indoor,",SmOT.MQTT_devname);
-    Info1.value += str0;
-    sprintf(str0,"4=number.%s_t_outdoor",SmOT.MQTT_devname);
-    Info1.value += str0;
-  }
-#endif
-
-  Info1.value += "</small>";
-
-  sprintf(str0,"%d",SmOT.srcTroom);
-  SetTempSrcPID.value = str0;
-  sprintf(str0,"%d",SmOT.srcText);
-  SetTempExtSrcPID.value = str0;
-
-  sprintf(str0,"%.4f",SmOT.mypid.Kp);
-  SetKpPID.value = str0;
-
-  sprintf(str0,"%.4f",SmOT.mypid.Kd);
-  SetKdPID.value = str0;
-  
-  sprintf(str0,"%.4f",SmOT.mypid.Ki);
-  SetKiPID.value = str0;
-
-  sprintf(str0,"%.4f",SmOT.mypid.Kidiss);
-  SetIdissPID.value = str0;
-
-  sprintf(str0,"%.4f",SmOT.CH_StartGist);
-  Set_CH_GIST.value = str0;
-
-  sprintf(str0,"%.2f",SmOT.mypid.xTag);
-  SetXtagPID.value = str0;
-
-   Info3.value = "ПЗА: темп.отопления | наружная";
-
-  sprintf(str0,"%.2f",SmOT.mypid.u0);
-  Set_u0_PID.value = str0;
-  sprintf(str0,"%.2f",SmOT.mypid.y0);
-  Set_t0_PID.value = str0;
-  sprintf(str0,"%.2f",SmOT.mypid.u1);
-  Set_u1_PID.value = str0;
-  sprintf(str0,"%.2f",SmOT.mypid.y1);
-  Set_t1_PID.value = str0;
-
-  sprintf(str0,"%.2f",SmOT.mypid.x0);
-  Set_x0_PID.value = str0;
-
-  sprintf(str0,"%d",SmOT.PID_PWMperiod);
-  PWM_T_PID.value = str0;
-
-  
-  //Info3.value = "";
-  Info4.value = "";
-  Info5.value = "";
-  Info6.value = "";
-
-  return String();
-
-}
-
-#endif
-
-#if RELAY_USE
-//AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
-String onSetRelay(AutoConnectAux& aux, PageArgument& args)
-{
-    if(SmOT.Relay_sts)
-      SmOT.RelayOnOff(false);
-    else
-      SmOT.RelayOnOff(true);
-
-  aux.redirect(INFO_URI);
-
-  return String();
-}
-#endif //RELAY_USE
-
-#if ST_VERS == 2
-//SetOTslave_Page
-String onSetOT_slave(AutoConnectAux& aux, PageArgument& args)
-{ int isChange=0;
-  bool check;
-
-  if(UseOTslave.checked) check = true;
-  else                   check = false;
-  if(SmOT.OT_slave_present != check)
-  { isChange++;
-    SmOT.OT_slave_present = check;
-  }
-  if(SmOT.OT_slave_present)
-  {   if(OTslaveMode.checked+1 != SmOT.OT_slave_mode)
-      { isChange++;
-        SmOT.OT_slave_mode = OTslaveMode.checked - 1;
-      }
-  }
-
-  if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
-
-  aux.redirect(INFO_URI);
-  return String();
-}
-
-
-//AutoConnectAux OTslave_Page(OT2_URI, "OT2", true, {Info1, UseOTslave, Info5, Info6});
-String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
-{   char str0[256];
-
-   Info1.value = "Интерфейс slave OpenTherm:<br>";
-   switch(SmOT.ot_slave_stsOT)
-   {  case -2:
-      Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован без OT";
-        break;
-      case -1:
-      Info1.value +=  String(SmOT.ot_slave_stsOT) + ": <b>Ошибка:</b> не инициализирован";
-        break;
-      case 0:
-        Info1.value +=  String(SmOT.ot_slave_stsOT) + ": работает";
-        break;
-      case 2:
-      {  time_t now = time(nullptr);
-        double dt;
-        dt = difftime(now,SmOT.ot_slave_t_lastwork);
-        if(dt < 3600.)
-        {   sprintf(str0, (PGM_P)F("Потеря связи %.f сек назад"), dt);
-
-        } else {        
-            sprintf(str0, (PGM_P)F("Потеря связи связи  %.1f час(ов) назад"), dt);
-        }
-        Info1.value +=  str0;
-      }
-        break;
-   }
-//UseOTslave
-
-    if(SmOT.OT_slave_present)
-    { UseOTslave.checked = true;
-      OTslaveMode.enable = true;
-      if(SmOT.OT_slave_mode == 0)
-        OTslaveMode.checked = 1;
-      else 
-        OTslaveMode.checked = 2;
-    } else {
-        UseOTslave.checked = false;
-        OTslaveMode.enable = false;
-    }
-  
-   Info5.value ="";
-   Info6.value ="";      
-
-  return String();
-}
-#endif // ST_VERS
-
-//SendBLORPage
-String onSendBlor(AutoConnectAux& aux, PageArgument& args)
-{
-    SmOT.need_set_blor();
-
-  aux.redirect(INFO_URI);
-  return String();
-}
-
-
-const char SM_OT_HomePage[]= "https://t.me/smartTherm";
-//"https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
-
-String onAbout(AutoConnectAux& aux, PageArgument& args)
-{ char str[80];
-  Info1.value = IDENTIFY_TEXT;
-  sprintf(str, (PGM_P)F("Vers %d.%d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
-
-  Info2.value = str;
-  if (WiFi.status() == WL_CONNECTED)
-  {   Info3.value = "<a href=";
-      Info3.value += SM_OT_HomePage;
-      Info3.value += F(">Поддрержка проекта</a>\n");
-  } else 
-    Info3.value ="";
-    
-  return String();
-}
-
-#endif // moved handlers
-
-int sRSSI = 0;
-int razRSSI = 0;
-extern int LedSts; 
-
-void loop_web()
-{  int rc,  dt;
-static unsigned long t0=0;
-
-//  portal.handleClient();
-
-  /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте 
-     3->5->1->0->3
-  typedef enum {
-    WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
-    WL_IDLE_STATUS      = 0,
-    WL_NO_SSID_AVAIL    = 1,
-    WL_SCAN_COMPLETED   = 2,
-    WL_CONNECTED        = 3,
-    WL_CONNECT_FAILED   = 4,
-    WL_CONNECTION_LOST  = 5,
-    WL_DISCONNECTED     = 6
-//esp8266 
-//    WL_WRONG_PASSWORD   = 6, 
-//    WL_DISCONNECTED     = 7
-} wl_status_t; 
-  */
-  rc = WiFi.status();
-  { static int oldstatus=-1, oldmode=-1, needStopAP=0 ;
+    static int oldstatus=-1, oldmode=-1, needStopAP=0;
     static long t0 = 0;
     int mode = WiFi.getMode();
     int ch = WiFi.channel();
 
-    if(rc == WL_CONNECTION_LOST)
-    {  if((rc != oldstatus) && (SmOT.stsOT == 2))
-       { 
-/******************* test for crasy state ********/ 
-           portal._ac_wifi_scan_sc = -100;
-           Serial_db.printf("crasy state test\n");
-/*************************************************/ 
-        } 
-    }
-
-    if(rc == WL_CONNECTION_LOST || rc == WL_IDLE_STATUS)
-    {
-/******************* test for crasy state ********/ 
-      if(portal._ac_wifi_scan_sc != -100)
-      { if(portal._ac_wifi_scan_sc  == 0) // при поиске WiFi не найдено сетей
-        { if(SmOT.stsOT == 2) //связь OT пропала
-          { 
-            Serial_db.printf("crasy state detected\n");
-            if(SmOT.useCPU_freq == 0 )
-              setCpuFrequencyMhz(160);
-            else 
-              setCpuFrequencyMhz(240);
-            delay(10);
-
-            if(SmOT.useCPU_freq  == 0) 
-              setCpuFrequencyMhz(240);
-            else  if(SmOT.useCPU_freq  == 1) 
-              setCpuFrequencyMhz(160);
-            else
-              setCpuFrequencyMhz(80);
-            delay(10);
-
-            Serial_db.printf("crasy state %d setCpuFrequencyMhz %d\n", SmOT.CrasyState_count, getCpuFrequencyMhz() );
-            SmOT.CrasyState_count++; 
-            SmOT.needReport_CrasyState = 0x3;
-            portal._ac_wifi_scan_sc = -200;
-          }
-
-        }
+    if((rc != oldstatus) || mode != oldmode) {
+      Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, ch, millis());
+      if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL)) {
+        needStopAP = 1; t0 = millis();
       }
-/*************************************************/ 
-    }
-
-    if((rc != oldstatus) || mode != oldmode)
-    {
-        Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, ch, millis());
-        if(rc == WL_IDLE_STATUS)
-        {  Serial_db.printf("WiFi Idle: t %d stsOT %d\n", millis(), SmOT.stsOT);
-
-        }
-
-//        Serial_db.printf("WiFi: t %d stsOT %d %d %d\n", millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
-
-        if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
-        {   Serial_db.printf("WiFi status chage to connected\n");
-            needStopAP = 1;
-            t0 = millis();
-        }
-        oldmode = mode;
-        oldstatus = rc;
+      oldmode = mode; oldstatus = rc;
     } else if(needStopAP) {
-      if(millis()-t0 > 20000)
-      {   needStopAP = 0;
-          if(mode == WIFI_MODE_APSTA)  /* WiFi station + soft-AP mode */
-          {   Serial_db.printf("WiFi softAPdisconnect\n");
-          
-             WiFi.softAPdisconnect(true);
-              WiFi.enableAP(false);
-          }
+      if(millis()-t0 > 20000) {
+        needStopAP = 0;
+        if(mode == WIFI_MODE_APSTA) { WiFi.softAPdisconnect(true); WiFi.enableAP(false); }
       }
     }
   }
 
   portal.handleClient();
 
-   if(rc != WiFists)
-  { 
-#if SERIAL_DEBUG      
+  if(rc != WiFists) {
+#if SERIAL_DEBUG
     Serial_db.printf("WiFi.status=%i\n", rc);
-#endif    
-    if(rc == WL_CONNECTED)
-    {  LedSts = 0;
- //     digitalWrite(LED_BUILTIN, LedSts);   
-#if SERIAL_DEBUG      
+#endif
+    if(rc == WL_CONNECTED) {
+      LedSts = 0;
+#if SERIAL_DEBUG
       Serial_db.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
       Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
-#endif      
+#endif
     } else {
       Serial_db.printf("WiFi disconnected (sts=%d t %d stsOT %d %d %d)\n", rc, millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
       LedSts = 1;
-//      digitalWrite(LED_BUILTIN, LedSts);   
     }
-
-    if( rc >=0 && rc <=7)
-        WiFiDebugInfo[rc]++;
+    if( rc >=0 && rc <=7) WiFiDebugInfo[rc]++;
     WiFists = rc;
   }
 
-
-  if(rc ==  WL_CONNECTED)
-  {  dt = millis() - t0;
-     if(dt > 10000)
-     {   t0 = millis();
-         razRSSI++;
-         sRSSI += WiFi.RSSI();
-  //Serial_db.printf(" WiFi.RSSI()=%i %i %i\n",  WiFi.RSSI(), dt, razRSSI);
-
-         if(razRSSI > 6*10)
-         {  mRSSi =  float(sRSSI)/float(razRSSI);
-            razRSSI = 0;
-            sRSSI = 0;
-         }
-    }
+  if(rc ==  WL_CONNECTED) {
+    static int sRSSI = 0, razRSSI = 0; static unsigned long t0 = 0; int dt = millis() - t0;
+    if(dt > 10000) { t0 = millis(); razRSSI++; sRSSI += WiFi.RSSI(); if(razRSSI > 60) { mRSSi =  float(sRSSI)/float(razRSSI); razRSSI = 0; sRSSI = 0; } }
   }
 
 #if MQTT_USE
-  if(rc ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
-         mqtt_loop();
+  if(rc ==  WL_CONNECTED && (SmOT.useMQTT== 0x03)) mqtt_loop();
 #endif
-
 }
 
-/**
- *  Convert dBm to the wifi signal quality.
- *  @param  rssi  dBm.
- *  @return A signal quality percentage.
- */
-unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi) {
+unsigned int _toWiFiQuality(int32_t rssi) {
   unsigned int  qu;
-  if (rssi == 31)   // WiFi signal is weak and RSSI value is unreliable.
-    qu = 0;
-  else if (rssi <= -100)
-    qu = 0;
-  else if (rssi >= -50)
-    qu = 100;
-  else
-    qu = 2 * (rssi + 100);
+  if (rssi == 31) qu = 0; else if (rssi <= -100) qu = 0; else if (rssi >= -50) qu = 100; else qu = 2 * (rssi + 100);
   return qu;
 }
 
-int OutUTCtime(time_t now)
-{   char str[312];
-    char buffer[26];
-    struct tm* tm_info;
-    const char *s0 = "<em id=\"utcl\"></em><time id=\"upd_at\" dt=\"";
-    const char *s1 = "\"></time><script>";
-    const char *s2 =
-"const src_el=document.getElementById('upd_at');\
-const d=new Date(src_el.getAttribute('dt')).toLocaleString();\
-document.getElementById(\"utcl\").innerHTML=d;</script>";
-
-/*
-<em id="utcl"></em>
-<time id="upd_at" dt="2021-06-30 12:21:17Z"></time>
-<script>
-const src_el = document.getElementById('upd_at');
-const d = new Date(src_el.getAttribute('dt')).toLocaleString();
-document.getElementById("utcl").innerHTML = d;
-</script>
-*/  
-
-//  now = time(nullptr);
-//  Serial_db.printf("****** 2 %s\n", ctime(&now));
+int OutUTCtime(time_t now) {
+  char str[312]; char buffer[26]; struct tm* tm_info;
+  const char *s0 = "<em id=\"utcl\"></em><time id=\"upd_at\" dt=\"";
+  const char *s1 = "\"></time><script>";
+  const char *s2 =
+"const src_el=document.getElementById('upd_at');const d=new Date(src_el.getAttribute('dt')).toLocaleString();document.getElementById(\"utcl\").innerHTML=d;</script>";
   tm_info = localtime(&now);
-
-  strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
-  buffer[25] = 0;
-//  Serial_db.printf("*******3 %s\n", buffer);
+  strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info); buffer[25] = 0;
   sprintf(str,"%s%sZ%s%s", s0,buffer,s1, s2);
   utc_time_jc = str;
-/*  
-  Serial_db.printf("****** %s len=%d\n", str, strlen(str));
-  Serial.println(utc_time_jc);
-*/
   return 0;
 }
 
-/************************************/
-void setup_read_config(void)
-{ bool b;
-  b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
-  if(b == false)
-  {   Serial.println(F("FlashFS.begin failed"));
-  }
-   
+void setup_read_config(void) {
+  bool b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
+  if(b == false) { Serial.println(F("FlashFS.begin failed")); }
   SmOT.Read_ot_fs();
-//  SmOT.Read_mqtt_fs();
   SmOT.init(1);
-
 }
 
-void check_fs(void)
-{ 
-/**********************************/
-// Check consistency of reported partiton size info.
-/*    
-   {  esp_err_t ret;
-        Serial.println("Performing SPIFFS_check().");
-        ret = esp_spiffs_check(NULL);
-        // Could be also used to mend broken files, to clean unreferenced pages, etc.
-        // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
-        if (ret != ESP_OK) {
-            Serial_db.printf("SPIFFS_check() failed (%s)\n", esp_err_to_name(ret));
-            return;
-        } else {
-            Serial.println("SPIFFS_check() successful");
-        }
-    }
-*/
-/*******************************/
- #if defined(ARDUINO_ARCH_ESP32)
-{ File root = FlashFS.open("/");
-  File file = root.openNextFile();
- 
+void check_fs(void) {
+#if defined(ARDUINO_ARCH_ESP32)
+  File root = FlashFS.open("/"); File file = root.openNextFile();
   while(file){
- 
-#if SERIAL_DEBUG      
-      Serial.print("FILE: ");
-      Serial_db.printf( "%s %d\n", file.name(), file.size());
-#endif      
-      if(file.size() > 1000000)
-       { char str[80];
-         sprintf(str,"/%s",file.name() );
-      #if SERIAL_DEBUG      
-         Serial_db.printf( "remove %s\n", str);
-      #endif         
-         file.close();
-#if SERIAL_DEBUG      
-        bool b = FlashFS.remove(str);
-        Serial_db.printf( "remove  rc = %d\n", b);
-#else
-        FlashFS.remove(str);
-#endif         
-         break;
-       }
-      
-      file = root.openNextFile();
-      
-  }
-}
+#if SERIAL_DEBUG
+    Serial.print("FILE: "); Serial_db.printf( "%s %d\n", file.name(), file.size());
 #endif
-
-#if SERIAL_DEBUG      
-    { int tBytes, uBytes; 
+    if(file.size() > 1000000) { char str[80]; sprintf(str,"/%s",file.name()); file.close(); FlashFS.remove(str); break; }
+    file = root.openNextFile();
+  }
+#endif
+#if SERIAL_DEBUG
+  { int tBytes, uBytes;
 #if defined(ARDUINO_ARCH_ESP8266)
-      FSInfo info;
-      FlashFS.info(info);
-      tBytes  = info.totalBytes;
-      uBytes = info.usedBytes;
+    FSInfo info; FlashFS.info(info); tBytes = info.totalBytes; uBytes = info.usedBytes;
 #else
-      tBytes  = FlashFS.totalBytes();
-      uBytes = FlashFS.usedBytes();
-#endif      
-      Serial_db.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
-    }
-#endif //SERIAL_DEBUG     
-
+    tBytes  = FlashFS.totalBytes(); uBytes = FlashFS.usedBytes();
+#endif
+    Serial_db.printf("FlashFS tBytes = %d used = %d\n", tBytes, uBytes);
+  }
+#endif
 }
