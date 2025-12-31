@@ -7,7 +7,6 @@
 #include "SD_OpenTherm.hpp"
 
 #if ST_VERS == 2
-extern SD_Termo SmOT;
 
 static AutoConnectCheckbox UseOTslave("UseOTslave","", "Использовать OT slave интерфейс", false, AC_Behind ,  AC_Tag_DIV);
 static AutoConnectRadio OTslaveMode("radio", { "SmartTherm", "Панель" }, "Котлом управляет:", AC_Vertical, 1,  AC_Tag_DIV);
@@ -54,4 +53,3 @@ void Register_OT2(AutoConnect& portal){
   portal.join({OTslave_Page}); portal.join({SetOTslave_Page});
 }
 #endif // ST_VERS == 2
-

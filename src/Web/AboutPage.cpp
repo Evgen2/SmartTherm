@@ -5,8 +5,6 @@
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-extern SD_Termo SmOT;
-
 static AutoConnectText About_0("About_0", "<b>About:</b>", "", "", AC_Tag_DIV);
 static AutoConnectAux AboutPage(ABOUT_URI, "About", true);
 

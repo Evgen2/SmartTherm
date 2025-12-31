@@ -6,8 +6,6 @@
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-extern SD_Termo SmOT;
-
 // Controls
 static AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_None);
 static AutoConnectInput    ID2MaserID("ID2MaserID","", "IDcode","", "", AC_Tag_BR, AC_Input_Text, STYLE_WIDTH);
@@ -119,4 +117,3 @@ void Register_SetupAdd(AutoConnect& portal){
   portal.join({SetupAdd_Page});
   portal.join({SetAddParPage});
 }
-

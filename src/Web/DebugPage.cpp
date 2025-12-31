@@ -10,15 +10,6 @@
 #include "esp32/rom/rtc.h"
 #endif
 
-extern SD_Termo SmOT;
-extern String utc_time_jc;
-int OutUTCtime(time_t now);
-unsigned int _toWiFiQuality(int32_t rssi);
-
-extern int WiFiDebugInfo[10];
-extern unsigned int OTDebugInfo[12];
-extern int WiFists; extern float mRSSi;
-
 static AutoConnectButton DebugApply("DebugApply", "Обновить", DEBUG_URI, AC_Tag_DIV);
 static AutoConnectAux debugPage(DEBUG_URI, "Debug", true);
 

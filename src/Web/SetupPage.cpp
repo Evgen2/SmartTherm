@@ -7,8 +7,6 @@
 #include "SD_OpenTherm.hpp"
 #include "OpenTherm.h"
 
-extern SD_Termo SmOT;
-
 // Controls definitions
 AutoConnectText Ctrl2("Ctrl2", "", "", "", AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);

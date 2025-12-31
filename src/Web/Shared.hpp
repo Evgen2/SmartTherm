@@ -3,7 +3,24 @@
 #pragma once
 
 #include <AutoConnect.h>
+#include <time.h>
+#include <stdint.h>
 #include "Smart_Config.h"
+#include "OpenTherm.h"
+
+// Forward declarations for common globals
+class SD_Termo;
+extern SD_Termo SmOT;            // device state
+extern OpenTherm ot;             // OpenTherm interface
+extern String utc_time_jc;       // formatted UTC time snippet for UI
+extern int WiFiDebugInfo[10];
+extern unsigned int OTDebugInfo[12];
+extern int WiFists;              // last WiFi status
+extern float mRSSi;              // averaged RSSI
+
+// Common utilities used by pages
+int OutUTCtime(time_t now);
+unsigned int _toWiFiQuality(int32_t rssi);
 
 // URIs (shared across pages)
 extern const char INFO_URI[];

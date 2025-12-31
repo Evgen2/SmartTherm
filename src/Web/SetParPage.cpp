@@ -7,9 +7,6 @@
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-extern SD_Termo SmOT;
-extern OpenTherm ot;
-
 #if MQTT_USE
 extern void mqtt_start(void);
 #endif

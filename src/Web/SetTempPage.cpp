@@ -6,9 +6,6 @@
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-extern SD_Termo SmOT;
-extern OpenTherm ot;
-
 static AutoConnectAux SetTempPage(SET_T_URI, "SetTemp", false, {}, false);
 
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)

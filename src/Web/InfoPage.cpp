@@ -7,19 +7,13 @@
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-extern SD_Termo SmOT;
-extern String utc_time_jc;
-int OutUTCtime(time_t now);
-unsigned int _toWiFiQuality(int32_t rssi);
-extern unsigned int OTDebugInfo[12];
-
 // Info page instance
 static AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true);
 
 // Handler copied from original with minor includes
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[256];
-  extern OpenTherm ot;
+  // OpenTherm instance declared in Shared.hpp
   switch(SmOT.stsOT)
   {  case -1:
         Info1.value =  String(SmOT.stsOT) + ": <b>Ошибка:</b> OT не инициализирован";

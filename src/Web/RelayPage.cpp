@@ -7,7 +7,6 @@
 #include "SD_OpenTherm.hpp"
 
 #if RELAY_USE
-extern SD_Termo SmOT;
 
 static AutoConnectAux SetRelayPage(RELAY_URI, "SetRelay", false, {}, false);
 
@@ -23,4 +22,3 @@ String onSetRelay(AutoConnectAux& aux, PageArgument& args)
 
 void Register_Relay(AutoConnect& portal){ SetRelayPage.on(onSetRelay); portal.join({SetRelayPage}); }
 #endif // RELAY_USE
-
