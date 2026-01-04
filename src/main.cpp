@@ -1946,6 +1946,7 @@ void OTlog(unsigned int reqresp, int sts)
     b[1] =  reqresp;
 
     SmOT.OTlogBuf.Add( b);
+
     SmOT.nOTlog++;
     
   } else if(lb <= 1) { //нет места в буфере
@@ -1981,6 +1982,7 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
 
 //if(dms < 500)
 //    return;
+/*
   if(raz > 1000)
     return;
   if(raz == 1000)
@@ -1988,7 +1990,7 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88)
       raz++; 
       return;     
   }
-  
+*/  
   raz++; 
 
   Serial.printf("%6d %3d ", ms, dms);

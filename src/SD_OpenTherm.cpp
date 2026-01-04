@@ -471,7 +471,6 @@ int SD_Termo::Read_mqtt_fs(void)
     uint8_t Buff[FS_BUFMQTT];
     uint8_t len;
 
-
     rc = Read_data_fs((char *)pathmqtt, Buff, FS_BUFMQTT, nw, 1);
 #if SERIAL_DEBUG      
     Serial.printf("Read %s rc %i\n", pathmqtt, rc);
@@ -896,11 +895,15 @@ void SD_Termo::OpenThermInfo(void)
 //MCMD_GET_CAP
 int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size))
 {
-    short int B_flags, tmp;
+    short int B_flags, tmp, cap=0;
     unsigned int B_flags4;
-  //  Serial.printf("callback_Get_Capabilities len %d ", len);
-    
+//    Serial.printf("callback_Get_Capabilities len %d ", len);
     Lsend = 6 + 20;
+    if(len >= 8)
+    {  memcpy((void *)&cap,(void *)&bf[6],2);
+    }
+    if(cap == 1)
+        Lsend += 4;
     MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 //  Serial.printf("callback_Get_Capabilities len %d ", len);
@@ -958,6 +961,12 @@ int SD_Termo::callback_Get_Capabilities( U8 *bf, int len, PACKED unsigned char *
     tmp = IDENTIFY_SUBTYPE;
 	memcpy((void *)&MsgOut[22],(void *) &tmp, 2); 
 	memcpy((void *)&MsgOut[24],(void *) &OTmemberCode, 2);     
+    if(cap == 1)
+    {  	memcpy((void *)&MsgOut[26],(void *) &Vers, 1);     
+    	memcpy((void *)&MsgOut[27],(void *) &SubVers, 1);     
+    	memcpy((void *)&MsgOut[28],(void *) &SubVers1, 1);     
+    	memcpy((void *)&MsgOut[29],(void *) &Revision, 1);     
+    }
 
      return 0;
 }
@@ -1071,7 +1080,9 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
             statDS |= 0x1000;
     #endif
     //  memcpy((void *)&MsgOut[50],(void *) &statDS,4); 
-    memcpy((void *)&MsgOut[50],(void *) &statDS,2); 
+    memcpy((void *)&MsgOut[50],(void *) &statDS,2);
+    tmp = 0;
+    memcpy((void *)&MsgOut[52],(void *) &tmp,2); 
 //todo 52-54     
 	memcpy((void *)&MsgOut[54],(void *) &t1,4); 
 	memcpy((void *)&MsgOut[58],(void *) &t2,4); 

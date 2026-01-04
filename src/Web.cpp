@@ -1200,6 +1200,7 @@ if(SmOT.useMQTT)
         break;
   }
   
+  Info1.value += "<br>";  
 } else {
    if(SmOT.CapabilitiesDetected == 0)
           Info1.value += "<br>Тест котла";

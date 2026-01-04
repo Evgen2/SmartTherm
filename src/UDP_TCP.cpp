@@ -643,6 +643,7 @@ void loop_servertcp(void)
 				{	tcp_serversts = 0;
 					asTCPserver.closeTCP();
 				} else {
+					t00_server = millis();
 					tcp_serversts = 5;
 				}
 #if SERIAL_DEBUG
