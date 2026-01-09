@@ -39,7 +39,7 @@ actions:
       - action: number.set_value
         metadata: {}
         data:
-          value: "{{ states(source_entity)|float(0)|round(2) }}"
+          value: "{{ states(source_entity)|float(0)|round(3) }}"
         target:
           entity_id: "{{ target_entity }}"
 variables:
