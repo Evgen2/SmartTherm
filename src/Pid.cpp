@@ -135,8 +135,11 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss
 
    _Kidiss = Kidiss;
-   if(fabs(InT) > 80.f)  
-      _Kidiss *= 4.f; // more dissipation on big InT
+   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
+   {   _Kidiss *= 2.f;
+      if(fabs(InT* Ki) > 80.f)   
+         _Kidiss *= 4.f;  
+   }
 
    if (fabs(xerr) < 1.f)
    {
