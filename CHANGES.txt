@@ -2,6 +2,7 @@
 * fast safe filter for for temperature sensors
 * add MQTT sensor for control panel on slave OT interface
 * support remote log for PID output (smt.log_mode=2 at SmartServer)
+* more dissipation on big integral in PID
 
 0.8.5.12
 * remote log opportunity for Smartserver v 0.0.3.1
