@@ -7,7 +7,7 @@
 #include "pid.hpp"
 #include "mybuffer.hpp"
 #include "Planner.hpp"
-
+#include "SD_filter.hpp"
 class x_mean
 {
   public:
@@ -18,31 +18,51 @@ class x_mean
    int isset;
    int canfilter;
    int can_report;
+   int index;
+   unsigned long t_set;
+   fast_safe_filter fsf;
+
    x_mean(void)
    { x = xold = x0 = 0.f;
      init(0);
      isset = -1;
      canfilter = 0;
      can_report = 0; 
+     index = 0;
+     t_set = 0;
    }
 
    void init(int canf)
-   {  if(canf)
+   {  if(canf & 0x01)
       { xold = x;
         canfilter = 1;
       } else {
         canfilter = 0;
       }
-      xmean = 0;
-      isset = 0;
-      nx = 0;
+      if(canf & 0x02 && isset)
+      { xmean = x;
+        nx = 1;
+      } else {
+        xmean = 0;
+        isset = 0;
+        nx = 0;
+      }
       can_report = 1;
+//if(index == 3)        
+//  Serial_db.printfm(DEBUG_DEFAULT|DEBUG_PID, "init t_mean[%d]  canfilter=%d\n", index, canfilter);
+
    }
    void add(float _x)
-   {  xmean += _x;
-      nx++;
-//Serial.printf("[%d] _x =%f nx= %d\n",id,  _x, nx); 
+   {  fsf.filter(_x);
+      if(fsf.suspect_count == 0)
+      { xmean += _x;
+        nx++;
+        t_set = millis();
+      }
+//if(index == 3)        
+//  Serial_db.printfm(DEBUG_DEFAULT|DEBUG_PID, "add t_mean[%d] _x =%f xmean=%f x=%f nx= %d\n", index, _x, xmean, x,  nx);
    }
+
    float get(void)
    {  if(nx > 0) 
       { x0 = xmean/float(nx);
@@ -56,6 +76,9 @@ class x_mean
         } else {
           x = x0;
         }
+//if(index == 3 || index == 4)        
+//  Serial_db.printfm(DEBUG_DEFAULT|DEBUG_PID, "t_mean[%d] x0=%f x =%f xmean = %f nx=%d\n", index, x0, x, xmean, nx); 
+        xold = x;
       }
       return x;
    }
@@ -178,6 +201,7 @@ public:
 //  byte need_set_MaxRelModLevel;
   byte need_send_Blor;
   byte need_write_f; 
+  byte need_report_MQTT_panel; 
   unsigned long t_need_write_config;
 //..  byte need_set_MaxTSet;
 
@@ -254,7 +278,8 @@ public:
   time_t t_lastSetPointChange;
   int  src_lastSetPointChange;
   float oldTroomSetpoint; 
-  float umin; //минимальная температура теплоносителя
+  float umin; //минимальная температура теплоносителя при включенном отоплении
+  float MinCHtemp; //минимум температуры теплоносителя
   float umax; //максимальная температура теплоносителя
   planner plan;
   int useCPU_freq; //0 =240, 1=160, 2=80
@@ -315,7 +340,7 @@ public:
 /********************************/      
       need_write_f = 0;
       t_need_write_config = 0;
-
+      need_report_MQTT_panel = 0;
       RetT = 0.;
       dhw_t = 0.;
       TdhwSetUB = 60.f;
@@ -374,6 +399,7 @@ public:
       CH_StartGist = 10.f;
       Use_MaxRelModLevel = 0;
       umin = 40;
+      MinCHtemp = MIN_CH_TEMP; 
       umax = 80;
       MaxTSet = MAX_CH_TEMP;
       MaxTSetUB = MAX_CH_TEMP;
@@ -391,6 +417,15 @@ public:
     CrasyState_count = 0;
     needReport_CrasyState = 0;
     pSerial_db = NULL;
+
+    t_mean[0].index = 0;
+    t_mean[1].index = 1;
+    t_mean[2].index = 2;
+    t_mean[3].index = 3;
+    t_mean[4].index = 4;
+    t_mean[5].index = 5;
+    t_mean[6].index = 6;
+    t_mean[7].index = 7;
   }
   void RelayInit(void);
   void RelayOnOff(bool onoff);

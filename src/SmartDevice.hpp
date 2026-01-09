@@ -11,7 +11,7 @@
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
 #define MASTER_SUBVERSION1 5
-#define MASTER_REVISION    12
+#define MASTER_REVISION    13
 
 /***************/
 
@@ -91,7 +91,7 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
   int statusDS18b20;
   int sts;                 /* состояние       */  
   int sts_next;            /* состояние на следующий такт  */
-  
+   
 #if defined(ARDUINO_ARCH_ESP8266)
   SmartDevice(void):mark(FLASH_MARK), size (FLASH_WRITESIZE0), 
                BiosCode(MASTER_BIOSCODE),Vers(MASTER_VERSION), 
@@ -124,8 +124,7 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
   statusDS18b20 = -1;
     Mac[0]= Mac[1] = Mac[2] =Mac[3] =Mac[4] =Mac[5] = 0; 
     IdNumber = 0;
-	 ClientId = ClientId_k = 0; 
-
+	  ClientId = ClientId_k = 0; 
   }
   
   void callback_HandShake( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));

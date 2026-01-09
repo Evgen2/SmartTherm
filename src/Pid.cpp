@@ -105,7 +105,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
 
  int pid::Pid(float _x, float _u0)
- {  unsigned long int t, dt;
+ {  unsigned long int t;
     float dX, dtf, _dft, _u;
     float _Kidiss;
     t  = millis();
@@ -135,6 +135,9 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss
 
    _Kidiss = Kidiss;
+   if(fabs(InT) > 80.f)  
+      _Kidiss *= 4.f; // more dissipation on big InT
+
    if (fabs(xerr) < 1.f)
    {
       _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr
@@ -171,6 +174,8 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    else
          u = (u  +  _u + _u0) * 0.5; //filter output of pid
 
+//   Serial_db.printfm(DEBUG_DEFAULT|DEBUG_PID, "pid: U= %.3f u0 = %.3f _u = %.3f dP=%.3f dD=%.3f dI=%.3f x=%.3f Xtag=%.3f dt=%d\n",
+//        u, _u0, _u , dP, dD, dI, x, xTag, dt); 
 
 #if SERIAL_DEBUG 
 //   Serial_db.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",

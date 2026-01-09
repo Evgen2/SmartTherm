@@ -34,7 +34,7 @@ actions:
       - condition: template
         value_template: >-
           {{ (states(source_entity)|float(0) - states(target_entity)|float(0)) |
-          abs | round(2) >= 0.05 }}
+          abs | round(3) >= 0.01 }}
     then:
       - action: number.set_value
         metadata: {}

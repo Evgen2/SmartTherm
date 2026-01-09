@@ -3,7 +3,7 @@
 #define SMART_CONFIG
 
 #include "DeviceType.h"
-//#include "SmartDebug.h"
+#include "SmartDebug.h"
 
 #define CONFIG_VERSIONBASE 0x1003
 
@@ -50,6 +50,7 @@
 #endif
 
 /* Min & max CH temp */
+//#define MIN_CH_TEMP  25
 #define MIN_CH_TEMP  25
 #define MAX_CH_TEMP  80
 

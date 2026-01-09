@@ -161,6 +161,8 @@ static int timeOutcounter = 0;
     ot_SlaveRequest_ms = millis();
     ot_SlaveRequest = request;
     ot_SlaveSts = 1;
+    if(SmOT.ot_slave_stsOT != 0)
+      SmOT.need_report_MQTT_panel  = 1;
     SmOT.ot_slave_stsOT = timeOutcounter = 0;
      return;
 
@@ -179,6 +181,8 @@ SR:
 #endif         
 //    Serial_db.printf("Slave processRequest: id %x data %x\n", id, data); 
 
+    if(SmOT.ot_slave_stsOT != 0)
+      SmOT.need_report_MQTT_panel  = 1;
     SmOT.ot_slave_stsOT = 0;
     //send response
     ot_SlaveResponse = response;
@@ -242,7 +246,9 @@ int OT_slaveloop(void)
       double dt;
       dt = difftime(now,SmOT.ot_slave_t_lastwork);
       if(dt > 10. && SmOT.ot_slave_stsOT == 0)
-        SmOT.ot_slave_stsOT = 2;
+      { SmOT.ot_slave_stsOT = 2;
+        SmOT.need_report_MQTT_panel  = 1;
+      }
   }
 
   return 0;

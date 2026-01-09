@@ -57,7 +57,7 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
             sizeof(SD_Termo::mypid.y0) + sizeof(SD_Termo::mypid.u1)   + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss) + sizeof(SD_Termo::mypid.Ku) +
             sizeof(SD_Termo::mypid.x0) + sizeof(int) * 2 //reserved 
 #endif
-            + sizeof(SD_Termo::useCPU_freq) + sizeof(SD_Termo::PID_PWMperiod) + sizeof(int) * 16 //reserved 
+            + sizeof(SD_Termo::useCPU_freq) + sizeof(SD_Termo::PID_PWMperiod) + sizeof(SD_Termo::MinCHtemp) + sizeof(int) * 15 //reserved 
     ;
 
 #if MQTT_USE
@@ -210,8 +210,12 @@ int SD_Termo::Read_ot_fs(void)
     memcpy((void *) &PID_PWMperiod, &Buff[n], sizeof(PID_PWMperiod));
     n += sizeof(PID_PWMperiod);
 
-    //sizeof(int) * 16); //reserved 
+    memcpy((void *) &MinCHtemp, &Buff[n], sizeof(MinCHtemp));
+    n += sizeof(MinCHtemp);
+    if(MinCHtemp < MIN_CH_TEMP)
+        MinCHtemp  = MIN_CH_TEMP;
 
+    //sizeof(int) * 15); //reserved 
 
 END:
 
@@ -479,9 +483,11 @@ memcpy(&Buff[n],(void *) &useCPU_freq , sizeof(useCPU_freq));
 n += sizeof(useCPU_freq);
 memcpy(&Buff[n],(void *) &PID_PWMperiod, sizeof(PID_PWMperiod));
 n += sizeof(PID_PWMperiod);
+memcpy(&Buff[n],(void *) &MinCHtemp, sizeof(MinCHtemp));
+n += sizeof(MinCHtemp);
 
-memset(&Buff[n],0, sizeof(int) * 16); //reserved 
-n += sizeof(int) * 16;
+memset(&Buff[n],0, sizeof(int) * 15); //reserved 
+n += sizeof(int) * 15;
 
 
 #if SERIAL_DEBUG      
@@ -607,7 +613,7 @@ void SD_Termo::init(int src)
   {   usePID = 0;
   }
   if(usePID && src == 1)
-    Tset = umin;
+    Tset = MinCHtemp;
   
   if(src != 3)
    _U0start = mypid.u0;
@@ -628,7 +634,8 @@ void SD_Termo::init(int src)
         TCPserver_port = 8876;
 }
 
- 
+ extern RTC_NOINIT_ATTR unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+
 void SD_Termo::loop(void)
 {   int dt;
     extern int WiFists;
@@ -691,6 +698,7 @@ void SD_Termo::loop(void)
         }
         }
 */      
+            bootSts1 = 500 + TCPserver_sts2;
              switch(TCPserver_sts2)
             {   case 0:
                     if(millis() - ts0 > TCPserver_report_period) 
@@ -1210,7 +1218,8 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 
     l = 78+8;
     Lsend = 6 +  l;	
-  
+
+    
     MsgOut = get_buf(Lsend);
     msg  = (struct Msg1 *)MsgOut;
 
@@ -1297,7 +1306,7 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
 
 #if OT_DEBUGLOG
     tmp = OTlogBuf.GetLbuf();
-//  Serial.printf("OTlogBuf.GetLbuf=%d, nOTlog=%d sp_n=%d\n", tmp, nOTlog, Serial_db.sp_n);
+//  Serial.printf("Send_to_server_Sts OTlogBuf.GetLbuf=%d, nOTlog=%d sp_n=%d\n", tmp, nOTlog, Serial_db.sp_n);
     if(tmp  == 0)
     {   tmp = Serial_db.sp_n;
         tmp |= 0x8000;
@@ -1356,7 +1365,7 @@ void SD_Termo::Send_to_server_OTlog(void)
     MsgOut =  server_get_buf(TcpServer_Lsend);
     msg  = (struct Msg1 *)MsgOut;
 
-//    Serial_db.printf("Sending_to_server_OTlog %d Lb %d L%d\n",  nOT_need_send, OTlogBuf.GetLbuf(), nOTlog );
+  //  Serial_db.printf("Sending_to_server_OTlog %d Lb %d L%d\n",  nOT_need_send, OTlogBuf.GetLbuf(), nOTlog );
  
     msg->cmd0 = 0x22;
     msg->cmd  = CCMD_SEND_OTLOG_S;
@@ -1403,9 +1412,10 @@ int SD_Termo::server_answerOTLog( U8 *bf, int len)
 {   unsigned short int tmp2;
     int rc = 0;
     nOTsend += nOT_need_send;
+//    Serial_db.printf("SCMD_SEND_OTLOG_C len=%d ", len);
     if(len == 8)
     {   memcpy((void *)&tmp2,(void *)&bf[6],2);
-//        Serial_db.printf("SCMD_SEND_OTLOG_C get=%d ", tmp2);
+//      Serial_db.printf("SCMD_SEND_OTLOG_C get=%d\n", tmp2);
         if(tmp2 > 16) tmp2 = 16;
         nOT_need_send = tmp2; 
         OTlogBuf.EndRead(); //Освобождаем буфер
@@ -1430,13 +1440,15 @@ void SD_Termo::Send_to_server_log(void)
     int  i, l, ln,n;
     struct Msg1 *msg;
     char *pstr=NULL;
-    int maxlen = 20; //!!!!!
+    int maxlen = UDP_TSP_BUFSIZE - 20; // 20 !!!!!
+//    TcpServer_Lsend = 6 + 14 + n;	
+    
     i = pSerial_db->ind;
     l = 0;  
     TCPserver_rc = 0;
 
     if(pSerial_db->pmsg)
-    {   if(pSerial_db->pmsg[i])
+    {   if(i < pSerial_db->sp_n && pSerial_db->pmsg[i])
         {   pstr = pSerial_db->pmsg[i];
             if(pstr)
             {   l = strlen(pstr);
@@ -1496,7 +1508,7 @@ int SD_Termo::server_answerLog( U8 *bf, int len)
         i = pSerial_db->ind;
         l = 0;
         if(pSerial_db->pmsg)
-        {   if(pSerial_db->pmsg[i])
+        {   if(i < pSerial_db->sp_n && pSerial_db->pmsg[i])
             {   pstr = pSerial_db->pmsg[i];
                 if(pstr)
                 {   l = strlen(pstr);
@@ -1517,7 +1529,7 @@ int SD_Termo::server_answerLog( U8 *bf, int len)
             pSerial_db->ls = 0;
       //      Serial.printf("2 pstr =%p pSerial_db->pmsg[pSerial_db->ind] = %p\n", pstr, pSerial_db->pmsg[pSerial_db->ind] );
             pSerial_db->ind++;
-            if(pSerial_db->ind == pSerial_db->sp_n)
+            if(pSerial_db->ind >= pSerial_db->sp_n)
             {   pSerial_db->sp_n = 0;
                 pSerial_db->ind = 0;
                 TCPserver_rc = CCMD_SEND_STS_S;
@@ -1563,15 +1575,15 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
     float v, vT;
     int isChange = 0;
 
-//  Serial_db.printf("##### servercallback_send_Sts_answ len %d\n", len);
     TCPserver_rc = CCMD_SEND_STS_S;
 	memcpy((void *)&tmp4,(void *)&bf[6],4);
     TCPserver_report_period = tmp4*1000;
     memcpy((void *)&remote_cmd,(void *)&bf[10],2);
     TCPserver_close_on_send = 1; //not wait answer
 
-    if(len == 6+4*4+2*2)
+    if(len == 6+4*4+2*2) //26
     {  
+//  Serial.printf("####=== 1\n");
         if(remote_cmd == 1)
         {
             short int B_flags_toSet;
@@ -1632,7 +1644,8 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             if(isChange)
                 need_write_f = 1;  //need write changes to FS
         } 
-    } else if(len == 6+4*3+2) {
+    } else if(len == 6+4*3+2) { //20
+//      Serial.printf("####=== 2\n");
         if(remote_cmd == 0x10)
         {   float _It, _U0;
             start_sts = 0;  
@@ -1646,11 +1659,13 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             mypid.dSt.n = mypid.dSt.ind = 0;
             InTstartset = 1;       
         }
-    } else if(len == 6+4*2+2) {
+    } else if(remote_cmd == 0x02) {
 #if OT_DEBUGLOG
-        if(remote_cmd == 0x02)
+        
+        if(len == 6+4*2+2) //16       
         {
             memcpy((void *)&tmp4,(void *)&bf[12],4);
+//   Serial.printf("****$$ servercallback_send_Sts_answ: len = %d tmp4 = %d\n", len, tmp4);
             if(tmp4 > 16) tmp4 = 16;
             nOT_need_send = tmp4; 
             if(nOT_need_send > 0)          
@@ -1660,8 +1675,15 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             }
         }
 #endif    
-    } else if((len == 6+4+2) && remote_cmd == 0x03) {
-        
+//    } else if((len == 6+4+2) && remote_cmd == 0x03) {
+    } else if( remote_cmd == 0x03) {
+        if(len == 6+4*2+2) //16
+        {   memcpy((void *)&tmp4,(void *)&bf[12],4);
+            Serial_db.LogMode = tmp4;
+        }
+
+//     Serial.printf("****^^ servercallback_send_Sts_answ: len = %d remote_cmd = %d tmp4 = %d\n", len, remote_cmd, tmp4);
+      
             TCPserver_rc = CCMD_SEND_LOG_S;
             TCPserver_close_on_send = 0; // wait answer
             rc = 1;
@@ -2053,10 +2075,10 @@ void SD_Termo::callback_GetOTLog( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 }
 #endif //OT_DEBUGLOG
 
- /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
+ /* return t within limit MinCHtemp MAX_CH_TEMP*/
 float SD_Termo::CHtempLimit(float _t)
-{   if(_t < MIN_CH_TEMP) 
-        return MIN_CH_TEMP;
+{   if(_t < MinCHtemp) 
+        return MinCHtemp;
     else  if(_t > MAX_CH_TEMP) 
         return MAX_CH_TEMP;
     return _t;

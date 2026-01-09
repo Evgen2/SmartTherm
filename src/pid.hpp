@@ -2,8 +2,6 @@
 #ifndef PID_DEFINED
 #define PID_DEFINED
 
-#include "SmartDebug.h"
-
 #if PID_USE
 
 /* циклический стек/буфер для хранения последних NB значений */
@@ -116,7 +114,8 @@ class pid
    long int pid_t; /* время начала такта */
    TempStack dSt;
 //   dstack  dSt0;
-   
+   int dt;
+
    pid(void)
    {  Kp = 1.;
       Kd = 0.2;
@@ -137,6 +136,7 @@ class pid
       InT = 0;
       u = ub = 0;
       dDmax = 50.;
+      dt = 0;
       NextTact();
    }
    void NextTact(void)

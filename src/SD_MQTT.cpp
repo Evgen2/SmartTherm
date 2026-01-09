@@ -32,6 +32,9 @@ void MQTT_pub_Eff_Mod_h(void);
 #if RELAY_USE
 void MQTT_pub_relay(void);
 #endif
+#if ST_VERS == 2
+int  MQTT_pub_Panel(int on);
+#endif
 extern void OTloop_callback(void);
 
 WiFiClient espClient;
@@ -46,7 +49,11 @@ extern OpenTherm ot;
 HADevice device;
 #if RELAY_USE
  #if PID_USE
+  #if ST_VERS == 2
+  HAMqtt mqtt(espClient, device,29);
+  #else
   HAMqtt mqtt(espClient, device,28);
+  #endif
  #else
   HAMqtt mqtt(espClient, device,13);
  #endif
@@ -66,6 +73,9 @@ HABinarySensor sensor_CH(NULL);
 HABinarySensor sensor_HW(NULL);
 HABinarySensor sensor_CMD_on(NULL);
 HABinarySensor sensor_CMD_CH_on(NULL);
+#if ST_VERS == 2
+HABinarySensor sensor_Panel_on(NULL);
+#endif
 #if RELAY_USE
 HASwitch relayHA(NULL);
 #endif
@@ -139,8 +149,6 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
 #if PID_USE
     } else if (sender == &hvacPID) {
-//    Serial.print("PID Target temperature: ");
-//    Serial.println(temperatureFloat);
 
     if(SmOT.TroomTarget != temperatureFloat) is_change = 1;
     SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
@@ -258,12 +266,29 @@ void onNumberCommand(HANumeric number, HANumber* sender)
       Serial_db.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
+//      Serial_db.printf("NumberCommand numT_OUTtdoor: %f (%d)\n", t, millis()/1000);
         
     } else if (sender == &numT_indoor) {
 #if SERIAL_DEBUG      
 //      Serial_db.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
 #endif      
+//	  time_t  now;
+//    now = time(nullptr);
+//    Serial_db.printf("NumberCommand numT_indoor: %f (%d) %s", t, millis()/1000, ctime(&now));
       SmOT.OnChangeT(t,3);
+      if(SmOT.t_mean[3].fsf.suspect_count > 0)
+      { float t1 = SmOT.t_mean[3].fsf.last_confirmed;
+        //need to report slightly different value to force update in HA if normal value is same as last_confirmed  
+        if(SmOT.t_mean[3].fsf.last_confirmed > SmOT.t_mean[3].fsf.prev_confirmed)
+          t1 -= 0.09f;
+        else
+          t1 += 0.09f;
+        number = HANumeric(t1, 3);        
+        sender->setState(number); // report back to the HA panel
+        t1 = number.toFloat();
+//      Serial_db.printf("==>>NumberCommand return  %f (%f) not %f\n",SmOT.t_mean[3].fsf.last_confirmed, t1, t);
+        return;
+      }
     }
 /*
     if (!number.isSet()) {
@@ -393,6 +418,13 @@ extern unsigned int OTcount;
     sensor_CMD_CH_on.setCurrentState(false); 
     sensor_CMD_CH_on.setAvailability(false);
     sensor_CMD_CH_on.setIcon("mdi:heating-coil");
+
+#if ST_VERS == 2
+    sensor_Panel_on.setNameUniqueIdStr(SmOT.MQTT_topic,"Панель", "panel");;
+    sensor_Panel_on.setCurrentState(false); 
+    sensor_Panel_on.setAvailability(false);
+    sensor_Panel_on.setIcon("mdi:alarm-panel");
+#endif
 
 /**********/
 
@@ -628,8 +660,8 @@ extern unsigned int OTcount;
     mqtt.onConnected(OnMQTTconnected);
     mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
-    mqtt._mqtt->setSocketTimeout(1); 
-    espClient.setTimeout(1); //minimal timeout for WiFiClient class - 1 sec
+    mqtt._mqtt->setSocketTimeout(2); 
+    espClient.setTimeout(2); //minimal timeout for WiFiClient class - 2 sec
 
 //    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
     rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
@@ -674,6 +706,8 @@ void mqtt_start(void)
   }
 }
 
+extern RTC_NOINIT_ATTR  unsigned short int  bootSts;
+
 void mqtt_loop(void)
 { char str[80];
 static int st_old = -2;
@@ -685,7 +719,9 @@ if(SmOT.stsMQTT == 0)
 {  mqtt_setup();
    return;
 }
+bootSts = 11;
     mqtt.loop();
+bootSts = 12;
 
     if(mqtt.isConnected())
     { if(statemqtt != 1)
@@ -741,6 +777,9 @@ if(SmOT.stsMQTT == 0)
             }
             sensor_CMD_on.setAvailability(false);
             sensor_CMD_CH_on.setAvailability(false);
+#if ST_VERS == 2
+            sensor_Panel_on.setAvailability(false);
+#endif    
 
             sensorModulation.setAvailability(false);
             if(SmOT.RetT_present)
@@ -776,6 +815,9 @@ if(SmOT.stsMQTT == 0)
 
               sensor_CMD_on.setAvailability(true);
               sensor_CMD_CH_on.setAvailability(true);
+#if ST_VERS == 2
+              sensor_Panel_on.setAvailability(true);
+#endif    
 
               sensorModulation.setAvailability(true);
               if(SmOT.RetT_present)
@@ -788,7 +830,9 @@ if(SmOT.stsMQTT == 0)
                 sensorText.setAvailability(true);
             }
 /******************/
+bootSts = 13;
             MQTTsenddata();
+bootSts = 14;
 /******************/          
           }
         }
@@ -844,6 +888,7 @@ if(SmOT.stsMQTT == 0)
         lastAvailabilityToggleAt = millis();
         SmOT.MQTT_need_report = 0;
     }
+bootSts = 15;
 }
 
 void MQTTsenddata(void)
@@ -1001,6 +1046,14 @@ void MQTTsenddata(void)
         }
 #endif //0
 /*******************************************/
+#if ST_VERS == 2
+        if(SmOT.need_report_MQTT_panel)
+        { int on = 0;
+          if(SmOT.ot_slave_stsOT == 0)
+           on = 1;
+          MQTT_pub_Panel(on);
+        }
+#endif    
 }
 
 void MQTT_pub_Eff_Mod_h(void)
@@ -1047,10 +1100,9 @@ void  MQTT_pub_cmd(int on)
 
 int  MQTT_pub_cmdCH(int on)
 { 
-
 //  Serial_db.printf("MQTT_pub_cmdCH %d SmOT.stsMQTT %d\n", on, SmOT.stsMQTT );
 
-if(SmOT.stsMQTT == 2)
+  if(SmOT.stsMQTT == 2)
   { if(on)
       sensor_CMD_CH_on.setState(true); 
     else
@@ -1060,6 +1112,22 @@ if(SmOT.stsMQTT == 2)
     return 0;
   }
 }
+
+
+#if ST_VERS == 2
+int  MQTT_pub_Panel(int on)
+{ 
+  if(SmOT.stsMQTT == 2)
+  { if(on)
+      sensor_Panel_on.setState(true); 
+    else
+      sensor_Panel_on.setState(false); 
+    return 1;
+  } else {
+    return 0;
+  }
+}
+#endif    
 
 int  MQTT_pub_usePID(void)
 {

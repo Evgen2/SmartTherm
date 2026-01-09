@@ -588,8 +588,7 @@ void loop_servertcp(void)
 			if(TcpServer_Lsend == 0)
 			{
 				if(millis() - t00_server > 5000)
-				{	TcpServer_Lsend = 0;
-					tcp_serversts = 0;
+				{	tcp_serversts = 0;
 					asTCPserver.closeTCP();
 				}
 				break;

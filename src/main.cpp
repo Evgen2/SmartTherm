@@ -220,6 +220,17 @@ void exitOTAError(uint8_t err) {
    watchdog_setup();
 }
 
+//watchdogs reset      
+void Watchdogsreset(void)
+{ static  unsigned long t0 = 0; 
+  unsigned long t1 = millis();
+  if(t1 - t0 < 5000) //5 sec
+      return;
+  t0 = t1;
+  esp_task_wdt_reset();
+  rtc_wdt_feed();         
+}
+
 /*****************************/
 
 #include "esp32/rom/rtc.h"
@@ -275,7 +286,7 @@ void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector  
 
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
-  LedSts=1;
+  LedSts = 1;
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
 
   Serial.begin(115200);
@@ -340,6 +351,7 @@ void setup() {
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 #endif	
 #endif	
+	Serial_db.printf("Use remote server %d remoteIP: %s\n",  SmOT.Use_remoteTCPserver, SmOT.tcp_remoteIP.toString().c_str());
 
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
 }
@@ -1445,6 +1457,7 @@ void loop2(void)
 
           break;
     }
+    Watchdogsreset();
 }
 
 void loop_LED(void)
@@ -1517,9 +1530,8 @@ static int mday_prev = 0;
   now = time(nullptr);
   if(now == prev)
       return;
-//watchdogs reset      
-  esp_task_wdt_reset();
-  rtc_wdt_feed();         
+//watchdogs reset    
+  Watchdogsreset();  
 /**************************/  
   ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
 

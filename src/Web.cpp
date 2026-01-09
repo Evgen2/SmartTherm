@@ -593,7 +593,11 @@ extern int minRamFree;
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
       Info6.value += str;
+{ extern char tmpDebugstr[128];
+      Info6.value += "<br>";
+      Info6.value += tmpDebugstr;
 
+}
       sprintf(str,"<br>RoomSetpoint change src %d from %f to %f at ", 
       SmOT.src_lastSetPointChange, SmOT.oldTroomSetpoint, SmOT.mypid.xTag); 
       Info6.value += str;
@@ -744,12 +748,31 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
     isChange = 1;
   }
 
-  fv = SmOT.CHtempLimit(SetTminPID.value.toFloat());    
-  if( fv > SmOT.umax - 1.)  fv = SmOT.umax -1.;
-  if(fv != SmOT.umin)
-  { SmOT.umin = fv;
-    isChange = 1;
-  }
+  { char str0[80];
+    float b=0.f;
+    int rc;
+    SetTminPID.value.toCharArray(str0, sizeof(str0));
+    rc = sscanf(str0,"%f %f", &fv, &b );
+//    Serial.printf("SetTminPID = %s rc=%d", str0, rc);
+//    if(rc == 1)
+//      Serial.printf("fv = %f\n", fv);
+//    else if(rc == 2)
+    if(rc == 2)
+    { // Serial.printf("fv = %f b = %f\n", fv, b);
+      if(b < MIN_CH_TEMP)
+        b = MIN_CH_TEMP;
+      if(b !=  SmOT.MinCHtemp)
+      { SmOT.MinCHtemp = b;
+        isChange = 1;
+      }
+    }
+    if( fv > SmOT.umax - 1.)  fv = SmOT.umax -1.;
+    if(fv != SmOT.umin)
+    { SmOT.umin = fv;
+      isChange = 1;
+    }
+  } 
+
 
 #if MQTT_USE
   int isChangeMQTT = 0;
@@ -1568,9 +1591,13 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 
     Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
 
-    sprintf(str,"%.2f",SmOT.umax);
+    sprintf(str,"%.1f",SmOT.umax);
     SetTmaxPID.value = str;
-    sprintf(str,"%.2f",SmOT.umin);
+    if(SmOT.MinCHtemp == MIN_CH_TEMP)
+    { sprintf(str,"%.1f",SmOT.umin);
+    } else {
+      sprintf(str,"%.1f %.1f",SmOT.umin, SmOT.MinCHtemp);
+    }
     SetTminPID.value = str;
           
     if(SmOT.Use_remoteTCPserver)
@@ -2136,11 +2163,14 @@ _t0 = millis();
     if(dt_p < 1000 || (dt_p < 5000 && dt_h > 10)  || dt_h > 100 )
     { 
 //      Serial_db.printf("portal.handleClient dt_h %ld  %ld\n", dt_h, millis() - portal._portalAccessPeriod  );
+ bootSts1 = 103;
       
       portal.handleClient();
       t_h = millis();
     }
 }
+
+ bootSts1 = 104;
 
 //  portal.handleClient();
   { static int old_status = 0;

@@ -18,14 +18,35 @@ static char *pmsg0[1024];
 char  * * Serial_Debug::pmsg = pmsg0;
 
 size_t Serial_Debug::printf(const char *_format, ...)
-{	size_t rc;
-	va_list args;
+{	size_t rc=0;
+    va_list args;
     va_start(args, _format);
-	int l;
+    rc  = v_logger(_format, args); // Forward list to the helper
+    va_end(args);
+	return 	rc;
+}
+
+size_t Serial_Debug::printfm(int mode, const char *_format, ...)
+{ 	size_t rc=0;
 	if(_format == NULL)
 			return 0;
-//    vsprintf(sp_buffer,_format, args);
-	vsnprintf(sp_buffer, sizeof(sp_buffer),_format, args);
+	if(mode & LogMode)
+	{	va_list args;
+		va_start(args, _format);      // Initialize list at the last named parameter
+		rc  = v_logger(_format, args); // Forward list to the helper
+		va_end(args);
+	}
+    return rc;
+}
+
+/******************************************************************************/
+//  The WORKHORSE: Accepts va_list
+size_t Serial_Debug::v_logger(const char *fmt, va_list args) 
+{	size_t rc;
+	int l;
+	if(fmt == NULL)
+			return 0;
+	vsnprintf(sp_buffer, sizeof(sp_buffer), fmt, args);
     va_end(args);
 	l = strlen(sp_buffer);
 	if(l>=sizeof(sp_buffer))
@@ -54,8 +75,8 @@ size_t Serial_Debug::printf(const char *_format, ...)
 		}
 	}
 
-	rc = Serial.printf("%d %d %s", sp_n, sp_l, sp_buffer);	
-//	rc = Serial.printf("%s", sp_buffer);	
+//	rc = Serial.printf("%d %d %s", sp_n, sp_l, sp_buffer);	
+	rc = Serial.printf("%s", sp_buffer);	
 	return rc;
 }
 
@@ -64,6 +85,7 @@ size_t  Serial_Debug::write(uint8_t c)
 	rc = Serial.write(c);
 	return rc;
 }
+
 size_t Serial_Debug::write(const uint8_t* s, size_t n)
 {	size_t  rc;
 	rc = Serial.write(s, n);
