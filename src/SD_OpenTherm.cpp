@@ -53,9 +53,11 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
 #if PID_USE
             sizeof(SD_Termo::usePID) + sizeof(SD_Termo::srcTroom) + sizeof(SD_Termo::srcText) + sizeof(SD_Termo::mypid.Kp) + sizeof(SD_Termo::mypid.Kd) +
             sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::umax) + sizeof(SD_Termo::umin) + sizeof(SD_Termo::mypid.u0) +
-            sizeof(SD_Termo::mypid.y0) +  sizeof(SD_Termo::mypid.u1)  + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss)
+            sizeof(SD_Termo::mypid.y0) + sizeof(SD_Termo::mypid.u1)   + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss) + sizeof(SD_Termo::mypid.Ku) +
+            sizeof(SD_Termo::mypid.x0) + sizeof(int) * 2 //reserved 
+
 #endif
-            + sizeof(SD_Termo::useCPU_freq) 
+            + sizeof(SD_Termo::useCPU_freq) + sizeof(int) * 17 //reserved 
     ;
 
 #if MQTT_USE
@@ -190,11 +192,24 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(mypid.Kidiss);
     if(n >= nw) goto END;
 
+    memcpy((void *) &mypid.Ku, &Buff[n], sizeof(mypid.Ku));
+    n += sizeof(mypid.Ku);
+    if(n >= nw) goto END;
+    memcpy((void *) &mypid.x0, &Buff[n], sizeof(mypid.x0));
+    n += sizeof(mypid.x0);
+    if(n >= nw) goto END;
+
+    n += sizeof(int) * 2; //reserved
+    if(n >= nw) goto END;
+
 #endif //PID_USE
 
     memcpy((void *) &useCPU_freq, &Buff[n], sizeof(useCPU_freq));
     n += sizeof(useCPU_freq);
     if(n >= nw) goto END;
+
+    memset(&Buff[n],0, sizeof(int) * 17); //reserved 
+    n += sizeof(int) * 17;
 
 END:
 
@@ -450,6 +465,14 @@ Serial.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_Centr
     n += sizeof(mypid.y1);
     memcpy(&Buff[n],(void *) &mypid.Kidiss , sizeof(mypid.Kidiss));
     n += sizeof(mypid.Kidiss);
+
+    memcpy(&Buff[n],(void *) &mypid.Ku , sizeof(mypid.Ku));
+    n += sizeof(mypid.Ku);
+    memcpy(&Buff[n],(void *) &mypid.x0 , sizeof(mypid.x0));
+    n += sizeof(mypid.x0);
+    memset(&Buff[n],0, sizeof(int) * 2); //reserved 
+    n += sizeof(int) * 2;
+    
 #endif
     memcpy(&Buff[n],(void *) &useCPU_freq , sizeof(useCPU_freq));
     n += sizeof(useCPU_freq);

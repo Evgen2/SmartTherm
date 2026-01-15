@@ -36,7 +36,7 @@ void SD_Termo::loop_PID(void)
         t0_mean = t;
     }
 
-    if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) ) //Flame status changed
+    if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) ) //Flame status changed from off to on
         issF = 4;
 
 
@@ -65,17 +65,18 @@ void SD_Termo::loop_PID(void)
 
     if(is & 0x02)
     {   if(tempoutdoor <= mypid.y0)
-            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0);
+            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
         else
-        {  if(mypid.y0 != mypid.xTag)
-                  u0 = mypid.xTag + (mypid.u0 - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
-           else
+        {   if(mypid.y0 != mypid.xTag)
+                u0 = mypid.xTag + (mypid.u0 + mypid.Ku * (mypid.xTag - mypid.x0) - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
+            else
                   u0 = mypid.xTag;
         }
     } else { //нет внешней температуры
-        u0 = _U0start;
+        u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
     } 
 
+    u0 =  safeFloat( u0); 
     if(u0 < 0.f)
         u0 = 0.f;
     else if(u0 > umax)

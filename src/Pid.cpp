@@ -5,6 +5,10 @@
 #if PID_USE
 #include "pid.hpp"
 
+float  safeFloat(float v) 
+{ return (isnan(v) || isinf(v)) ? 0.0f : v; };
+
+
 void  pid::Set_NewTag( float _Tag, float _x)
 {  float dtag,  _xerrnew;
    
@@ -44,7 +48,7 @@ void pid::Init_I(float _dtag, float _xernew)
    else
       if(I1 * Ki < -30.f )
             I1 = -30.f/Ki;
-   InT = I1;
+   InT = safeFloat(I1);
 //   Serial.printf("**** Init_I2  InT %f InT * Ki %f\n",InT, InT * Ki ); 
 }
 
@@ -61,7 +65,7 @@ void pid::Init_I(float _x)
    } else if(I1 < -30.f) {
      I0 = -30.f / Ki;
    }
-   InT = I0;
+   InT = safeFloat(I0);
 
 //   Serial.printf("**** Init_I1  InT %f InT * Ki %f\n",InT, InT * Ki ); 
 
@@ -100,14 +104,26 @@ void pid::Init_I(float _x)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss  
 
    _Kidiss = Kidiss;
+
+   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
+   {   _Kidiss *= 2.f;
+      if(fabs(InT* Ki) > 80.f)   
+         _Kidiss *= 4.f;  
+   }
+
    if(fabs(xerr) < 1.f)              //Kidiss magic, part 2:
    {  _Kidiss = Kidiss* fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
    }
+   else if (InT * xerr < 0.f)
+   { // more dissipation on different signs of InT and xerr
+      _Kidiss *= 2.f * fabs(xerr);
+   }
+
    dtf = float(dt) / 1000.f; // dt, sec
    _Kidiss =  _Kidiss * dtf / float(t_interval);
    if(_Kidiss > 0.5) _Kidiss = 0.5;
 
-   InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
+   InT = safeFloat(InT * (1.f - _Kidiss) + xerr * dtf); // grad * sec
 #if SERIAL_DEBUG 
 //   Serial.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
 //          dt , xerr, InT, dX); 
@@ -116,6 +132,9 @@ void pid::Init_I(float _x)
 #endif          
    dP = xerr * Kp; //dP - grad, Kp - dimensionless 
    dD = dX * Kd;   //dD - grad, Kd - hour
+   if(dD > dDmax) dD = dDmax;
+   else if (dD < -dDmax) dD = -dDmax;
+
    dI = InT * Ki;  //dI - grad, Ki - (1/sec)
    _u = dP + dD + dI;
    if(dSt.n <= 4)
@@ -326,7 +345,7 @@ int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
    for(i=0;i<n;i++)
    {
       d = B[i][i];
-      if(d != 1.0 )
+      if(d != 1.0 && d != 0.)
       {    for(j=0;j<n;j++)
            {  Out[i][j]/= d;
               B[i][j]  /= d;

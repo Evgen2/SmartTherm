@@ -36,6 +36,7 @@ extern void loop_servertcp(void);
 
 #if OT_DEBUGLOG
 void OTlog(unsigned int reqresp, int sts);
+void OTlogErr(int status, int sts);
 void OTlogDelLast(void);
 #endif
 
@@ -552,6 +553,7 @@ static int timeOutcounter = 0;
     } else if (status == OpenThermResponseStatus::INVALID) {
        //SmOT.stsOT = 1;
         OTDebugInfo[3]++;
+        OTlogErr(2, 1);
     } else if (status == OpenThermResponseStatus::TIMEOUT) {
       if(SmOT.stsOT != -1)
 	    { if(timeOutcounter > 10)
@@ -564,6 +566,8 @@ static int timeOutcounter = 0;
 #if OT_DEBUGLOG
         if(SmOT.stsOT == 2)
           OTlogDelLast();
+        else 
+          OTlogErr(1, 1);
 #endif
 
       } else {
@@ -1924,6 +1928,22 @@ int ST_setCpuFrequencyMhz(int code)
 }
 
 #if OT_DEBUGLOG
+#define OT_TIMEOUT 255
+#define OT_INVALID 254
+
+void OTlogErr(int status, int sts)
+{ unsigned int reqresp;
+  if(status == 1) //timeout
+      reqresp =  OT_TIMEOUT << 16;
+  else            //invalid
+      reqresp = OT_INVALID << 16;
+	if (ot.parity(reqresp)) reqresp |= (1ul << 31);
+
+//      Serial_db.printf("OTlogErr %d SmOT.nOTlog %d\n", status, SmOT.nOTlog);
+
+  OTlog(reqresp, sts);
+}
+
 //пишем в кольцевой буфер не более 1024 пакетов
 //sts: 0 - request, 1 - response, 
 //2 - request from slave interface

@@ -163,6 +163,7 @@ ACInput(Set_u0_PID,"", "u0:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); /
 ACInput(Set_t0_PID,"", "t0:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_u1_PID,"", "u1:",  "","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_t1_PID,"", "t1:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+ACInput(Set_x0_PID,"", "Базовая температура помещения:",  "", "", AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 ACInput(Set_CH_GIST,"", "Гистерезис включения горелки, град:",  "","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 
 
@@ -170,7 +171,7 @@ ACInput(Set_CH_GIST,"", "Гистерезис включения горелки,
 ACSubmit(ApplyPID,   "Задать", SET_PID_URI, AC_Tag_BR);
 AutoConnectAux PID_Page(PID_URI, "PID", true, {UsePID, UsePID_NoLimit, SetXtagPID, Info1, SetTempSrcPID, SetTempExtSrcPID, 
                       SetKpPID, SetKdPID, SetKiPID,SetIdissPID, 
-                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Info4, Set_CH_GIST, Info5, Info6,  ApplyPID });  // onSetupPID()
+                      Info3, Set_u0_PID, Set_t0_PID, Set_u1_PID,Set_t1_PID, Set_x0_PID, Set_CH_GIST, Info5, Info6,  ApplyPID });  // onSetupPID()
 #endif
 /************* SetPID end ***************/
 
@@ -1714,6 +1715,15 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     { SmOT.mypid.y1 = v;
       isChange = 1;
     }
+
+    v = Set_x0_PID.value.toFloat();
+    if(v <  MIN_ROOM_TEMP) v =  MIN_ROOM_TEMP;
+    else if(v > MAX_ROOM_TEMP) v = MAX_ROOM_TEMP;
+
+    if(v != SmOT.mypid.x0)
+    { SmOT.mypid.x0 = v;
+      isChange = 1;
+    }
   }
 
   if(isChange)
@@ -1789,8 +1799,9 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   sprintf(str0,"%.2f",SmOT.mypid.y1);
   Set_t1_PID.value = str0;
 
-  //Info3.value = "";
-  Info4.value = "";
+  sprintf(str0,"%.2f",SmOT.mypid.x0);
+  Set_x0_PID.value = str0;
+
   Info5.value = "";
   Info6.value = "";
 
