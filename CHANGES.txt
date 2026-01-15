@@ -1,3 +1,7 @@
+0.8.4.11
+* PID, OT log changes
+* base temperature for OTC (Outside Temperature Compensation) 
+
 0.8.4.10
 * report version on MCMD_GET_CAP + fixes
 
