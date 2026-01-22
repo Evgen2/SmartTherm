@@ -5,6 +5,8 @@
 #if PID_USE
 #include "pid.hpp"
 
+float fast_sqrt(float x);
+
 float  safeFloat(float v) 
 { return (isnan(v) || isinf(v)) ? 0.0f : v; };
 
@@ -104,14 +106,16 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 }
 
 
- int pid::Pid(float _x, float _u0)
+ void pid::Pid(float _x, float _u0)
  {  unsigned long int t;
-    float dX, dtf, _dft, _u;
+    static unsigned long int t_d = 0;
+    float dX, dtf,  _u;
+    static float _dft = 0.f;
     float _Kidiss;
     t  = millis();
     dt = t - pid_t; // dt, msec
 
-//      Serial_db.printf("****pid: dt = %ld\n", dt );
+//  Serial_db.printf("****pid: dt = %ld\n", dt );
 
 //P    
    x = _x;
@@ -121,33 +125,46 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
 // calcD() - derivative calculation, return _dft
 // _dft dimension is grad/msec
-   dSt.calcD(xerr, t, _dft);
-//   Serial_db.printf("====>>  _dft0=%e  _dft=%e diff=%e\n",  _dft0,  _dft,  _dft0 - _dft);
+   if(xChanged)
+   {  if(t - t_d >= t_interval*1000)
+      {  dSt.calcD(xerr, t, _dft);
+         dSt.add(xerr, t);
+//      Serial_db.printf("****xChanged pid: t - t_d = %d, t_interval %d\n", t - t_d, t_interval );
+         t_d = t;
+         xChanged = 0;
+      }
+   }
    { 
-      dX = _dft * 3600.f* 1000.f; //grad/hour
+//    dX = _dft * 3600.f* 1000.f; //grad/hour
+      dX = _dft * 3.600f; //grad/hour
 //   Serial_db.printf("====>> dX=%f\n", dX) ;
    }
-
-   dSt.add(xerr, t);
 
 //Kidiss magic: dissipation of the integral automagically limit of integral & limiting the influence of old values
 //characteristic time: t_interval/Kidiss (sec) 
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss
 
    _Kidiss = Kidiss;
-   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
-   {   _Kidiss *= 2.f;
-      if(fabs(InT* Ki) > 80.f)   
-         _Kidiss *= 4.f;  
+   
+   if (InT * xerr < 0.f)
+   { // more dissipation on different signs of InT and xerr
+      if(fabs(xerr) < 1.f)
+          _Kidiss *= 2.f * fast_sqrt(fabs(xerr));
+      else
+         _Kidiss *= 2.f * fabs(xerr);
+   } else if (fabs(xerr) < 1.f) {
+//      _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr
+//      _Kidiss *= fast_sqrt(xerr); //??
+//      _Kidiss *= xerr*xerr; //??
+      _Kidiss *= xerr * fast_sqrt(fabs(xerr));
    }
 
-   if (fabs(xerr) < 1.f)
-   {
-      _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr
-   }
-   else if (InT * xerr < 0.f)
-   { // more dissipation on different signs of InT and xerr
-      _Kidiss *= 2.f * fabs(xerr);
+   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
+   {   _Kidiss = Kidiss* 2.f;
+      if(fabs(InT* Ki) > 80.f)   
+         _Kidiss *= 4.f;  
+      if (InT * xerr < 0.f)
+         _Kidiss *= 2.f;  
    }
 
    dtf = float(dt) / 1000.f; // dt, sec 
@@ -188,7 +205,6 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
    NextTact();
 
-    return 1;
  }
 
 #define N_X 3
@@ -196,19 +212,25 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 int IncrCalculateMatrixYfX2(float x, float y, int *Np);
 int CalculateMNKYfX2(float coeff[],int *Np);
 
-int dstack::calcD(float xerr, unsigned long int tt, float &diff)
+int TempStack::calcD(float xerr, unsigned long int tt, float &diff)
 {  int i=0, ii;
    unsigned long int  t0=0, tmid;  
    float dmid, xm, ym;
    int Np;
    float coeff[N_X];
+const float NormC = 1000000.;
 
   //https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
 
- //  Serial_db.printf("dstack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
+//  Serial_db.printf("TempStack::calcD n =%i ind =%d xerr=%f tt=%ld\n",n, ind, xerr, tt ) ;
 
 //    if( n < 2)
       if( n < 4)
+      {  diff = 0.f;
+         return 0;
+      }
+
+      if( get_dt(tt) < 360 * 1000)
       {  diff = 0.f;
          return 0;
       }
@@ -220,7 +242,8 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
 //      _dft = float(tt - _t) / 1000.f; // dt, sec
 //      dX = (xerr - _xerr) /_dft * 3600; //grad/hour
 //      Serial_db.printf("----- dX(*) =%e dX =%f dt = %d-------\n", (xerr - _xerr)/float(tt - _t) ,  dX, tt - _t) ;
-
+//unsigned long int Tm0;
+//Tm0 = micros();
 
    dmid = 0.f;
    tmid = 0;
@@ -269,22 +292,26 @@ int dstack::calcD(float xerr, unsigned long int tt, float &diff)
   //    Serial_db.printf("b = %e dt =%d n=%d\n", b, tt- t0, n );
       diff = b;
 #endif
+
       Np =0;
       for(i = 0; i < n; i++)
-      {  IncrCalculateMatrixYfX2((t[i] - t0) - xm, d[i] - ym, &Np);
+      {  IncrCalculateMatrixYfX2(((t[i] - t0) - xm)/NormC, d[i] - ym, &Np);
       }
-      IncrCalculateMatrixYfX2( (tt - t0) - xm, xerr - ym, &Np);
+      IncrCalculateMatrixYfX2( ((tt - t0) - xm)/NormC, xerr - ym, &Np);
          
       CalculateMNKYfX2(coeff,&Np);
-//      Serial_db.printf("MNK coeff = %e %e  %e\n", coeff[0], coeff[1], coeff[2] );
+//    Serial_db.printf("MNK coeff = %e %e  %e ", coeff[0], coeff[1], coeff[2] );
 /* Y = a + b * X + c * X**2                */
 /* Y' = b + 2c * X */
       {  float ydf;
-         ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm);
-//      Serial_db.printf("MNK coeff Y' = %e\n", ydf );
+         ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm)/NormC;
+//    Serial_db.printf("MNK coeff Y' = %e\n", ydf );
       diff = ydf;
 
       }
+
+//    Serial_db.printf("MNK coeff Y' = %e n=%d dt=%ld\n", diff, n, micros()-Tm0 );
+
    return 1;
 }  
 
@@ -309,6 +336,7 @@ int IncrCalculateMatrixYfX2(float x, float y, int *Np, float _XX[N_X][N_X ], flo
    _XX[1][1] += x2;
    _XX[2][2] += x2 * x2;
    _XX[2][1] += x2 * x;
+
    _Yx[0]    += y;
    _Yx[1]    += y * x;
    _Yx[2]    += y * x2;
@@ -332,7 +360,7 @@ int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] 
     float v;
     n = 3;
    if(*Np <= 0) return 1;
-   v = 1./ double(*Np);
+   v = 1./ float(*Np);
 /* пеpеписываем матpицы в осpедненном виде */
    for(i=0;i<3;i++)
        YxM [i] = _Yx[i] * v;
@@ -348,7 +376,7 @@ int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] 
    XXM[2][1] = _XX[2][1] * v;
    XXM[1][2] = XXM[2][1];
 
-   if(XXM[1][1] == 0.)
+  if(XXM[1][1] == 0.)
       Serial_db.printf("CalculateMNKYfX2 coeff XXM[1][1] = 0\n");
   if(XXM[2][2] == 0.)
       Serial_db.printf("CalculateMNKYfX2 coeff XXM[2][2] = 0\n");
@@ -384,9 +412,10 @@ int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
    {
       d = B[i][i];
       if(d != 1.0 && d != 0.)
-      {    for(j=0;j<n;j++)
-           {  Out[i][j]/= d;
-              B[i][j]  /= d;
+      {    d = 1.f/d;
+           for(j=0;j<n;j++)
+           {  Out[i][j] *= d;
+              B[i][j]  *= d;
            }
       }
 
@@ -419,4 +448,29 @@ float fast_small_sqrt(float x)
 
    return sq;
 }
+
+union {
+    float f;
+    int i;
+} pun;
+
+//https://github.com/itchyny/fastinvsqrt
+//about 13.6 times faster than sqrtf in esp32
+float fast_sqrt(float x)
+{
+    float xhalf = 0.5f * x;
+//original
+//    int i = *((int*)&x);            // Bit-level access
+//    i = 0x5f3759df - (i >> 1);    // The "Magic Number"
+//eleminate strict-aliasing warning
+    pun.f = x;
+    pun.i = 0x5f3759df - (pun.i >> 1);    
+//original
+//    float y = *(float*)&i;        // Back to float (1/sqrt(x) approx)
+//eleminate strict-aliasing warning
+    float y = pun.f;
+    y = y * (1.5f - xhalf * y * y); // One Newton-Raphson iteration
+    return x * y;                 // sqrt(x) = x * (1/sqrt(x))
+}
+
 #endif //PID_USE

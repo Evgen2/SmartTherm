@@ -795,33 +795,38 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   }
 
    if(SmOT.useMQTT && redir== 0)
-   {   char str0[80];
+   {  char str0[80], str00[80];
       int i;
  
-    SetMQTT_server.value.toCharArray(str0, sizeof(str0));
+    SetMQTT_server.value.toCharArray(str00, sizeof(str00));
+    sscanf(str00,"%s", str0);
     if(strcmp(SmOT.MQTT_server,str0))
     {  isChangeMQTT++;
        strcpy(SmOT.MQTT_server,str0);      
     }
 
-    SetMQTT_user.value.toCharArray(str0, sizeof(str0));
+    SetMQTT_user.value.toCharArray(str00, sizeof(str00));
+    sscanf(str00,"%s", str0);
     if(strcmp(SmOT.MQTT_user,str0))
     { isChangeMQTT++;
        strcpy(SmOT.MQTT_user,str0);      
     }
-    SetMQTT_pwd.value.toCharArray(str0, sizeof(str0));
+    SetMQTT_pwd.value.toCharArray(str00, sizeof(str00));
+    sscanf(str00,"%s", str0);
     if(strcmp(SmOT.MQTT_pwd,str0))
     { isChangeMQTT++;
        strcpy(SmOT.MQTT_pwd,str0);      
     }
 
-    SetMQTT_devname.value.toCharArray(str0, sizeof(str0));
+    SetMQTT_devname.value.toCharArray(str00, sizeof(str00));
+    sscanf(str00,"%s", str0);
     if(strcmp(SmOT.MQTT_devname,str0))
     { isChangeMQTT++;
        strcpy(SmOT.MQTT_devname,str0);      
     }
 
-    SetMQTT_topic.value.toCharArray(str0, sizeof(str0));
+    SetMQTT_topic.value.toCharArray(str00, sizeof(str00));
+    sscanf(str00,"%s", str0);
     /* check for [a-zA-Z0-9_-] */
     for(i=0; str0[i]; i++)
     {  if(str0[i]>='0' && str0[i]<='9' ) continue;
@@ -1386,7 +1391,7 @@ if(SmOT.useMQTT)
     } else {
       Info6.value = "";
     }
-    if(OTDebugInfo[0] > 10)
+    if(SmOT.CapabilitiesDetected == 2 && OTDebugInfo[0] > 60)
     {	int v =  (OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
       if(v > 30)
       {   sprintf(str0, "Большое количество ошибок OpenTherm: %d%%<br>", v);

@@ -19,6 +19,7 @@ class x_mean
    int canfilter;
    int can_report;
    int index;
+   int changed;
    unsigned long t_set;
    fast_safe_filter fsf;
 
@@ -30,6 +31,7 @@ class x_mean
      can_report = 0; 
      index = 0;
      t_set = 0;
+     changed = 0;
    }
 
    void init(int canf)
@@ -58,6 +60,7 @@ class x_mean
       { xmean += _x;
         nx++;
         t_set = millis();
+        changed = 1;
       }
 //if(index == 3)        
 //  Serial_db.printfm(DEBUG_DEFAULT|DEBUG_PID, "add t_mean[%d] _x =%f xmean=%f x=%f nx= %d\n", index, _x, xmean, x,  nx);
@@ -251,7 +254,7 @@ public:
   signed char srcTroom; // источник температуры в комнате -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT t_indoor/t_outdoor
   signed char srcText;  // источник температуры на улице  -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT  t_indoor/t_outdoor 
   class pid mypid;
-  x_mean t_mean[8];
+  x_mean t_mean[MAX_PID_SRC+1];
   float tempindoor;
   #define TroomTarget mypid.xTag
   float tempoutdoor;
@@ -422,10 +425,10 @@ public:
     t_mean[1].index = 1;
     t_mean[2].index = 2;
     t_mean[3].index = 3;
-    t_mean[4].index = 4;
-    t_mean[5].index = 5;
-    t_mean[6].index = 6;
-    t_mean[7].index = 7;
+    t_mean[4].index = 4; //MAX_PID_SRC
+//    t_mean[5].index = 5;
+//    t_mean[6].index = 6;
+//    t_mean[7].index = 7;
   }
   void RelayInit(void);
   void RelayOnOff(bool onoff);

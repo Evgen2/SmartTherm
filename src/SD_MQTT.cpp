@@ -285,7 +285,7 @@ void onNumberCommand(HANumeric number, HANumber* sender)
           t1 += 0.09f;
         number = HANumeric(t1, 3);        
         sender->setState(number); // report back to the HA panel
-        t1 = number.toFloat();
+//      t1 = number.toFloat();
 //      Serial_db.printf("==>>NumberCommand return  %f (%f) not %f\n",SmOT.t_mean[3].fsf.last_confirmed, t1, t);
         return;
       }

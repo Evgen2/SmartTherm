@@ -281,6 +281,7 @@ void set_rtc_flag(int sts)
 { bootSts1  = sts;
 }
 
+
 void setup() {
   uint32_t brown_reg_temp = READ_PERI_REG(RTC_CNTL_BROWN_OUT_REG); //save brownout register
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector  
@@ -573,7 +574,7 @@ static int timeOutcounter = 0;
         OTDebugInfo[3]++;
         OTlogErr(2, 1);
         return;
-      } else if (status == OpenThermResponseStatus::TIMEOUT) {
+    } else if (status == OpenThermResponseStatus::TIMEOUT) {
       if(SmOT.stsOT != -1)
 	    { //if(SmOT.stsOT != 2)
         //    Serial_db.printf("TIMEOUT %d %x t %d %d\n", timeOutcounter, response, millis(), SmOT.stsOT);
@@ -1664,6 +1665,7 @@ void OTlogErr(int status, int sts)
       reqresp =  OT_TIMEOUT << 16;
   else            //invalid
       reqresp = OT_INVALID << 16;
+	if (ot.parity(reqresp)) reqresp |= (1ul << 31);
 
 //      Serial_db.printf("OTlogErr %d SmOT.nOTlog %d\n", status, SmOT.nOTlog);
 

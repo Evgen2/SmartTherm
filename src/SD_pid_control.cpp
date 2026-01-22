@@ -23,7 +23,7 @@ void SD_Termo::loop_PID(void)
     static int OldBoilerStatus=0, issF = 0;
     unsigned long int t;
     float  u0, _u, _uu;
-    int rc, dt;
+    int  dt;
     time_t now; 
     
     int is = 0;
@@ -38,15 +38,8 @@ void SD_Termo::loop_PID(void)
         t0_mean = t;
     }
 
-//  if((stsOT == 0) && ((OldBoilerStatus & 0x08) !=  (BoilerStatus & 0x08)) ) //Flame status changed
     if((stsOT == 0) && !(OldBoilerStatus & 0x08) &&  (BoilerStatus & 0x08) ) //Flame status changed from off to on
         issF = 4;
-
-
-    if(!issF && (t - t0 < (unsigned long int)(mypid.t_interval*1000))) 
-            return;
-
-//     Serial_db.printf("==>PID dt %d iss %d\n", t-t0, issF); 
 
     OldBoilerStatus = BoilerStatus;
 //if Flame status changed  then 4 times continue with 4 sec interval  
@@ -56,16 +49,31 @@ void SD_Termo::loop_PID(void)
         issF--;      
     }
 
+    is = loop_pid_gettemp(start);
+
+    if(!issF)
+    {   if(mypid.xChanged&0x01)
+        {   if((t - mypid.xChanged_t) < (unsigned long int)((mypid.t_interval)*1000*2))
+            {
+                if(t - t0 < (unsigned long int)(mypid.t_interval*1000))
+                    return; 
+            }
+        } else {
+                if(t - t0 < (unsigned long int)(mypid.t_interval*1000))
+                    return; 
+        }
+    }
+
+//     Serial_db.printf("==>PID dt %d issF %d xChanged %d (t - mypid.xChanged_t) %d\n", t-t0, issF,  mypid.xChanged, t - mypid.xChanged_t); 
+
     t0 = t;
 
-    { static int raz = 0;
+    {  static int raz = 0;
        MQTT_pub_cmd(raz);
        raz = (raz + 1)&0x01;
     }
 
 /************** считаем u0 ********************/
-    is = loop_pid_gettemp(start);
-
     if(is & 0x02)
     {   if(tempoutdoor <= mypid.y0) /* for example xTag=20, y0 =10 tempoutdoor = -5*/
             u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
@@ -85,7 +93,6 @@ void SD_Termo::loop_PID(void)
     else if(u0 > umax)
         u0 = umax;
 
-
 //   Serial_db.printf("loop_pid_gettemp is =%d start=%d tempoutdoor =%f u0=%f InT=%f\n",
 //             is, start, tempoutdoor, u0, mypid.InT );
 
@@ -93,16 +100,11 @@ void SD_Termo::loop_PID(void)
     if(!(is & 0x01))  // если нет  tempindoor 
                 return;
                 
-    rc = mypid.Pid(tempindoor, u0); //PID
-
-//    Serial_db.printf("mypid.Pid rc =%d\n", rc);
+    mypid.Pid(tempindoor, u0); //PID
 
    Serial_db.printfm(DEBUG_PID, "pid: U= %.3f u0 = %.3f dP=%.3f dD=%.3f dI=%.3f x=%.3f Xtag=%.3f dt=%d flame %d\n",
         mypid.u, u0,  mypid.dP, mypid.dD, mypid.dI, mypid.x, mypid.xTag, mypid.dt, (BoilerStatus & 0x08)); 
-
-    
-    if(rc != 1)  // если PID не OK
-                return;
+   
     now = time(nullptr);
 
     if(HotWater_present)
@@ -221,7 +223,7 @@ oldTroomSetpoint = mypid.xTag;
 void SD_Termo::loop_mean(void) 
 {   unsigned long t = millis();
 
-    for(int i=0; i < 8; i++)
+    for(int i=0; i <= MAX_PID_SRC; i++)
     {
          if(t_mean[i].isset == -1 && t_mean[i].nx == 0)
             continue;
@@ -234,12 +236,11 @@ void SD_Termo::loop_mean(void)
 //        if(t_mean[i].nx > 2 || (t_mean[i].isset == 1 && (t - t_mean[i].t_set > 30000))) 
 //                t_mean[i].init(1);
         if (t_mean[i].isset == 1 && (t - t_mean[i].t_set > 600000)) // 10 min
-                t_mean[i].init(0x3);
+                t_mean[i].init(0x2);
         else if(t_mean[i].nx > 2 )
                 t_mean[i].init(1);
         else if (t_mean[i].isset == 1 && (t - t_mean[i].t_set > 30000)) //30 sec
                 t_mean[i].init(0x3);
-
     }
 }
 
@@ -275,11 +276,6 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
                 is |= 2;
                 IsSetTemp |= 0x02;
             }
-
-//            if(is & 0x01 && InTstartset == 0) 
-//            {        mypid.Init_I(tempindoor );
-//            }
-
         }
     } else {  // start == 0
         if(srcTroom >= 0 && srcTroom <= 3 ) // !4
@@ -288,6 +284,17 @@ int SD_Termo::loop_pid_gettemp(int &_start) //получаем значения 
             {   tempindoor = t_mean[srcTroom].x;
                 is |= 1;
                 IsSetTemp |= 0x01;
+                if(t_mean[srcTroom].changed)
+                {   t_mean[srcTroom].changed = 0;
+                    if(mypid.xChanged == 0)
+                    {   mypid.xChanged |= 0x01; //indoor T changed
+                        mypid.xChanged_t = millis();
+                    }
+
+//  Serial_db.printf("tempindoor Changed  srcTroom =%d, isset=%d xmean=%f nx=%d\n",
+//         srcTroom, t_mean[srcTroom].isset,t_mean[srcTroom].xmean, t_mean[srcTroom].nx); 
+
+                }
             }
         }
         if((srcText >= 0 && srcText <= 2) || (srcText >= 4 && srcText <= MAX_PID_SRC)) // !3 MAX_PID_SRC!!

@@ -115,8 +115,8 @@ void SD_Termo::need_set_T_CH2(int n)
 void SD_Termo::need_set_MaxTSet(int n)
 {	if(MaxTSet > MAX_CH_TEMP)
 		MaxTSet = MAX_CH_TEMP;
-	else if(MaxTSet < MIN_CH_TEMP)
-		MaxTSet = MIN_CH_TEMP;
+	else if(MaxTSet < MinCHtemp)
+		MaxTSet = MinCHtemp;
 
 	NeedSet(OpenThermMessageID::MaxTSet, n);
 }

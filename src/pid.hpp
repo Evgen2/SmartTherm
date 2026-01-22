@@ -6,21 +6,25 @@
 
 /* циклический стек/буфер для хранения последних NB значений */
 /* нужен для корректного расчета дифференциальной части PID  */
-#define NB 16
+#define NB_MAX 128
+
 class dstack
 {
   public:
-   float d[NB];
-   unsigned long int t[NB];
+   float d[NB_MAX];
+   unsigned long int t[NB_MAX];
    int ind;
    int n;
+   int NB;
+
    dstack(void)
    {  int i;
-      for(i=0; i<NB; i++) 
+      for(i=0; i<NB_MAX; i++) 
       {  d[i] = 0.f;
          t[i] = 0;
       }
       ind = n = 0;
+      NB = 16;
   }
   void add (float _d, unsigned long int _t)
   {   d[ind] = _d;
@@ -47,7 +51,6 @@ class dstack
       }
    }
 
-   int calcD(float _d, unsigned long int _t, float &diff);
 };
 
 class TempStack:public dstack
@@ -60,26 +63,56 @@ class TempStack:public dstack
 
    }
    void add (float _d, unsigned long int _t)
-   {  
-         dstack::add(_d, _t);
-#if 0      
-      if(nlast == 0)
-      {  ind_last = ind;
-         dstack::add(_d, _t);
-//         nlast++;
-      } else {
-    
-//    Serial.printf("ind_last %d  _d=%f  _t=%li d[ind_last] =%f  t[ind_last] %d\n", ind_last, _d, _t,  d[ind_last] , t[ind_last] ); 
-
-         d[ind_last]  = d[ind_last] + (_d - d[ind_last]) / float(nlast +1);
-         t[ind_last]  = t[ind_last] + (_t - t[ind_last]) / (nlast +1);
-         nlast++;
-//    Serial.printf("ind_last %d   d[ind_last] =%f  t[ind_last] %d %d\n", ind_last,  d[ind_last] , t[ind_last] , nlast); 
-         if(nlast > 3) //4 раза считаем среднее
-            nlast = 0;  
-      }
-#endif      
+   { 	if(n == NB)
+		{	int ind_last = ind + 1;
+			unsigned long int dt;
+			int prev = ind-1;
+			if(prev < 0)
+				prev = NB -1;
+			//if(_t == t[prev])
+			//	printf("hren\n");
+			if(ind_last >= NB)
+				ind_last = 0;
+			dt = _t - t[ind_last];
+			if(dt < 3600*1000)
+			{	if(NB < NB_MAX)
+				{	int i;
+				    for(i = NB; i>ind; i--)
+					{ d[i] = d[i-1];
+					  t[i] = t[i-1];
+					}
+					NB++;
+				}
+			} else if(dt >3780*1000) {
+				if(NB > 10 )
+				{	int i;				
+				    for(i = ind; i<NB-1; i++)
+					{ d[i] = d[i+1];
+					  t[i] = t[i+1];
+					}
+					NB--;
+				}
+			}
+		}
+      dstack::add(_d, _t);
    }
+
+   unsigned long int get_dt(unsigned long int _t)
+   {	int i;
+      unsigned long int dt;
+      if(n < NB)
+      {  dt = _t - t[0];
+      } else {
+         i = ind + 1;
+         if(i >= NB)
+            i = 0;
+         dt = _t - t[i];
+      }
+      return dt;
+   }
+
+   int calcD(float _d, unsigned long int _t, float &diff);
+
 };
 
 /* PID регулятор */
@@ -115,6 +148,8 @@ class pid
    TempStack dSt;
 //   dstack  dSt0;
    int dt;
+   int xChanged;
+   long unsigned xChanged_t; /* время изменения */
 
    pid(void)
    {  Kp = 1.;
@@ -137,13 +172,15 @@ class pid
       u = ub = 0;
       dDmax = 50.;
       dt = 0;
+      xChanged = 0;
+      xChanged_t = 0;
       NextTact();
    }
    void NextTact(void)
    {	pid_t = millis();
    }
 
-   int Pid(float _x, float u0);
+   void Pid(float _x, float u0);
    void Set_NewTag( float _NewTag, float _OldTag, float _CurrentT);
 };
 
