@@ -201,13 +201,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 #endif 
 
 #if MQTT_USE
-  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3, SetMaxMod, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1,  SetMaxMod,  CtrlChB3, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod, CtrlChB2,
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
      CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd, ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
+ AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1,  SetMaxMod,  CtrlChB3, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod, CtrlChB2,
   #if RELAY_USE
  CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
