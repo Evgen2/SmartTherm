@@ -56,33 +56,30 @@ class dstack
 class TempStack:public dstack
 {
   public:
-//   int nlast;
-//   int ind_last;
+
    TempStack(void)
-   { //  nlast = ind_last = 0;
+   { 
 
    }
    void add (float _d, unsigned long int _t)
-   { 	if(n == NB)
+   {  if(n == NB)
 		{	int ind_last = ind + 1;
 			unsigned long int dt;
 			int prev = ind-1;
 			if(prev < 0)
 				prev = NB -1;
-			//if(_t == t[prev])
-			//	printf("hren\n");
 			if(ind_last >= NB)
 				ind_last = 0;
 			dt = _t - t[ind_last];
 			if(dt < 3600*1000)
 			{	if(NB < NB_MAX)
 				{	int i;
-				    for(i = NB; i>ind; i--)
+			       for(i = NB; i>ind; i--)
 					{ d[i] = d[i-1];
 					  t[i] = t[i-1];
 					}
-					NB++;
-				}
+					NB++;              
+            }
 			} else if(dt >3780*1000) {
 				if(NB > 10 )
 				{	int i;				
@@ -91,10 +88,12 @@ class TempStack:public dstack
 					  t[i] = t[i+1];
 					}
 					NB--;
+               n--;
 				}
 			}
 		}
       dstack::add(_d, _t);
+
    }
 
    unsigned long int get_dt(unsigned long int _t)

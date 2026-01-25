@@ -1,3 +1,6 @@
+0.8.5.15
+* bufix for a circular buffer at 0.8.5.14
+
 0.8.5.14
 * PID changes:
 ** a circular buffer (for D) with auto-tuning length for more adequate determination of the derivative for fast (DS18B20) and slow (zibee) temperature sensors

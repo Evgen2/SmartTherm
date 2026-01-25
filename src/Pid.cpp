@@ -128,6 +128,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    if(xChanged)
    {  if(t - t_d >= t_interval*1000)
       {  dSt.calcD(xerr, t, _dft);
+  
          dSt.add(xerr, t);
 //      Serial_db.printf("****xChanged pid: t - t_d = %d, t_interval %d\n", t - t_d, t_interval );
          t_d = t;
@@ -305,7 +306,6 @@ const float NormC = 1000000.;
 /* Y' = b + 2c * X */
       {  float ydf;
          ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm)/NormC;
-//    Serial_db.printf("MNK coeff Y' = %e\n", ydf );
       diff = ydf;
 
       }
