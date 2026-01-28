@@ -2028,7 +2028,7 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
   if (WiFi.status() == WL_CONNECTED)
   {   Info3.value = "<a href=";
       Info3.value += SM_OT_HomePage;
-      Info3.value += F(">Поддрержка проекта</a>\n");
+      Info3.value += F(">Поддержка проекта</a>\n");
   } else 
     Info3.value ="";
     

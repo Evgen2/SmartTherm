@@ -115,7 +115,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
     t  = millis();
     dt = t - pid_t; // dt, msec
 
-//  Serial_db.printf("****pid: dt = %ld\n", dt );
+//  Serial_db.printf("****pid: dt = %ld xChanged %d %d\n", dt, xChanged, dSt.n );
 
 //P    
    x = _x;

@@ -11,7 +11,6 @@
 //ST_VERS 1   SmartTherm = SmartTherm32 + Relay
 //ST_VERS 2   SmartTherm 2 = SmartTherm32 + Relay + 2 OpenTherm (master+slave)
 #define ST_VERS 1
-
 #define SERIAL_DEBUG 0
 #define OT_DEBUG 0
 #define SERVER_DEBUG 0
@@ -60,6 +59,7 @@
 #define MAX_ROOM_TEMP  35
 
 #define MAX_PID_SRC 4
+#define PID_D_PERIOD 3600  //time period for  PID D stack in sec
 
 #define IDENTIFY_TYPE     DS_OPENTHERM
 #define IDENTIFY_SUBTYPE  ST_VERS
