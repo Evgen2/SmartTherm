@@ -71,7 +71,8 @@ class TempStack:public dstack
 			if(ind_last >= NB)
 				ind_last = 0;
 			dt = _t - t[ind_last];
-			if(dt < 3600*1000)
+//Serial.printf("0===>add  ind =%d, dt=%d Nb=%d\n", ind, dt, NB);
+			if(dt < PID_D_PERIOD *1000)
 			{	if(NB < NB_MAX)
 				{	int i;
 			       for(i = NB; i>ind; i--)
@@ -80,9 +81,45 @@ class TempStack:public dstack
 					}
 					NB++;              
             }
-			} else if(dt >3780*1000) {
+			} else if(dt >(PID_D_PERIOD+120)*1000) { 
+//We will be in this place if we change the fast temperature sensor to a slow one on the fly.
+//This situation is possible if the slow sensor from HomeAssistant disappears for some time, 
+//the algorithm switches to the fast DS sensor, and then the slow sensor works again.
+//Switching the sensor source from the main one in the HA to the built-in DS is todo
 				if(NB > 10 )
-				{	int i;				
+            {	int i, j;
+//Serial.printf("0===>NB--  ind =%d, dt=%d Nb=%d\n", ind, dt, NB);
+//               for(i = 0; i<NB; i++)
+//                  Serial.printf("%d %f %d\n",i, d[i],t[i]);
+
+               for(j=0; j<10; j++)
+               {  if(ind == NB-1)
+                  { ind = 0;
+                  } else {
+                     for(i = ind; i<NB-1; i++)
+                     {  d[i] = d[i+1];
+                        t[i] = t[i+1];
+                     }
+                  }
+                  NB--;
+                  n--;
+                  if(NB == 10)
+                     break;
+                  ind_last = ind + 1;
+                  if(ind_last >= NB)
+                     ind_last = 0;
+                  dt = _t - t[ind_last];
+                  if(dt < (PID_D_PERIOD+120)*1000)                   
+                     break;
+               }
+            }
+//         { int i;
+//            Serial.printf("1===>NB--  ind =%d, dt=%d Nb=%d\n", ind, dt, NB);
+//               for(i = 0; i<NB; i++)
+//                  Serial.printf("%d %f %d\n",i, d[i],t[i]);
+//         }  
+#if 0            
+				{	int i;
 				    for(i = ind; i<NB-1; i++)
 					{ d[i] = d[i+1];
 					  t[i] = t[i+1];
@@ -90,6 +127,8 @@ class TempStack:public dstack
 					NB--;
                n--;
 				}
+#endif            
+
 			}
 		}
       dstack::add(_d, _t);

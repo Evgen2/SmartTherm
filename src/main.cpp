@@ -435,6 +435,7 @@ void loopDS1820(void)
             }
         } else {
           rc = Tsensor1.isConversionComplete();
+
         }
         if(rc)
         { t = Tsensor1.getTempC();
@@ -461,6 +462,9 @@ void loopDS1820(void)
                 SmOT.t1 = t;
             SmOT.stsT1 = 1;
             SmOT.OnChangeT(t,0);    
+//            Serial.printf("%f ",   t);
+//            Serial.flush();
+          oneWire1.depower();
 //            Serial_db.printf("SmOT T1= %f\n",   SmOT.t1);
           }
           SmOT.statusDS18b20 &= ~0x04;
@@ -519,12 +523,22 @@ void loopDS1820(void)
                 SmOT.t2 = t;
             SmOT.stsT2 = 1;
             SmOT.OnChangeT(t,1);    
+          oneWire2.depower(); //??
 
+//            Serial.printf("%f\n",   t);
 //            Serial_db.printf("SmOT T2= %f\n",   SmOT.t2);
           }
           nd = 0;
         }
 
+      break;
+      case 4:
+      start = millis();
+          nd = 5;            
+      break;
+      case 5:
+        if(millis()-start > 1000)
+          nd = 0;            
       break;
   }
 }
