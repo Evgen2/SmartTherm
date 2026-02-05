@@ -1271,7 +1271,10 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
     {   char stOT;
         stOT = stsOT;
         memcpy((void *)&msg->Buf[8],(void *) &stOT,1); 
-        stOT = ot_slave_stsOT;
+        stOT = ot_slave_stsOT; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
+        if(OT_slave_mode && ot_slave_stsOT >= 0)
+                stOT |= 0x4;
+
         memcpy((void *)&msg->Buf[9],(void *) &stOT,1); 
     }
 #else

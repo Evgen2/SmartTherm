@@ -1,3 +1,6 @@
+0.8.5.17
+* ST2 version update
+
 0.8.5.16
 * bugfix for a circular buffer at 0.8.5.14, fast and correct adoptation for online change of fast/slow temperature sensors
 
