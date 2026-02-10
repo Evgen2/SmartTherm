@@ -638,11 +638,8 @@ int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 	return OT_ids[ind].used;
 }
 
-//7
-//52
-//252 
-//249
 // use https://github.com/Jeroen88/EasyOpenTherm/blob/main/src/EasyOpenTherm.h
+// https://github.com/Evgen2/SmartTherm/blob/v0.8.5/doc/OpenTherm%20Member%20Ids.md
 OpenThermVendor OTvendorList[] =
 {	1,  "Baxi Fourtech/Luna 3",
     2,  "AWB/Brink/Viessmann", 
