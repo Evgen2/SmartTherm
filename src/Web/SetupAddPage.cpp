@@ -34,9 +34,9 @@ static AutoConnectSubmit   ApplyAddpar("ApplyAddpar",   "Задать", SET_ADD_
 
 #if PID_USE
 static AutoConnectButton   SetupPID("SetupPID",   "PID", PID_URI, AC_Tag_BR);
-static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false);
+static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);
 #else
-static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false);
+static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);
 #endif
 
 static AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);

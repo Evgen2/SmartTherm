@@ -30,4 +30,4 @@ extern AutoConnectText InfoAuth;
 extern AutoConnectInput SetWebAuthUser;
 extern AutoConnectInput SetWebAuthPwd;
 extern AutoConnectButton ApplyChB;
-extern AutoConnectButton ApplyAdd;
+extern AutoConnectSubmit ApplyAdd;
