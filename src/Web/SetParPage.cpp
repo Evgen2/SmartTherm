@@ -2,12 +2,23 @@
 
 #include "Shared.hpp"
 #include "SetupControls.hpp"
+#include "SmartDebug.h"
+
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WebServer.h>
+using WiFiWebServer = ESP8266WebServer;
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WebServer.h>
+using WiFiWebServer = WebServer;
+#endif
 
 // Forward declarations for web auth controls
 extern AutoConnectText InfoAuth;
 extern AutoConnectInput SetWebAuthUser;
 extern AutoConnectInput SetWebAuthPwd;
 extern AutoConnectConfig config;
+extern AutoConnect portal;
+extern unsigned long authRealmCounter;
 
 #if MQTT_USE
 extern void mqtt_start(void);
@@ -16,7 +27,28 @@ extern void mqtt_start(void);
 static AutoConnectAux SetParPage(SET_PAR_URI, "SetPar", false, {}, false);
 
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{ int isChange=0,  redir = 0, iv; float fv; bool check;
+{ 
+  Serial_db.printf("[onSetPar] ========== HANDLER CALLED ==========\n");
+  Serial_db.printf("[onSetPar] Handler called, URI: %s\n", SET_PAR_URI);
+  Serial_db.printf("[onSetPar] Request method: checking...\n");
+  
+  // ВАЖНО: Для скрытых страниц (responsive=false) AutoConnect НЕ применяет аутентификацию автоматически
+  // Нужно проверять вручную перед обработкой запроса
+  if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
+    WiFiWebServer& ws = portal.host();
+    Serial_db.printf("[onSetPar] Checking authentication, username: %s\n", config.username.c_str());
+    if (!ws.authenticate(config.username.c_str(), config.password.c_str())) {
+      Serial_db.printf("[onSetPar] Authentication FAILED, requesting authentication\n");
+      // Для responsive=false страниц используем requestAuthentication() вместо прямого send()
+      // Это правильный способ для AutoConnect
+      ws.requestAuthentication();
+      return String(); // Отменяем обработку запроса
+    }
+    Serial_db.printf("[onSetPar] Authentication OK\n");
+  }
+  
+  Serial_db.printf("[onSetPar] Processing form data...\n");
+  int isChange=0,  redir = 0, iv; float fv; bool check;
   if( CtrlChB1.checked) check = true; else check = false;
   if(check != SmOT.enable_CentralHeating)
   { isChange++; SmOT.enable_CentralHeating = check;
@@ -107,12 +139,21 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   }
   if(SmOT.CH2_present && SmOT.enable_CentralHeating2) SmOT.need_set_T_CH2(1);
 
-  if(redir) aux.redirect(SETUP_URI); else aux.redirect(INFO_URI);
+  Serial_db.printf("[onSetPar] Processing complete: isChange=%d, redir=%d\n", isChange, redir);
+  if(redir) {
+    Serial_db.printf("[onSetPar] Redirecting to SETUP_URI\n");
+    aux.redirect(SETUP_URI);
+  } else {
+    Serial_db.printf("[onSetPar] Redirecting to INFO_URI\n");
+    aux.redirect(INFO_URI);
+  }
   return String();
 }
 
 void Register_SetPar(AutoConnect& portal){ 
   // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  Serial_db.printf("[Register_SetPar] Registering SetParPage with URI: %s\n", SET_PAR_URI);
   SetParPage.on(onSetPar); 
   portal.join({SetParPage}); 
+  Serial_db.printf("[Register_SetPar] SetParPage registered successfully\n");
 }

@@ -30,7 +30,7 @@ unsigned int OTcount = 0;
 
 AutoConnectConfig config;
 AutoConnect portal;
-static unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
+unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
 
 // Forward
 void onRoot(void);
@@ -99,6 +99,21 @@ void setup_web_common(void) {
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
+  
+  // Добавляем логирование всех необработанных запросов для отладки
+  webServer.onNotFound([]() {
+    WiFiWebServer& ws = portal.host();
+    Serial_db.printf("[onNotFound] Request: method=%d, URI=%s\n", ws.method(), ws.uri().c_str());
+    Serial_db.printf("[onNotFound] Args count: %d\n", ws.args());
+    for (int i = 0; i < ws.args(); i++) {
+      Serial_db.printf("[onNotFound] Arg[%d]: %s=%s\n", i, ws.argName(i).c_str(), ws.arg(i).c_str());
+    }
+    // Проверяем специально для set_par
+    if (ws.uri() == SET_PAR_URI || ws.uri() == SET_ADD_URI) {
+      Serial_db.printf("[onNotFound] ВАЖНО: Запрос на %s попал в onNotFound! Это означает, что страница не зарегистрирована!\n", ws.uri().c_str());
+    }
+  });
+  
   webServer.on("/", onRoot);
   
   // Обработчик для страницы disconnect - принудительно "отключает" пользователя
