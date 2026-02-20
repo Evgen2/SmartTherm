@@ -237,6 +237,7 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
 }
 
 void Register_Info(AutoConnect& portal) {
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   InfoPage.on(onInfo);
   InfoPage.add(Caption);
   InfoPage.add(Info1);

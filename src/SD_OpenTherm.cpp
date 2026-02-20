@@ -63,7 +63,8 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
 #if MQTT_USE
 const int FS_BUFMQTT =     
             sizeof(SD_Termo::useMQTT) + sizeof(SD_Termo::MQTT_server) + sizeof(SD_Termo::MQTT_user) + sizeof(SD_Termo::MQTT_pwd) + sizeof(SD_Termo::MQTT_topic) +
-            sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port);
+            sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port) +
+            sizeof(SD_Termo::web_auth_username) + sizeof(SD_Termo::web_auth_password);
 #endif
 
 /**^^^******************************/
@@ -533,6 +534,32 @@ int SD_Termo::Read_mqtt_fs(void)
         MQTT_port = _port;
         n += sizeof(MQTT_port);
     }
+    // Read web authentication credentials (if available)
+    if (n < nw) {
+        memcpy((void *) &len, &Buff[n], 1);  n++;
+        if (len > 0 && len <= sizeof(web_auth_username)) {
+            memcpy((void *) web_auth_username, &Buff[n], len);  n += len;
+        } else {
+            web_auth_username[0] = 0;
+            if (len > 0) n += len;
+        }
+        
+        if (n < nw) {
+            memcpy((void *) &len, &Buff[n], 1);  n++;
+            if (len > 0 && len <= sizeof(web_auth_password)) {
+                memcpy((void *) web_auth_password, &Buff[n], len);  n += len;
+            } else {
+                web_auth_password[0] = 0;
+                if (len > 0) n += len;
+            }
+        } else {
+            web_auth_password[0] = 0;
+        }
+    } else {
+        // Old config file, initialize with defaults
+        web_auth_username[0] = 0;
+        web_auth_password[0] = 0;
+    }
 #endif
     return 0;
 }
@@ -568,8 +595,18 @@ int SD_Termo::Write_mqtt_fs(void)
 
     memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
     n += sizeof(MQTT_interval);
-    memcpy(&Buff[n],(void *) &MQTT_port, sizeof(MQTT_port));
-    n += sizeof(MQTT_port);
+    {   unsigned short _port = MQTT_port;
+        memcpy(&Buff[n],(void *) &_port, sizeof(MQTT_port));
+        n += sizeof(MQTT_port);
+    }
+    // Write web authentication credentials
+    len = strlen(web_auth_username)+1;
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) web_auth_username, len); n += len;
+    
+    len = strlen(web_auth_password)+1;
+    memcpy(&Buff[n],(void *) &len, 1); n++;
+    memcpy(&Buff[n],(void *) web_auth_password, len); n += len;
 
 #endif
 

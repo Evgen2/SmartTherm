@@ -30,6 +30,7 @@ unsigned int OTcount = 0;
 
 AutoConnectConfig config;
 AutoConnect portal;
+static unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
 
 // Forward
 void onRoot(void);
@@ -51,10 +52,7 @@ extern void mqtt_start(void);
 String utc_time_jc;
 
 void setup_web_common(void) {
-  RegisterWebPages(portal);
-  portal.onOTAStart(onOTAstart);
-  portal.onOTAError(exitOTAError);
-
+  // Настройка аутентификации ПЕРЕД регистрацией страниц
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1;
   config.retainPortal = true;
@@ -62,16 +60,82 @@ void setup_web_common(void) {
   config.autoReconnect = true;
   config.reconnectInterval = 1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
+  
+  // Настройка аутентификации согласно документации AutoConnect
+  // AC_AUTHSCOPE_AUX - защищает все кастомные страницы (AUX)
+  // AC_AUTHSCOPE_PORTAL - защищает все страницы (AutoConnect + AUX)
+  // AC_AUTHSCOPE_WITHCP - позволяет аутентификацию в режиме captive portal
+  config.auth = AC_AUTH_BASIC;  // Используем BASIC аутентификацию
+  config.authScope = AC_AUTHSCOPE_AUX | AC_AUTHSCOPE_WITHCP;  // Защищаем все кастомные страницы (AUX)
+  
+  // Используем сохраненные учетные данные или значения по умолчанию
+  if (SmOT.web_auth_username[0] != 0) {
+    config.username = SmOT.web_auth_username;
+  } else {
+    config.username = "admin";  // Имя пользователя по умолчанию
+  }
+  
+  if (SmOT.web_auth_password[0] != 0) {
+    config.password = SmOT.web_auth_password;
+  } else {
+    config.password = "admin";  // Пароль по умолчанию
+  }
+  
   Serial_db.printf("WiFi AP SSID %s psk=%s\n", config.apid.c_str(), config.psk.c_str());
+  Serial_db.printf("Web authentication: username=%s, password=%s, authScope=0x%04X\n", 
+                    config.username.c_str(), config.password.c_str(), config.authScope);
+  
+  // Настраиваем портал перед регистрацией страниц
+  portal.config(config);
+  portal.onOTAStart(onOTAstart);
+  portal.onOTAError(exitOTAError);
+  portal.onConnect(onConnect);
+  
+  // Регистрируем страницы после настройки конфигурации
+  RegisterWebPages(portal);
   
   /* When using AutoConnect with max_time_use support: portal.max_time_use = 200; portal.callback_at_maxtime = OTloop_callback; */
 
-  portal.config(config);
-  portal.onConnect(onConnect);
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
   webServer.on("/", onRoot);
+  
+  // Обработчик для страницы disconnect - принудительно "отключает" пользователя
+  // Используем агрессивный подход для очистки кэша браузера
+  webServer.on("/_ac/disc", HTTP_GET, []() {
+    WiFiWebServer& ws = portal.host();
+    
+    // Увеличиваем счетчик realm для изменения realm
+    authRealmCounter++;
+    
+    // Отправляем HTML страницу с JavaScript, которая заставит браузер забыть кэш
+    // и запросить аутентификацию заново
+    String realm = "AutoConnect_" + String(authRealmCounter);
+    String html = "<!DOCTYPE html><html><head><title>Disconnected</title>";
+    html += "<script>";
+    html += "// Очищаем кэш браузера для этого домена";
+    html += "if ('caches' in window) { caches.keys().then(function(names) {";
+    html += "  for (let name of names) caches.delete(name);";
+    html += "}); }";
+    html += "// Используем XMLHttpRequest с неправильными учетными данными для очистки кэша";
+    html += "var xhr = new XMLHttpRequest();";
+    html += "xhr.open('GET', '/', false);";
+    html += "xhr.setRequestHeader('Authorization', 'Basic ' + btoa('invalid:invalid'));";
+    html += "try { xhr.send(); } catch(e) {}";
+    html += "// Перенаправляем на корневую страницу с новым realm";
+    html += "setTimeout(function() {";
+    html += "  window.location.href = '/?logout=' + Date.now();";
+    html += "}, 100);";
+    html += "</script>";
+    html += "<body><h1>Disconnected</h1><p>Please wait...</p></body></html>";
+    
+    ws.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    ws.sendHeader("Pragma", "no-cache");
+    ws.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+    ws.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+    ws.send(200, "text/html", html);
+  });
 
   if (WiFi.status() != WL_CONNECTED)  {
     Serial_db.printf("WiFi Not connected\n");
@@ -146,6 +210,39 @@ void onConnect(IPAddress& ipaddr) {
 // Redirect from root to INFO_URI
 void onRoot() {
   WiFiWebServer&  webServer = portal.host();
+  
+  // Проверяем параметр logout в URL (добавляется JavaScript после disconnect)
+  String uri = webServer.uri();
+  bool forceLogout = uri.indexOf("logout=") >= 0;
+  
+  // Проверяем аутентификацию
+  if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
+    // Всегда используем уникальный realm на основе счетчика
+    // После disconnect счетчик увеличивается, realm меняется, браузер забывает кэш
+    String realm = "AutoConnect_" + String(authRealmCounter);
+    
+    // Если был запрос logout, всегда отправляем 401 с новым realm
+    if (forceLogout) {
+      webServer.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+      webServer.sendHeader("Pragma", "no-cache");
+      webServer.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+      webServer.sendHeader("Clear-Site-Data", "\"cache\", \"cookies\", \"storage\"");
+      webServer.requestAuthentication();
+      return;
+    }
+    
+    // Проверяем аутентификацию с текущими учетными данными
+    if (!webServer.authenticate(config.username.c_str(), config.password.c_str())) {
+      // Если аутентификация не прошла, отправляем 401 с новым realm
+      webServer.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+      webServer.sendHeader("Pragma", "no-cache");
+      webServer.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+      webServer.requestAuthentication();
+      return;
+    }
+  }
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
   webServer.client().flush();

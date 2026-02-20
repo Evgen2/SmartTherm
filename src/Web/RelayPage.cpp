@@ -16,5 +16,9 @@ String onSetRelay(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-void Register_Relay(AutoConnect& portal){ SetRelayPage.on(onSetRelay); portal.join({SetRelayPage}); }
+void Register_Relay(AutoConnect& portal){ 
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  SetRelayPage.on(onSetRelay); 
+  portal.join({SetRelayPage}); 
+}
 #endif // RELAY_USE

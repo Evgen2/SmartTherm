@@ -113,6 +113,7 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 }
 
 void Register_PID(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   PID_Page.on(onSetupPID);
   SetPIDPage.on(onSetPID);
   PID_Page.add(UsePID); PID_Page.add(UsePID_NoLimit); PID_Page.add(SetXtagPID); PID_Page.add(Info1);

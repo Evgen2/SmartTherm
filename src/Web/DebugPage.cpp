@@ -83,6 +83,7 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
 }
 
 void Register_Debug(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   debugPage.on(onDebug);
   debugPage.add(Info1);
   debugPage.add(Info2);

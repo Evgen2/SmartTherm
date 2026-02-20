@@ -9,4 +9,8 @@ static AutoConnectAux SendBLORPage(BLOR_URI, "SendBlor", false, {}, false);
 String onSendBlor(AutoConnectAux& aux, PageArgument& args)
 { SmOT.need_set_blor(); aux.redirect(INFO_URI); return String(); }
 
-void Register_SendBLOR(AutoConnect& portal){ SendBLORPage.on(onSendBlor); portal.join({SendBLORPage}); }
+void Register_SendBLOR(AutoConnect& portal){ 
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  SendBLORPage.on(onSendBlor); 
+  portal.join({SendBLORPage}); 
+}

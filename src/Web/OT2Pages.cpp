@@ -43,6 +43,7 @@ String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
 }
 
 void Register_OT2(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   OTslave_Page.on(onSetupOT_slave);
   SetOTslave_Page.on(onSetOT_slave);
   OTslave_Page.add(Info1); OTslave_Page.add(UseOTslave); OTslave_Page.add(OTslaveMode); OTslave_Page.add(Info5); OTslave_Page.add(Info6); OTslave_Page.add(ApplySlave);

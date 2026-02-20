@@ -3,6 +3,12 @@
 #include "Shared.hpp"
 #include "SetupControls.hpp"
 
+// Forward declarations for web auth controls
+extern AutoConnectText InfoAuth;
+extern AutoConnectInput SetWebAuthUser;
+extern AutoConnectInput SetWebAuthPwd;
+extern AutoConnectConfig config;
+
 #if MQTT_USE
 extern void mqtt_start(void);
 #endif
@@ -51,6 +57,25 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       iv = SetMQTT_port.value.toInt();     if((unsigned int) iv !=SmOT.MQTT_port )    { isChangeMQTT++; SmOT.MQTT_port = iv; }
   }
 #endif
+  // Save web authentication credentials
+  { char str0[32];
+    SetWebAuthUser.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.web_auth_username, str0)) {
+      strncpy(SmOT.web_auth_username, str0, sizeof(SmOT.web_auth_username)-1);
+      SmOT.web_auth_username[sizeof(SmOT.web_auth_username)-1] = 0;
+      isChange++;
+    }
+    SetWebAuthPwd.value.toCharArray(str0, sizeof(str0));
+    if(strcmp(SmOT.web_auth_password, str0)) {
+      strncpy(SmOT.web_auth_password, str0, sizeof(SmOT.web_auth_password)-1);
+      SmOT.web_auth_password[sizeof(SmOT.web_auth_password)-1] = 0;
+      isChange++;
+      // Update AutoConnect config with new credentials
+      extern AutoConnectConfig config;
+      config.username = SmOT.web_auth_username;
+      config.password = SmOT.web_auth_password;
+    }
+  }
 
 #if RELAY_USE
   if( CtrlChBUseRelay.checked) check = true; else check = false;
@@ -86,4 +111,8 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-void Register_SetPar(AutoConnect& portal){ SetParPage.on(onSetPar); portal.join({SetParPage}); }
+void Register_SetPar(AutoConnect& portal){ 
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  SetParPage.on(onSetPar); 
+  portal.join({SetParPage}); 
+}
