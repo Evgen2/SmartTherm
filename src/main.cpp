@@ -41,15 +41,22 @@ void OTlog(unsigned int reqresp, int sts);
 void OTlogErr(int status, int sts);
 void OTlogDelLast(void);
 #endif
-
+#if OT_MASTER_DEBUG || OT2_SLAVE_DEBUG 
+void ot_debug_print(void);
+#endif
 void loop_time(void);
+void loop_LED(void);
+void OTloop_callback(void);
+
+int ST_setCpuFrequencyMhz(int code);
 
 #if MQTT_USE 
  #if RELAY_USE
   extern void MQTT_pub_relay(void);
  #endif
- extern int MQTT_pub_cmdCH(int on);
- extern void MQTT_pub_Eff_Mod_h(void);
+  extern int MQTT_pub_cmdCH(int on);
+  extern void MQTT_pub_Eff_Mod_h(void);
+  extern void mqtt_loop(void);
 #endif
 
 
@@ -141,84 +148,16 @@ void init_ot_slave(void)
 }
 
 /*******************************/
-#if 0
-void FreqInfo(void) 
-{
-rtc_cpu_freq_config_t out_config;
-/*            
-            typedef enum {
-              RTC_CPU_FREQ_SRC_XTAL,  //!< XTAL
-              RTC_CPU_FREQ_SRC_PLL,   //!< PLL (480M or 320M)
-              RTC_CPU_FREQ_SRC_8M,    //!< Internal 8M RTC oscillator
-              RTC_CPU_FREQ_SRC_APLL   //!< APLL
-          } rtc_cpu_freq_src_t;
-          
-            typedef struct rtc_cpu_freq_config_s {
-              rtc_cpu_freq_src_t source;      //!< The clock from which CPU clock is derived
-              uint32_t source_freq_mhz;       //!< Source clock frequency
-              uint32_t div;                   //!< Divider, freq_mhz = source_freq_mhz / div
-              uint32_t freq_mhz;              //!< CPU clock frequency
-          } rtc_cpu_freq_config_t;
-          
-*/
-            rtc_clk_cpu_freq_get_config(&out_config);
-//            delay(100);
-//            Serial_db.printf("cpu_freq_get_config  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
-//            Serial.printf("cpfgc  src %d source_freq_mhz %d div %d freq_mhz %d\n", 
-              Serial.printf("%d %d %d %d\n",
-                out_config.source, out_config.source_freq_mhz, out_config.div, out_config.freq_mhz );
-} 
-
-void FreqTest(int _Freq) 
-{ int fr;
-  int Freq;
-//setCpuFrequencyMhz(10);
-  if(_Freq > 0)
-    setCpuFrequencyMhz(_Freq);
-
-  Freq = getCpuFrequencyMhz();
-  delay(10);
-
-  if (Freq < 80) {
-    fr = 80 / Freq * 115200;
-  }
-  else {
-    fr = 115200;
-  }
-  if(fr > 0) 
-  { 
-    Serial.end();
-    delay(100);
-    Serial.begin(fr);  
-    delay(100);
-  }
-
-/*  
-  Serial.print(">");
-  Serial.print("CPU Freq = ");
-  Serial.print(Freq);
-  Serial.println(" MHz");
-  Freq = getXtalFrequencyMhz();
-  Serial.print("XTAL Freq = ");
-  Serial.print(Freq);
-  Serial.println(" MHz");
-  Freq = getApbFrequency();
-  Serial.print("APB Freq = ");
-  Serial.print(Freq);
-  Serial.println(" Hz");
-*/
-  FreqInfo();  
-}
-
-#endif //0
-
-/*******************************/
 static int OTstartSts = 0;
 int LedSts = 0; //LOW
+//RTC_DATA_ATTR
+RTC_NOINIT_ATTR  unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
+unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2; // сохраняем состояние в момент старта
 
 void Led_Info_reset(int code)
 { int i, j;
-  for(j=0; j<3; j++)
+//  for(j=0; j<3000; j++)
+  for(j=0; j<2; j++)
   {
       digitalWrite(LED_BUILTIN, 1); 
       delay(1000);
@@ -232,6 +171,8 @@ void Led_Info_reset(int code)
       }
       if(j < 2)
         delay(1000);
+      Serial.printf("%d resetReason %d bootCount %d prevReason %d bootSts=%d bootSts1=%d bootSts2=%d\n",
+           j, code,  bootCount, bootReason, bootSts, bootSts1, bootSts2);
   }
 }
 
@@ -240,9 +181,9 @@ void Led_Info_reset(int code)
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_wdt.h"
 
-#define WDT_TIMEOUT 10 // Timeout in seconds
+#define WDT_TIMEOUT 20 // Timeout in seconds
 // Define WTC Watchdog Timer in milliseconds
-#define RTC_WDT_TIME_MS (1300)
+#define RTC_WDT_TIME_MS (WDT_TIMEOUT *1100 + 10000)
 
 void watchdog_setup(void)
 {
@@ -259,12 +200,12 @@ void watchdog_setup(void)
 
   // Add the current task (Arduino loop) to the watchdog watch list
   esp_task_wdt_add(NULL); 
-  Serial_db.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
+  Serial_db.printf("RTC Watchdog Timeout set to: %d ms\n", RTC_WDT_TIME_MS);
 
 //rtc_wdt
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
   rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC); // Set action on timeout
-  rtc_wdt_set_time(RTC_WDT_STAGE0, WDT_TIMEOUT*1000 + 100 ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
+  rtc_wdt_set_time(RTC_WDT_STAGE0, RTC_WDT_TIME_MS ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
   rtc_wdt_enable(); // Start the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
@@ -274,7 +215,7 @@ void onOTAstart(void)
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
-  rtc_wdt_disable(); // Start the RTC WDT timer
+  rtc_wdt_disable(); // stop the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 }
 
@@ -309,9 +250,27 @@ void check_reset(void)
   rr0 = rtc_get_reset_reason(0);
   rr1 = rtc_get_reset_reason(1);
   if(rr0 != 1 && rr0 != 12)
-  { Serial_db.printf("reset_reason %d %d\n", rr0, rr1);
-    Led_Info_reset(rr0);
+  { Led_Info_reset(rr0);
   }
+
+  if(rr0 == 1)
+  {  bootReason = bootCount = bootSts = bootSts1 = bootSts2 = 0;
+  } else {
+    Serial.printf("reset_reason %d %d bootCount %d sts %d %d\n", rr0, rr1, bootCount, bootSts, bootSts1);
+  }
+  
+// сохраняем состояние в момент старта, если не rr0 == 1
+  _bootReason = bootReason;
+  _bootCount = bootCount;
+  _bootSts = bootSts;
+  _bootSts1 = bootSts1;
+  _bootSts2 = bootSts2;
+
+  bootReason = rr0;
+}
+
+void set_rtc_flag(int sts)
+{ bootSts1  = sts;
 }
 
 void setup() {
@@ -324,22 +283,22 @@ void setup() {
 
   Serial.begin(115200);
 
+ ++bootCount;
   heap_caps_check_integrity_all(true);
-  Serial.println(IDENTIFY_TEXT);
-  Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
+  Serial_db.printf((PGM_P)F("%s Vers %d.%d.%d.%d build %s\n"),
+       IDENTIFY_TEXT, SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
   check_reset();
 
   setup_read_config();
 
   watchdog_setup();
 
-  Serial.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
+  Serial_db.printf("SmOT.useCPU_freq = %d\n", SmOT.useCPU_freq);
   if(SmOT.useCPU_freq > 0)
   { int v = 80;
     if(SmOT.useCPU_freq == 1) v = 160;
-    setCpuFrequencyMhz(v);
-
-    Serial.printf("Set CPU Freq to %d\n", v);
+    ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
+    Serial_db.printf("Set CPU Freq to %d\n", v);
   }
   SmOT.RelayInit();
 /*******************************************/
@@ -375,8 +334,7 @@ void setup() {
   SmOT.TCPserver_t = millis();
   SmOT.TCPserver_port = 8876;  
   SmOT.TCPserver_report_period = 10000;
-//  SmOT.tcp_remoteIP.fromString("192.168.10.112");
-  SmOT.tcp_remoteIP.fromString("80.237.33.121");
+  SmOT.tcp_remoteIP.fromString("192.168.10.112");
 
   Serial_db.printf("TCPserver_report_period=%d TCPserver_port=%d\n", SmOT.TCPserver_report_period, SmOT.TCPserver_port);
 
@@ -393,11 +351,11 @@ void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
  //  Serial.println(DS18B20_LIB_VERSION);
 
-  SmOT.status = 0x0;
+  SmOT.statusDS18b20 = 0x0;
 
   if(Tsensor1.begin() == false)
   {   SmOT.stsT1 = -1;
-      SmOT.status |= 0x02;
+      SmOT.statusDS18b20 |= 0x02;
       Serial_db.printf((PGM_P)F("ERROR: No DS18b20(1) found on pin %i\n"), DS1820_1);
       delay(100);
       if(Tsensor1.begin() )
@@ -407,7 +365,7 @@ void setupDS1820(void)
 
   }  else {
 M1:      SmOT.stsT1 = 0;
-      SmOT.status |= 0x01;
+      SmOT.statusDS18b20 |= 0x01;
 
       Tsensor1.setResolution(12);
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
@@ -416,7 +374,7 @@ M1:      SmOT.stsT1 = 0;
 
   if(Tsensor2.begin() == false)
   {   SmOT.stsT2 = -1;
-      SmOT.status |= 0x0200;
+      SmOT.statusDS18b20 |= 0x0200;
       Serial_db.printf((PGM_P)F("ERROR: No DS18b20(2) found on pin %i\n"), DS1820_2);
       delay(100);
       if(Tsensor2.begin() )
@@ -426,7 +384,7 @@ M1:      SmOT.stsT1 = 0;
 
   }  else {
 M2:   SmOT.stsT2 = 0;
-      SmOT.status |= 0x0100;
+      SmOT.statusDS18b20 |= 0x0100;
       Tsensor2.setResolution(12);
       Tsensor2.setConfig(DS18B20_CRC);  // or 1
       Serial_db.printf((PGM_P)F("DS18b20(2) found on pin %i\n"), DS1820_2);
@@ -442,7 +400,7 @@ void loopDS1820(void)
 //  Serial_db.printf("loopDS1820 nd %i %li\n", nd, millis());
   switch(nd)
   {   case 0:
-        if(SmOT.status&0x01)
+        if(SmOT.statusDS18b20&0x01)
         { Tsensor1.requestTemperatures();
           nd = 1;
           start = millis();
@@ -454,7 +412,7 @@ void loopDS1820(void)
         if(millis()-start > 900)
         {   rc = Tsensor1.isConversionComplete();
             if(!rc)
-            { SmOT.status |= 0x04;
+            { SmOT.statusDS18b20 |= 0x04;
               nd = 2;
 #if SERIAL_DEBUG 
               Serial.println(F("ERROR: DS1 timeout or disconnect"));
@@ -466,15 +424,22 @@ void loopDS1820(void)
         }
         if(rc)
         { t = Tsensor1.getTempC();
-          SmOT.status &= ~0x04; // сброс бита таймаута
-          if (t == DEVICE_CRC_ERROR)
-          { SmOT.stsT1 = 2;
-            SmOT.status |= 0x10;
+          SmOT.statusDS18b20 &= ~0x04; // сброс бита таймаута
+          if(t == DEVICE_DISCONNECTED)
+          {
+            SmOT.stsT1 = 4;
+            SmOT.statusDS18b20 |= 0x20;
+#if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS1 Disconnected"));
+#endif            
+          } else if (t == DEVICE_CRC_ERROR) {
+          SmOT.stsT1 = 2;
+            SmOT.statusDS18b20 |= 0x10;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
           } else {
-            SmOT.status &= ~0x10; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
@@ -483,13 +448,13 @@ void loopDS1820(void)
             SmOT.OnChangeT(t,0);    
 //            Serial_db.printf("SmOT T1= %f\n",   SmOT.t1);
           }
-          SmOT.status &= ~0x04;
+          SmOT.statusDS18b20 &= ~0x04;
           nd = 2;
         }
         break;
 
       case 2:
-        if(SmOT.status&0x0100)
+        if(SmOT.statusDS18b20&0x0100)
         { Tsensor2.requestTemperatures();
           nd = 3;
           start = millis();
@@ -502,7 +467,7 @@ void loopDS1820(void)
         if(millis()-start > 900) //900
         { rc = Tsensor2.isConversionComplete();
           if(!rc)
-          { SmOT.status |= 0x0400;
+          { SmOT.statusDS18b20 |= 0x0400;
             nd = 0;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 timeout or disconnect"));
@@ -513,17 +478,24 @@ void loopDS1820(void)
           rc = Tsensor2.isConversionComplete();
         }
         if(rc)
-        {  SmOT.status &= ~0x0400; // сброс бита таймаута
+        {  SmOT.statusDS18b20 &= ~0x0400; // сброс бита таймаута
 
           t = Tsensor2.getTempC();
-          if (t == DEVICE_CRC_ERROR)
-          { SmOT.stsT2 = 2;
-            SmOT.status |= 0x1000;
+          if(t == DEVICE_DISCONNECTED)
+          {
+            SmOT.stsT2 = 4;
+            SmOT.statusDS18b20 |= 0x2000;
+#if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS2 Disconnected"));
+#endif            
+          } else if (t == DEVICE_CRC_ERROR) {
+          SmOT.stsT2 = 2;
+            SmOT.statusDS18b20 |= 0x1000;
       #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
           } else {
-            SmOT.status &= ~0x1000; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
 
             if(SmOT.stsT2 == 1)
                 SmOT.t2 = (SmOT.t2 + t) * 0.5;
@@ -1478,6 +1450,31 @@ void loop2(void)
     }
 }
 
+int ST_setCpuFrequencyMhz(int code)
+{   int i, frset = 240;
+    int cpuf = getCpuFrequencyMhz();
+    if(code == 1)
+      frset = 160;
+    else if(code == 2)
+      frset = 160;
+    if(cpuf != frset)
+    {  bootSts2++;  _bootSts2++;
+      for(i=0;i<10;i++)
+      { setCpuFrequencyMhz(frset);
+        delay(10+i*2);
+        cpuf = getCpuFrequencyMhz();
+        if(cpuf != frset)
+        {   Serial_db.printf("%d CPU FREQ set %d, get %d", i, frset, cpuf );
+            delay(10+i*2);
+        } else break;
+      }
+    }
+    return getCpuFrequencyMhz();
+}
+
+void OTloop_callback(void)
+{  loop_time();
+}
 
 void loop_time(void)
 { time_t now;

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <time.h>
 #include "Smart_Config.h"
+#include "SmartDebug.h"
 
 #if defined(Serial)
 #undef Serial

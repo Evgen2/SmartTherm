@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.8.5.9
+Version 0.8.6.0
 
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
@@ -20,6 +20,17 @@ Features:
 * [Android application for local/remote control](https://github.com/Evgen2/SmartThermClient) (betatest)
 * TCP/UDP API interface
 * up to 2 DS18B20 temperature sensors
+
+0.8.6.0
+* Web refactor: split Web.cpp into separate page modules (src/Web/*.cpp), Shared.hpp/Shared.cpp, SetupControls.hpp
+* platformio: esp32devdeb environment
+* Versioning: BiosDate in IdentifySelf and Info page
+
+0.8.5.11 (Evgen2)
+* DS18B20 disconnect detection, OpenTherm debug, small fixes
+
+0.8.5.10 (Evgen2)
+* AutoConnect/MQTT async behaviour (callbacks), WiFi/MQTT stability, CH2 for DHW fix
 
 0.8.5.9
 * delayed write config to flash after MQTT change mode or target temperature

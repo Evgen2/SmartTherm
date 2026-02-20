@@ -2,6 +2,8 @@
 #ifndef PID_DEFINED
 #define PID_DEFINED
 
+#include "SmartDebug.h"
+
 #if PID_USE
 
 /* циклический стек/буфер для хранения последних NB значений */

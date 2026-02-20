@@ -69,7 +69,10 @@ String onDebug(AutoConnectAux& aux, PageArgument& args)
     }
 #endif   
 #if defined(ARDUINO_ARCH_ESP32)
-  sprintf(str,"reset reason: %d %d", rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+  extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2;
+  extern unsigned short int bootSts2;
+  sprintf(str,"reset reason: %d %d (%d %d %d %d %d|%d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1),
+      _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2, bootSts2);
   Info7.value = str;
 #endif
 #if MQTT_USE

@@ -40,6 +40,9 @@ void loop_web(void);
 int OutUTCtime(time_t now);
 extern void onOTAstart(void);
 extern void exitOTAError(uint8_t err);
+extern void OTloop_callback(void);
+extern int ST_setCpuFrequencyMhz(int code);
+extern unsigned short int bootCount, bootReason, bootSts, bootSts1, bootSts2;
 #if MQTT_USE
 extern void mqtt_loop(void);
 extern void mqtt_start(void);
@@ -60,6 +63,8 @@ void setup_web_common(void) {
   config.reconnectInterval = 1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
   Serial_db.printf("WiFi AP SSID %s psk=%s\n", config.apid.c_str(), config.psk.c_str());
+  
+  /* When using AutoConnect with max_time_use support: portal.max_time_use = 200; portal.callback_at_maxtime = OTloop_callback; */
 
   portal.config(config);
   portal.onConnect(onConnect);
@@ -152,12 +157,26 @@ int WiFists = -1;
 extern int LedSts;
 
 void loop_web() {
+  bootSts1 = 1;
   int rc = WiFi.status();
   {
     static int oldstatus=-1, oldmode=-1, needStopAP=0;
     static long t0 = 0;
     int mode = WiFi.getMode();
     int ch = WiFi.channel();
+
+    if(rc == WL_CONNECTION_LOST && (rc != oldstatus) && (SmOT.stsOT == 2)) {
+      portal._ac_wifi_scan_sc = -100;
+      Serial_db.printf("crasy state test\n");
+    }
+    bootSts1 = 2;
+    if(rc == WL_CONNECTION_LOST || rc == WL_IDLE_STATUS) {
+      if(portal._ac_wifi_scan_sc != -100 && portal._ac_wifi_scan_sc == 0 && SmOT.stsOT == 2) {
+        Serial_db.printf("crasy state detected\n");
+        ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
+        portal._ac_wifi_scan_sc = -200;
+      }
+    }
 
     if((rc != oldstatus) || mode != oldmode) {
       Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, ch, millis());

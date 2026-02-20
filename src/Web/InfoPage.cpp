@@ -216,8 +216,14 @@ String onInfo(AutoConnectAux& aux, PageArgument& args) {
            else          sprintf(str0, (PGM_P)F("Потеря связи связи  %.1f час(ов) назад"), dt);
            Info7.value +=  str0; }
           break; }
-    if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0)) Info7.value +=  ", управление от панели"; else Info7.value +=  ", управление от контроллера";
-    if(SmOT.OT_slave_mode == 1){ SetDHWTemp.enable = false; SetBoilerTemp2.enable = false; SetBoilerTemp.enable = false; SetNewBoilerTemp.enable = false; }
+    if((SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+    {   SetDHWTemp.enable = false;
+        SetBoilerTemp2.enable = false;
+        SetBoilerTemp.enable = false;
+        SetNewBoilerTemp.enable = false;
+        Info7.value +=  ", управление от панели";
+    } else 
+          Info7.value +=  ", управление от контроллера";
   }
 #endif
 

@@ -60,6 +60,9 @@ static int timeOutcounter = 0;
 #if  OT_SLAVE_DEBUG
     Serial_db.printf("Slave processRequest: request %x status %x\n", request, status); 
 #endif
+#if  OT2_SLAVE_DEBUG
+    Serial_db.printf("Slave processRequest: request %x status %x\n", request, status); 
+#endif
     if (status == OpenThermResponseStatus::SUCCESS) {
         ot_SlaveSts = 0;
 //        SmOT.response = response; 

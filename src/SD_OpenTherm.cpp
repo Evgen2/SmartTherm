@@ -15,6 +15,7 @@ typedef WebServer WEBServer;
 #include <AutoConnectFS.h>
 extern AutoConnectFS::FS& FlashFS;
 
+#include "Smart_Config.h"
 #include "OpenTherm.h"
 #include "SD_OpenTherm.hpp"
 #include "Smart_commands.h"
@@ -871,13 +872,14 @@ void SD_Termo::Send_to_server_IdentifySelf(void)
     msg->ind = indcmd++;
 
     *((PACKED short int *) (&MsgOut[6])) = (short int)lp;
-    *((unsigned short int *) (&MsgOut[8]))   =  IDENTIFY_TYPE; 
-    *((unsigned short int *) (&MsgOut[10]))  =  IDENTIFY_SUBTYPE; // = ST_VERS
-    *((PACKED int *) (&MsgOut[12]))  =  IDENTIFY_CODE;
-    *((PACKED int *) (&MsgOut[16]))  =  IdNumber;	
-    *((PACKED int *) (&MsgOut[20]))  =  Vers;	
-    *((PACKED int *) (&MsgOut[24]))  =  SubVers;	
-    *((PACKED int *) (&MsgOut[28]))  =  SubVers1;	
+    *((unsigned short int *) (&MsgOut[8]))  = IDENTIFY_TYPE; 
+    *((unsigned short int *) (&MsgOut[10])) = IDENTIFY_SUBTYPE; // = ST_VERS
+    *((PACKED int *) (&MsgOut[12])) = IDENTIFY_CODE;
+    *((PACKED int *) (&MsgOut[16])) = IdNumber;	
+    *((PACKED int *) (&MsgOut[20])) = Vers;	
+    *((PACKED int *) (&MsgOut[24])) = SubVers;	
+    *((PACKED unsigned short int *) (&MsgOut[28])) = SubVers1;	
+    *((PACKED unsigned short int *) (&MsgOut[30])) = Revision;	
  	memcpy((void *)&MsgOut[32],(void *)BiosDate,12);
 
 	memcpy((void *)&MsgOut[44],(void *)&Mac[0],6);
@@ -935,7 +937,7 @@ void SD_Termo::OpenThermInfo(void)
         memcpy((void *)&msg->Buf[20],(void *)&dhw_t,4);
     memcpy((void *)&msg->Buf[24],(void *)&FlameModulation,4);
     memcpy((void *)&msg->Buf[28],(void *)&Pressure,4);
-    memcpy((void *)&msg->Buf[32],(void *)&status,4);
+    memcpy((void *)&msg->Buf[32],(void *)&statusDS18b20,4);
     memcpy((void *)&msg->Buf[36],(void *)&t1,4);
     memcpy((void *)&msg->Buf[40],(void *)&t2,4);
     memcpy((void *)&msg->Buf[44],(void *)&OEMDcode,4); 
@@ -1829,7 +1831,7 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[32],(void *)&Pressure, 4); 
 	 memcpy((void *)&MsgOut[36],(void *)&Tset, 4); 
 	 memcpy((void *)&MsgOut[40],(void *)&TdhwSet, 4); 
-	 memcpy((void *)&MsgOut[44],(void *)&status, 4);  //статус внешних датчиков температуры - (не OT)
+	 memcpy((void *)&MsgOut[44],(void *)&statusDS18b20, 4);  //статус внешних датчиков температуры - (не OT)
 	 memcpy((void *)&MsgOut[48],(void *)&t1,4); 
 	 memcpy((void *)&MsgOut[52],(void *)&t2,4); 
 
@@ -2113,7 +2115,7 @@ extern OpenTherm ot;
 
     }
 
-  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
+//  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
 //    Serial_db.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
 //                Pressure_present, Toutside_present, RetT_present  ) ;
 //    Serial_db.printf("MaxRelModLevel_present %d  \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting)); 

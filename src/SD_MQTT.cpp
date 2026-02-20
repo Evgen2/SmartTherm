@@ -130,28 +130,25 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     float temperatureFloat = temperature.toFloat();
     if(sender == &hvacDHW)
     {
+      if(SmOT.TdhwSet != temperatureFloat) is_change = 1;
       SmOT.TdhwSet = temperatureFloat;
       SmOT.need_set_dhwT(2);
 #if SERIAL_DEBUG      
     Serial_db.printf("DHW Target temperature: %f\n", temperatureFloat);
 #endif    
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
-      is_change = 1;
 #if PID_USE
     } else if (sender == &hvacPID) {
-//    Serial.print("PID Target temperature: ");
-//    Serial.println(temperatureFloat);
-
+    if(SmOT.TroomTarget != temperatureFloat) is_change = 1;
     SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
     SmOT.TroomTarget = temperatureFloat;
     Serial_db.printf("MQTT Set_NewTag: %f xTag: %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
-      is_change = 1;
 #endif
     } else {
+      if(SmOT.Tset != temperatureFloat) is_change = 1;
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T(2);
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
-      is_change = 1;
 #if SERIAL_DEBUG      
     Serial_db.printf("CH Target temperature: %f\n", temperatureFloat);
 #endif    
@@ -324,7 +321,8 @@ extern unsigned int OTcount;
    if(SmOT.useMQTT != 0x03) 
       return;
 
-  
+  /* When using arduino-home-assistant 2.1.1+: mqtt.max_time_use = 200; mqtt.callback_at_maxtime = OTloop_callback; */
+
   if( mqtt.getDevicesTypesNb_toreg() > mqtt.getDevicesTypesNb())
   {
       Serial_db.printf("Error! Nb = %d, need be %d\n", mqtt.getDevicesTypesNb(),  mqtt.getDevicesTypesNb_toreg() );
@@ -448,7 +446,7 @@ extern unsigned int OTcount;
 
     hvac.setMinTemp(SmOT.umin);
     hvac.setMaxTemp(SmOT.umax);
-    hvac.setTempStep(1.);
+    hvac.setTempStep(0.1);
     hvac.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
     #if  PID_USE
     if(SmOT.enable_CentralHeating_real)
@@ -472,7 +470,7 @@ extern unsigned int OTcount;
         hvacDHW.setNameUniqueIdStr(SmOT.MQTT_topic,"Горячая вода", "DHW");
       hvacDHW.setMinTemp(30);
       hvacDHW.setMaxTemp(80);
-      hvacDHW.setTempStep(1.);
+      hvacDHW.setTempStep(0.1);
 
       hvacDHW.setModes(HAHVAC::OffMode|HAHVAC::HeatMode);
 
@@ -583,18 +581,23 @@ extern unsigned int OTcount;
     sensorPID_P.setAvailability(true);
     sensorPID_P.setNameUniqueIdStr(SmOT.MQTT_topic,"dP", "pid_dp");
     sensorPID_P.setDeviceClass(temperature_str); 
+    sensorPID_P.setUnitOfMeasurement("K");
     sensorPID_D.setAvailability(true);
     sensorPID_D.setNameUniqueIdStr(SmOT.MQTT_topic,"dD", "pid_dd");
     sensorPID_D.setDeviceClass(temperature_str); 
+    sensorPID_D.setUnitOfMeasurement("K");
     sensorPID_I.setAvailability(true);
     sensorPID_I.setNameUniqueIdStr(SmOT.MQTT_topic,"dI", "pid_di");
     sensorPID_I.setDeviceClass(temperature_str); 
+    sensorPID_I.setUnitOfMeasurement("K");
     sensorPID_U.setAvailability(true);
     sensorPID_U.setNameUniqueIdStr(SmOT.MQTT_topic,"U", "pid_u");
     sensorPID_U.setDeviceClass(temperature_str); 
+    sensorPID_U.setUnitOfMeasurement("K");
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
-    sensorPID_U0.setDeviceClass(temperature_str); 
+    sensorPID_U0.setDeviceClass(temperature_str);
+    sensorPID_U0.setUnitOfMeasurement("K"); 
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
 //    Serial_db.printf("sensorPID_U0 =%s\n", str);
@@ -612,7 +615,8 @@ extern unsigned int OTcount;
     mqtt.onConnected(OnMQTTconnected);
     mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
-    mqtt._mqtt->setSocketTimeout(1); //not work ???
+    mqtt._mqtt->setSocketTimeout(1); 
+    espClient.setTimeout(1); //minimal timeout for WiFiClient class - 1 sec
 
 
 //    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
@@ -629,12 +633,13 @@ extern unsigned int OTcount;
 void OnMQTTconnected(void)
 { 
   statemqtt = 1;
-   Serial_db.printf("On MQTTconnected %d\n", statemqtt );
-
+  time_t now = time(nullptr);
+  Serial_db.printf("On MQTT_connected %d, stsMqtt (%d %d) %s", statemqtt, mqtt.getState(), mqtt._mqtt->state(), ctime(&now) );
 }
 void OnMQTTdisconnected(void)
 { statemqtt = 0;
-   Serial_db.printf("On MQTT DISconnected %d\n", statemqtt );
+  time_t now = time(nullptr);
+  Serial_db.printf("On MQTT_disconnected %d, stsMqtt (%d %d) %s", statemqtt, mqtt.getState(), mqtt._mqtt->state(), ctime(&now) );
 }
 
 void mqtt_start(void)
@@ -656,50 +661,52 @@ void mqtt_start(void)
 
 void mqtt_loop(void)
 { char str[80];
-static int st_old = -2, raz=0;  
-unsigned long t0, t00=0;
+static int st_old = -2;
+static unsigned short n_disconnect = 0;  
+unsigned long  t00=0;
 int dt;
 
-raz++;
-
 if(SmOT.stsMQTT == 0) 
-{ t0 = millis();  
-  mqtt_setup();
-  dt = millis() - t0;
-//  if(dt > 100)
-//  if(SmOT.stsMQTT != 0)
-//      Serial_db.printf("MQTT 0 dt %d t %d %d\n", dt, t0, raz );
-
-     return;
+{  mqtt_setup();
+   return;
 }
-
-    t0 = millis();  
     mqtt.loop();
-    dt = millis() - t0;
-//    if(dt > 100)
-//        Serial_db.printf("MQTT 1 dt %d t %d %d\n", dt, t0, raz );
-  
   
     if(mqtt.isConnected())
-    {   if(statemqtt != 1)
-            Serial.println(F("MQTT connected"));
-
-        statemqtt = 1;
-        state_mqtt = mqtt._mqtt->state();
+    { if(statemqtt != 1)
+      {  Serial.println(F("MQTT connected"));
+        /* When using arduino-home-assistant 2.1.1+: mqtt.ReconnectInterval = SmOT.MQTT_interval*1000; */
+        n_disconnect = 0;
+      }
+      statemqtt = 1;
+      state_mqtt = mqtt._mqtt->state();
     } else {
-        if(statemqtt != 0)
-            Serial.println(F("MQTT DiSconnected"));
-        statemqtt = 0;
-        state_mqtt = mqtt._mqtt->state();
-        delay(1);
-        return; // return from   mqtt_loop() if not connected
+/* Если Wifi подключен, а MQTT не соединяется, увеличиваем mqtt.ReconnectInterval */      
+      { static int mstsold = -127;
+        int msts = mqtt.getState();
+        if(mstsold == HAMqtt::StateConnecting  && msts ==HAMqtt::StateConnectionFailed)
+        { if(n_disconnect < 10)
+            n_disconnect++;
+          else
+          {   /* When using arduino-home-assistant 2.1.1+: mqtt.ReconnectInterval = SmOT.MQTT_interval*1000 *5; */
+          }
+        }
+        mstsold = msts;
+      }
+
+      if(statemqtt != 0)
+          Serial.println(F("MQTT DiSconnected"));
+      statemqtt = 0;
+      state_mqtt = mqtt._mqtt->state();
+
+      return; // return from   mqtt_loop() if not connected
     }
 
     t00 = millis();  
     dt = t00 - lastAvailabilityToggleAt;
     if ((dt > SmOT.MQTT_interval*1000) || (SmOT.MQTT_need_report && dt > 1000))
     {   
-//      Serial_db.printf("MQTT 10 t %d %d\n", millis() , raz );
+//      Serial_db.printf("MQTT 10 t %d\n", millis() );
 
         if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
@@ -708,7 +715,6 @@ if(SmOT.stsMQTT == 0)
           sensorOT.setAvailability(true);
           if(SmOT.stsOT == 2)
           { 
-            t0 = millis();
             sensorOT.setState(false);
             hvac.setAvailability(false);
             sensorBoilerT.setAvailability(false);
@@ -734,14 +740,10 @@ if(SmOT.stsMQTT == 0)
 #if PID_USE            
             hvacPID.setAvailability(false);
 #endif            
-            dt = millis() - t0;
-//            if(dt > 100)
-                Serial_db.printf("MQTT 2 dt %d t %d %d\n", dt, t0, raz );
 
           } else {
             if(st_old != SmOT.stsOT)
             {
-              t0 = millis();
               sensorOT.setState(true);
               sensorBoilerT.setAvailability(true);
               hvac.setAvailability(true);
@@ -769,16 +771,9 @@ if(SmOT.stsMQTT == 0)
                 sensorDHWFlowRate.setAvailability(true);
               if(SmOT.Toutside_present)
                 sensorText.setAvailability(true);
-              dt = millis() - t0;
-  //     if(dt > 100)
-              Serial_db.printf("MQTT 3 dt %d t %d %d\n", dt, t0, raz );
             }
 /******************/
-            t0 = millis();
             MQTTsenddata();
-            dt = millis() - t0;
-            if(dt > 100)
-                Serial_db.printf("MQTT 4 dt %d\n", dt);
         /******************/
             
 /*************************************************/            

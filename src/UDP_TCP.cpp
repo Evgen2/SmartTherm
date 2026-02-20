@@ -98,23 +98,23 @@ void setup_tcpudp(SmartDevice *psd)
 
 int tcp_sts = 0;
 unsigned long t0 = 0;
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 unsigned long t00 = 0;
 #endif
 
-void loop_tcp(int sts)
+	void loop_tcp(int sts)
 {   static int count = 0;
     int rc, len;
 	static int nb = 0;
 
+#if SERIAL_DEBUG
 	static int ols_sts=-1;
 	if(tcp_sts != ols_sts)
 	{
-#if SERIAL_DEBUG
 //		Serial_db.printf("tcp_sts=%d\n",  tcp_sts);
-#endif		
 		ols_sts = tcp_sts;
 	}
+#endif		
 
 	
 	switch(tcp_sts)
@@ -149,7 +149,7 @@ void loop_tcp(int sts)
 
 			if(!tcp_client.connected() || millis() - t0 > 5000)
 			{	
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 			if(!tcp_client.connected())
 				Serial_db.printf("(1)tcp_client disconnected at %d\n",  count);
 			else
@@ -187,8 +187,8 @@ void loop_tcp(int sts)
 #endif
 				   	rc = net_callback((U8 *)tcpudp_incomingPacket, len, Udp_MsgOut, TcpUdp_Lsend, UDP_TSP_BUFSIZE, esp_get_buf);
 
-#if SERIAL_DEBUG
-//				Serial_db.printf("%li net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
+#if CLIENT_DEBUG
+				Serial_db.printf("%li net_callback rc %d, TcpUdp_Lsend=%d\n",  millis(), rc, TcpUdp_Lsend) ;
 #endif				
 					if(rc == 0)
 					{//	Serial_db.printf("net_callback rc=%i l=%i\n", rc, TcpUdp_Lsend);	
@@ -204,7 +204,7 @@ void loop_tcp(int sts)
 
 				if(!tcp_client.connected())
 				{	
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 					Serial_db.printf("(3) tcp_client disconnected at %d\n",  count);
 #endif					
 					tcp_client.stop();
@@ -226,7 +226,7 @@ void loop_tcp(int sts)
 				if(!p_sd->tcp_remoteIP) //Empty IP !!!
 				{	tcp_sts = 0;
 				} else {
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 					Serial_db.printf("send to IP: %s", p_sd->tcp_remoteIP.toString().c_str());
 //  					Serial.println(p_sd->tcp_remoteIP.toString());
 					Serial_db.printf(" port %d bytes %d\n", p_sd->TCPserver_port, TcpUdp_Lsend);
@@ -235,11 +235,11 @@ void loop_tcp(int sts)
 					rc = asTCP.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,500); //todo 500 ->timeout
 					if(rc == 1)
 					{	tcp_sts = 4;
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 						Serial_db.printf("(%d) Ok connect_0 in %ld ms\n", asTCP.id, millis()-t00);
 #endif						
 					}  else {
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 						Serial_db.printf("(%d) Error connect_0 in %ld ms\n", asTCP.id, millis()-t00);
 #endif						
 						TcpUdp_Lsend = 0;
@@ -254,12 +254,12 @@ void loop_tcp(int sts)
 					if(rc == 0) //wait
 					{    //Serial_db.printf("Wait connection\n");
 					} else if(rc == 1) {
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 					    Serial_db.printf("(%d) Establish a connection\n", asTCP.id);
 #endif						
 						tcp_sts = 5;
 					} else {
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
 				    Serial_db.printf("(%d) Cann't establish a connection\n", asTCP.id);
 #endif					
 						TcpUdp_Lsend = 0;
@@ -323,7 +323,7 @@ void loop_tcp(int sts)
 
 		  	case 8:
 		//Next tcp_sts: 0 (sts=2)
-#if SERIAL_DEBUG
+#if CLIENT_DEBUG
     			Serial_db.printf("case 8,  time used %ld ms\n", millis()-t00);
 #endif				
 						tcp_sts = 0;
