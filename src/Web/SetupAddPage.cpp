@@ -33,7 +33,7 @@ static AutoConnectSubmit   ApplyAddpar("ApplyAddpar",   "Задать", SET_ADD_
 // SendBLOR button is shared from Shared.cpp as SendBLOR
 
 #if PID_USE
-static AutoConnectButton   SetupPID("SetupPID",   "PID", PID_URI, AC_Tag_BR);
+static AutoConnectSubmit   SetupPID("SetupPID",   "PID", PID_URI, AC_Tag_BR);
 static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);
 #else
 static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);

@@ -64,7 +64,7 @@ extern AutoConnectInput SetBoilerTemp2;  // CH2 setpoint
 #if RELAY_USE
 extern AutoConnectSubmit RelayOnFf;
 #endif
-extern AutoConnectButton Apply;
+extern AutoConnectSubmit Apply;
 extern AutoConnectSubmit SetNewBoilerTemp;
 extern AutoConnectSubmit SendBLOR;
 

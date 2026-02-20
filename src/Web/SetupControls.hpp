@@ -29,5 +29,5 @@ extern AutoConnectCheckbox CtrlChB_UseRemoteControl;
 extern AutoConnectText InfoAuth;
 extern AutoConnectInput SetWebAuthUser;
 extern AutoConnectInput SetWebAuthPwd;
-extern AutoConnectButton ApplyChB;
+extern AutoConnectSubmit ApplyChB;
 extern AutoConnectSubmit ApplyAdd;

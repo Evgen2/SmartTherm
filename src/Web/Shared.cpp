@@ -42,6 +42,6 @@ AutoConnectInput SetBoilerTemp2("SetBoilerTemp2","", "Температура CH2
 #if RELAY_USE
 AutoConnectSubmit RelayOnFf("RelayOnFf", "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
 #endif
-AutoConnectButton Apply("Apply", "Обновить", INFO_URI, AC_Tag_BR);
+AutoConnectSubmit Apply("Apply", "Обновить", INFO_URI, AC_Tag_BR);
 AutoConnectSubmit SetNewBoilerTemp("SetNewBoilerTemp","Задать", SET_T_URI, AC_Tag_DIV);
 AutoConnectSubmit SendBLOR("SendBLOR", "Сброс ошибки", BLOR_URI, AC_Tag_BR);
