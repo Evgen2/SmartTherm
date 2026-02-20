@@ -10,8 +10,8 @@
 #define MASTER_BIOSCODE   23
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
-#define MASTER_SUBVERSION1 5
-#define MASTER_REVISION    9
+#define MASTER_SUBVERSION1 6
+#define MASTER_REVISION    0
 
 /***************/
 
