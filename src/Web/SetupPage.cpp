@@ -29,8 +29,8 @@ AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить
 AutoConnectText InfoAuth("InfoAuth", "", "", "", AC_Tag_DIV);
 AutoConnectInput SetWebAuthUser("SetWebAuthUser","", "Web логин:", "", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH);
 AutoConnectInput SetWebAuthPwd("SetWebAuthPwd","", "Web пароль:", "", "", AC_Tag_BR, AC_Input_Password, STYLE_WIDTH);
-AutoConnectButton ApplyChB("ApplyChB", "Задать", SET_PAR_URI, AC_Tag_DIV);
-AutoConnectButton ApplyAdd("ApplyAdd", "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
+AutoConnectSubmit ApplyChB("ApplyChB", "Задать", SET_PAR_URI, AC_Tag_DIV);
+AutoConnectSubmit ApplyAdd("ApplyAdd", "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
 static AutoConnectAux Setup_Page(SETUP_URI, "Setup", true);
 

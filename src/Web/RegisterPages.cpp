@@ -2,6 +2,7 @@
 /* RegisterPages.cpp - Aggregate registration for all pages */
 
 #include "Shared.hpp"
+#include "SmartDebug.h"
 
 // Forward Register_* from each page module
 void Register_Info(AutoConnect& portal);
@@ -19,6 +20,7 @@ void Register_SendBLOR(AutoConnect& portal);
 // All pages are registered below
 
 void RegisterWebPages(AutoConnect& portal) {
+  Serial_db.printf("[RegisterWebPages] Starting page registration...\n");
   Register_Info(portal);
   Register_About(portal);
   Register_Debug(portal);
@@ -35,5 +37,7 @@ void RegisterWebPages(AutoConnect& portal) {
   #endif
   Register_SendBLOR(portal);
   Register_SetTemp(portal);
+  Serial_db.printf("[RegisterWebPages] About to register SetPar page...\n");
   Register_SetPar(portal);
+  Serial_db.printf("[RegisterWebPages] All pages registered successfully\n");
 }

@@ -62,11 +62,11 @@ extern AutoConnectInput SetDHWTemp;      // DHW setpoint
 extern AutoConnectInput SetBoilerTemp2;  // CH2 setpoint
 
 #if RELAY_USE
-extern AutoConnectButton RelayOnFf;
+extern AutoConnectSubmit RelayOnFf;
 #endif
-extern AutoConnectButton Apply;
-extern AutoConnectButton SetNewBoilerTemp;
-extern AutoConnectButton SendBLOR;
+extern AutoConnectSubmit Apply;
+extern AutoConnectSubmit SetNewBoilerTemp;
+extern AutoConnectSubmit SendBLOR;
 
 // Register all pages (create controls, attach handlers, join to portal)
 void RegisterWebPages(AutoConnect& portal);

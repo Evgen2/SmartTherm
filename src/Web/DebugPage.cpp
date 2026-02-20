@@ -6,7 +6,7 @@
 #include "esp32/rom/rtc.h"
 #endif
 
-static AutoConnectButton DebugApply("DebugApply", "Обновить", DEBUG_URI, AC_Tag_DIV);
+static AutoConnectSubmit DebugApply("DebugApply", "Обновить", DEBUG_URI, AC_Tag_DIV);
 static AutoConnectAux debugPage(DEBUG_URI, "Debug", true);
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)

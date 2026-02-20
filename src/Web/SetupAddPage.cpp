@@ -1,6 +1,20 @@
 /* SetupAddPage.cpp - /setupadd and /add pages */
 
 #include "Shared.hpp"
+#include "SmartDebug.h"
+
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WebServer.h>
+using WiFiWebServer = ESP8266WebServer;
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WebServer.h>
+using WiFiWebServer = WebServer;
+#endif
+
+// Forward declarations
+extern AutoConnectConfig config;
+extern AutoConnect portal;
+extern unsigned long authRealmCounter;
 
 // Controls
 static AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, AC_Behind , AC_Tag_None);
@@ -15,21 +29,40 @@ static AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false
 static AutoConnectCheckbox UseCPU_FREQ_ChB("CPUFREQ","", "CPU FREQ", false, AC_Behind, AC_Tag_None);
 static AutoConnectInput    CPU_FREQ("CPU_FREQ","", " ","", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH);
 
-static AutoConnectButton   ApplyAddpar("ApplyAddpar",   "Задать", SET_ADD_URI, AC_Tag_BR);
+static AutoConnectSubmit   ApplyAddpar("ApplyAddpar",   "Задать", SET_ADD_URI, AC_Tag_BR);
 // SendBLOR button is shared from Shared.cpp as SendBLOR
 
 #if PID_USE
-static AutoConnectButton   SetupPID("SetupPID",   "PID", PID_URI, AC_Tag_BR);
-static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false);
+static AutoConnectSubmit   SetupPID("SetupPID",   "PID", PID_URI, AC_Tag_BR);
+static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);
 #else
-static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false);
+static AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", true);
 #endif
 
 static AutoConnectAux SetAddParPage(SET_ADD_URI, "SetAdd", false, {}, false);
 
 // Handlers
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0, redir = 0;
+{  
+  Serial_db.printf("[onSetAddPar] Handler called, URI: %s\n", SET_ADD_URI);
+  
+  // ВАЖНО: Для скрытых страниц (responsive=false) AutoConnect НЕ применяет аутентификацию автоматически
+  // Нужно проверять вручную перед обработкой запроса
+  if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
+    WiFiWebServer& ws = portal.host();
+    Serial_db.printf("[onSetAddPar] Checking authentication, username: %s\n", config.username.c_str());
+    if (!ws.authenticate(config.username.c_str(), config.password.c_str())) {
+      Serial_db.printf("[onSetAddPar] Authentication FAILED, requesting authentication\n");
+      // Для responsive=false страниц используем requestAuthentication() вместо прямого send()
+      // Это правильный способ для AutoConnect
+      ws.requestAuthentication();
+      return String(); // Отменяем обработку запроса
+    }
+    Serial_db.printf("[onSetAddPar] Authentication OK\n");
+  }
+  
+  Serial_db.printf("[onSetAddPar] Processing form data...\n");
+  int isChange=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -65,7 +98,14 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
   } else { SmOT.useCPU_freq = -1; isChange = 1; }
 
   if(isChange) SmOT.need_write_f = 1;
-  if(redir) aux.redirect(SETUP_ADD_URI); else aux.redirect(SETUP_URI);
+  Serial_db.printf("[onSetAddPar] Processing complete: isChange=%d, redir=%d\n", isChange, redir);
+  if(redir) {
+    Serial_db.printf("[onSetAddPar] Redirecting to SETUP_ADD_URI\n");
+    aux.redirect(SETUP_ADD_URI);
+  } else {
+    Serial_db.printf("[onSetAddPar] Redirecting to SETUP_URI\n");
+    aux.redirect(SETUP_URI);
+  }
   return String();
 }
 

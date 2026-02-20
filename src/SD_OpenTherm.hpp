@@ -443,6 +443,8 @@ public:
   int Write_ot_fs(void);
   int Read_mqtt_fs(void);
   int Write_mqtt_fs(void);
+  int Read_web_auth_fs(void);
+  int Write_web_auth_fs(void);
 
   float CHtempLimit(float _t); /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
   float RoomtempLimit(float _t); /* return t within limit MIN_ROOM_TEMP MAX_ROOM_TEMP*/

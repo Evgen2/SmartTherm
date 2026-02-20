@@ -30,7 +30,7 @@ unsigned int OTcount = 0;
 
 AutoConnectConfig config;
 AutoConnect portal;
-static unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
+unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
 
 // Forward
 void onRoot(void);
@@ -69,6 +69,9 @@ void setup_web_common(void) {
   config.authScope = AC_AUTHSCOPE_AUX | AC_AUTHSCOPE_WITHCP;  // Защищаем все кастомные страницы (AUX)
   
   // Используем сохраненные учетные данные или значения по умолчанию
+  // Данные уже должны быть загружены из файловой системы в setup_read_config()
+  Serial_db.printf("[setup_web_common] SmOT.web_auth_username='%s', SmOT.web_auth_password='%s'\n",
+                    SmOT.web_auth_username, SmOT.web_auth_password);
   if (SmOT.web_auth_username[0] != 0) {
     config.username = SmOT.web_auth_username;
   } else {
@@ -99,6 +102,21 @@ void setup_web_common(void) {
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
+  
+  // Добавляем логирование всех необработанных запросов для отладки
+  webServer.onNotFound([]() {
+    WiFiWebServer& ws = portal.host();
+    Serial_db.printf("[onNotFound] Request: method=%d, URI=%s\n", ws.method(), ws.uri().c_str());
+    Serial_db.printf("[onNotFound] Args count: %d\n", ws.args());
+    for (int i = 0; i < ws.args(); i++) {
+      Serial_db.printf("[onNotFound] Arg[%d]: %s=%s\n", i, ws.argName(i).c_str(), ws.arg(i).c_str());
+    }
+    // Проверяем специально для set_par
+    if (ws.uri() == SET_PAR_URI || ws.uri() == SET_ADD_URI) {
+      Serial_db.printf("[onNotFound] ВАЖНО: Запрос на %s попал в onNotFound! Это означает, что страница не зарегистрирована!\n", ws.uri().c_str());
+    }
+  });
+  
   webServer.on("/", onRoot);
   
   // Обработчик для страницы disconnect - принудительно "отключает" пользователя
@@ -184,11 +202,28 @@ int setup_web_common_onconnect(void) {
   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
 
 #if MQTT_USE
-  Serial_db.printf("Read_mqtt_fs:\n");
+  // Read_mqtt_fs() уже был вызван в setup_read_config(), но вызываем снова для обновления MQTT настроек
+  Serial_db.printf("Read_mqtt_fs (onconnect):\n");
   rc = SmOT.Read_mqtt_fs();
   SmOT.stsMQTTcfg = rc;
   Serial_db.printf("SmOT.Read_mqtt_fs() rc = %d\n", rc);
 #endif
+
+  // Обновляем конфигурацию AutoConnect с загруженными учетными данными (на случай, если они изменились)
+  // ВАЖНО: Это должно происходить всегда, независимо от MQTT_USE
+  // Перезагружаем веб-аутентификацию из файла на случай, если файл был обновлен
+  SmOT.Read_web_auth_fs();
+  
+  if (SmOT.web_auth_username[0] != 0 && config.username != SmOT.web_auth_username) {
+    config.username = SmOT.web_auth_username;
+    Serial_db.printf("[setup_web_common_onconnect] Updated config.username from filesystem: %s\n", config.username.c_str());
+    portal.config(config);
+  }
+  if (SmOT.web_auth_password[0] != 0 && config.password != SmOT.web_auth_password) {
+    config.password = SmOT.web_auth_password;
+    Serial_db.printf("[setup_web_common_onconnect] Updated config.password from filesystem: %s\n", config.password.c_str());
+    portal.config(config);
+  }
 
   init = 1;
   return 0;
@@ -343,6 +378,12 @@ void setup_read_config(void) {
   bool b = FlashFS.begin(AUTOCONNECT_FS_INITIALIZATION);
   if(b == false) { Serial.println(F("FlashFS.begin failed")); }
   SmOT.Read_ot_fs();
+#if MQTT_USE
+  // Загружаем данные MQTT ДО настройки веб-сервера
+  SmOT.Read_mqtt_fs();
+#endif
+  // Загружаем веб-аутентификацию из отдельного файла (независимо от MQTT)
+  SmOT.Read_web_auth_fs();
   SmOT.init(1);
 }
 
