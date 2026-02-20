@@ -120,6 +120,7 @@ void Add_SetupElements() {
 }
 
 void Register_Setup(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   Add_SetupElements();
   Setup_Page.on(on_Setup);
   portal.join({Setup_Page});

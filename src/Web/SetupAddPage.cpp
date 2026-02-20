@@ -95,6 +95,7 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 }
 
 void Register_SetupAdd(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   SetupAdd_Page.on(on_SetupAdd);
   SetAddParPage.on(onSetAddPar);
 #if PID_USE

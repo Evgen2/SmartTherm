@@ -30,6 +30,7 @@ unsigned int OTcount = 0;
 
 AutoConnectConfig config;
 AutoConnect portal;
+static unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
 
 // Forward
 void onRoot(void);
@@ -60,9 +61,12 @@ void setup_web_common(void) {
   config.reconnectInterval = 1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
   
-  // Настройка аутентификации
+  // Настройка аутентификации согласно документации AutoConnect
+  // AC_AUTHSCOPE_AUX - защищает все кастомные страницы (AUX)
+  // AC_AUTHSCOPE_PORTAL - защищает все страницы (AutoConnect + AUX)
+  // AC_AUTHSCOPE_WITHCP - позволяет аутентификацию в режиме captive portal
   config.auth = AC_AUTH_BASIC;  // Используем BASIC аутентификацию
-  config.authScope = AC_AUTHSCOPE_PORTAL | AC_AUTHSCOPE_WITHCP;  // Защищаем все страницы, включая режим точки доступа
+  config.authScope = AC_AUTHSCOPE_AUX | AC_AUTHSCOPE_WITHCP;  // Защищаем все кастомные страницы (AUX)
   
   // Используем сохраненные учетные данные или значения по умолчанию
   if (SmOT.web_auth_username[0] != 0) {
@@ -96,6 +100,14 @@ void setup_web_common(void) {
 
   WiFiWebServer&  webServer = portal.host();
   webServer.on("/", onRoot);
+  
+  // Обработчик для страницы disconnect - принудительно "отключает" пользователя
+  // Увеличиваем счетчик realm, чтобы при следующем запросе браузер запросил аутентификацию заново
+  webServer.on("/_ac/disc", HTTP_GET, []() {
+    authRealmCounter++; // Увеличиваем счетчик для изменения realm
+    // Пропускаем запрос дальше к AutoConnect для обработки disconnect
+    // AutoConnect обработает disconnect, а при следующем запросе будет использован новый realm
+  });
 
   if (WiFi.status() != WL_CONNECTED)  {
     Serial_db.printf("WiFi Not connected\n");
@@ -173,6 +185,13 @@ void onRoot() {
   // Проверяем аутентификацию
   if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
     if (!webServer.authenticate(config.username.c_str(), config.password.c_str())) {
+      // Используем уникальный realm на основе счетчика для принудительного запроса аутентификации
+      // После disconnect счетчик увеличивается, realm меняется, браузер забывает кэш
+      String realm = "AutoConnect_" + String(authRealmCounter);
+      webServer.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      webServer.sendHeader("Pragma", "no-cache");
+      webServer.sendHeader("Expires", "0");
       webServer.requestAuthentication();
       return;
     }

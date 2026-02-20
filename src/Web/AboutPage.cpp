@@ -19,6 +19,7 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
 }
 
 void Register_About(AutoConnect& portal){
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
   AboutPage.on(onAbout);
   AboutPage.add(About_0);
   AboutPage.add(Info1);

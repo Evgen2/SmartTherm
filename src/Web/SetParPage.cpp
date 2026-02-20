@@ -7,6 +7,7 @@
 extern AutoConnectText InfoAuth;
 extern AutoConnectInput SetWebAuthUser;
 extern AutoConnectInput SetWebAuthPwd;
+extern AutoConnectConfig config;
 
 #if MQTT_USE
 extern void mqtt_start(void);
@@ -110,4 +111,8 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-void Register_SetPar(AutoConnect& portal){ SetParPage.on(onSetPar); portal.join({SetParPage}); }
+void Register_SetPar(AutoConnect& portal){ 
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  SetParPage.on(onSetPar); 
+  portal.join({SetParPage}); 
+}

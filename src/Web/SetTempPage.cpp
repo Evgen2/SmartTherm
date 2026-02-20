@@ -31,4 +31,8 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
   return String();
 }
 
-void Register_SetTemp(AutoConnect& portal){ SetTempPage.on(onSetTemp); portal.join({SetTempPage}); }
+void Register_SetTemp(AutoConnect& portal){ 
+  // Аутентификация применяется автоматически через config.authScope (AC_AUTHSCOPE_AUX)
+  SetTempPage.on(onSetTemp); 
+  portal.join({SetTempPage}); 
+}
