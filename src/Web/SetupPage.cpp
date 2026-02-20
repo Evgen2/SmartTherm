@@ -26,6 +26,9 @@ AutoConnectInput SetMQTT_interval("SetMQTT_interval","", "интервал, се
 AutoConnectInput SetTmaxPID("SetTmaxPID","", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH);
 AutoConnectInput SetTminPID("SetTminPID","", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH);
 AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить удаленное управление", false, AC_Behind , AC_Tag_DIV);
+AutoConnectText InfoAuth("InfoAuth", "", "", "", AC_Tag_DIV);
+AutoConnectInput SetWebAuthUser("SetWebAuthUser","", "Web логин:", "", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH);
+AutoConnectInput SetWebAuthPwd("SetWebAuthPwd","", "Web пароль:", "", "", AC_Tag_BR, AC_Input_Password, STYLE_WIDTH);
 AutoConnectButton ApplyChB("ApplyChB", "Задать", SET_PAR_URI, AC_Tag_DIV);
 AutoConnectButton ApplyAdd("ApplyAdd", "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
@@ -63,6 +66,11 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   sprintf(str,"%.2f",SmOT.umax); SetTmaxPID.value = str;
   sprintf(str,"%.2f",SmOT.umin); SetTminPID.value = str;
   CtrlChB_UseRemoteControl.checked = SmOT.Use_remoteTCPserver;
+  
+  // Web authentication settings
+  InfoAuth.value = "<br><b>Веб-аутентификация:</b><br>";
+  SetWebAuthUser.value = SmOT.web_auth_username[0] != 0 ? SmOT.web_auth_username : "admin";
+  SetWebAuthPwd.value = SmOT.web_auth_password[0] != 0 ? SmOT.web_auth_password : "admin";
 #if MQTT_USE
   CtrlChbUseMQTT.enable  = true;
   if(SmOT.useMQTT) 
@@ -89,6 +97,9 @@ void Add_SetupElements() {
   Setup_Page.add(SetTmaxPID);
   Setup_Page.add(SetTminPID);
   Setup_Page.add(Info2);
+  Setup_Page.add(InfoAuth);
+  Setup_Page.add(SetWebAuthUser);
+  Setup_Page.add(SetWebAuthPwd);
 #if RELAY_USE
   Setup_Page.add(CtrlChBUseRelay);
   Setup_Page.add(CtrlChBStartRelaySts);

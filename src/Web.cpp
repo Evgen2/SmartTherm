@@ -51,10 +51,7 @@ extern void mqtt_start(void);
 String utc_time_jc;
 
 void setup_web_common(void) {
-  RegisterWebPages(portal);
-  portal.onOTAStart(onOTAstart);
-  portal.onOTAError(exitOTAError);
-
+  // Настройка аутентификации ПЕРЕД регистрацией страниц
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1;
   config.retainPortal = true;
@@ -62,12 +59,39 @@ void setup_web_common(void) {
   config.autoReconnect = true;
   config.reconnectInterval = 1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
+  
+  // Настройка аутентификации
+  config.auth = AC_AUTH_BASIC;  // Используем BASIC аутентификацию
+  config.authScope = AC_AUTHSCOPE_PORTAL | AC_AUTHSCOPE_WITHCP;  // Защищаем все страницы, включая режим точки доступа
+  
+  // Используем сохраненные учетные данные или значения по умолчанию
+  if (SmOT.web_auth_username[0] != 0) {
+    config.username = SmOT.web_auth_username;
+  } else {
+    config.username = "admin";  // Имя пользователя по умолчанию
+  }
+  
+  if (SmOT.web_auth_password[0] != 0) {
+    config.password = SmOT.web_auth_password;
+  } else {
+    config.password = "admin";  // Пароль по умолчанию
+  }
+  
   Serial_db.printf("WiFi AP SSID %s psk=%s\n", config.apid.c_str(), config.psk.c_str());
+  Serial_db.printf("Web authentication: username=%s, password=%s, authScope=0x%04X\n", 
+                    config.username.c_str(), config.password.c_str(), config.authScope);
+  
+  // Настраиваем портал перед регистрацией страниц
+  portal.config(config);
+  portal.onOTAStart(onOTAstart);
+  portal.onOTAError(exitOTAError);
+  portal.onConnect(onConnect);
+  
+  // Регистрируем страницы после настройки конфигурации
+  RegisterWebPages(portal);
   
   /* When using AutoConnect with max_time_use support: portal.max_time_use = 200; portal.callback_at_maxtime = OTloop_callback; */
 
-  portal.config(config);
-  portal.onConnect(onConnect);
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
@@ -146,6 +170,13 @@ void onConnect(IPAddress& ipaddr) {
 // Redirect from root to INFO_URI
 void onRoot() {
   WiFiWebServer&  webServer = portal.host();
+  // Проверяем аутентификацию
+  if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
+    if (!webServer.authenticate(config.username.c_str(), config.password.c_str())) {
+      webServer.requestAuthentication();
+      return;
+    }
+  }
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
   webServer.client().flush();

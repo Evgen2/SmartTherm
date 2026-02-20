@@ -221,6 +221,14 @@ public:
   unsigned short MQTT_port;  /* MQTT port, default 1883 */
   int MQTT_need_report;
 #endif //MQTT_USE
+  // Web authentication credentials
+ #if defined(ARDUINO_ARCH_ESP8266)
+  char web_auth_username[16];
+  char web_auth_password[16];
+ #elif defined(ARDUINO_ARCH_ESP32)
+  char web_auth_username[32];
+  char web_auth_password[32];
+ #endif
 #if PID_USE
   byte usePID; // 1/0 использовать PID да/нет
   signed char srcTroom; // источник температуры в комнате -1 - n/a,  0/1 - T1/T2, 2 - Text, 3,4  MQTT t_indoor/t_outdoor
@@ -349,6 +357,8 @@ public:
       strcpy(MQTT_devname,"Boiler");
       MQTT_user[0] = 0;
       MQTT_pwd[0] = 0;
+      web_auth_username[0] = 0;
+      web_auth_password[0] = 0;
       MQTT_interval = 10; //sec
       MQTT_need_report = 0;
       MQTT_port = 1883;
