@@ -58,6 +58,10 @@ class SD_Termo SmOT;
 
 char SmartDevice::LocalUrl[24] = "";
 
+#if defined(ARDUINO_ARCH_ESP8266)
+char SmartDevice::BiosDate[12] = __DATE__;  /* дата компиляции биоса (was in Web.cpp before refactor) */
+#endif
+
 //Задаем пины
 #if defined(ARDUINO_ARCH_ESP8266)
 
