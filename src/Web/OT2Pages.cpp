@@ -6,7 +6,7 @@
 
 static AutoConnectCheckbox UseOTslave("UseOTslave","", "Использовать OT slave интерфейс", false, AC_Behind ,  AC_Tag_DIV);
 static AutoConnectRadio OTslaveMode("radio", { "SmartTherm", "Панель" }, "Котлом управляет:", AC_Vertical, 1,  AC_Tag_DIV);
-static AutoConnectButton ApplySlave("ApplySlave",   "Задать", SET_OT2_URI, AC_Tag_BR);
+static AutoConnectSubmit ApplySlave("ApplySlave",   "Задать", SET_OT2_URI, AC_Tag_BR);
 
 static AutoConnectAux OTslave_Page(OT2_URI, "OT2", true);
 static AutoConnectAux SetOTslave_Page(SET_OT2_URI, "SetOT2", false, {}, false);

@@ -92,20 +92,36 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   // Save web authentication credentials
   { char str0[32];
     SetWebAuthUser.value.toCharArray(str0, sizeof(str0));
+    bool username_changed = false;
+    bool password_changed = false;
+    
     if(strcmp(SmOT.web_auth_username, str0)) {
       strncpy(SmOT.web_auth_username, str0, sizeof(SmOT.web_auth_username)-1);
       SmOT.web_auth_username[sizeof(SmOT.web_auth_username)-1] = 0;
       isChange++;
+      username_changed = true;
     }
     SetWebAuthPwd.value.toCharArray(str0, sizeof(str0));
     if(strcmp(SmOT.web_auth_password, str0)) {
       strncpy(SmOT.web_auth_password, str0, sizeof(SmOT.web_auth_password)-1);
       SmOT.web_auth_password[sizeof(SmOT.web_auth_password)-1] = 0;
       isChange++;
-      // Update AutoConnect config with new credentials
-      extern AutoConnectConfig config;
+      password_changed = true;
+    }
+    
+    // Update AutoConnect config with new credentials if either username or password changed
+    if (username_changed || password_changed) {
       config.username = SmOT.web_auth_username;
       config.password = SmOT.web_auth_password;
+      Serial_db.printf("[onSetPar] Web authentication credentials updated: username=%s, password=%s\n", 
+                        config.username.c_str(), config.password.c_str());
+      // Сохраняем веб-аутентификацию в отдельный файл
+      SmOT.Write_web_auth_fs();
+      // Применяем новую конфигурацию к работающему порталу без перезагрузки
+      portal.config(config);
+      // Меняем realm, чтобы браузер запросил новые учётные данные при следующем запросе
+      authRealmCounter++;
+      Serial_db.printf("[onSetPar] portal.config() applied, authRealmCounter=%lu, new credentials active\n", (unsigned long)authRealmCounter);
     }
   }
 

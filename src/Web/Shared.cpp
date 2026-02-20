@@ -40,8 +40,8 @@ AutoConnectInput SetDHWTemp("SetDHWTemp",   "", "Температура горя
 AutoConnectInput SetBoilerTemp2("SetBoilerTemp2","", "Температура CH2:<br>");
 
 #if RELAY_USE
-AutoConnectButton RelayOnFf("RelayOnFf", "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
+AutoConnectSubmit RelayOnFf("RelayOnFf", "Реле вкл/выкл", RELAY_URI, AC_Tag_None);
 #endif
 AutoConnectButton Apply("Apply", "Обновить", INFO_URI, AC_Tag_BR);
-AutoConnectButton SetNewBoilerTemp("SetNewBoilerTemp","Задать", SET_T_URI, AC_Tag_DIV);
-AutoConnectButton SendBLOR("SendBLOR", "Сброс ошибки", BLOR_URI, AC_Tag_BR);
+AutoConnectSubmit SetNewBoilerTemp("SetNewBoilerTemp","Задать", SET_T_URI, AC_Tag_DIV);
+AutoConnectSubmit SendBLOR("SendBLOR", "Сброс ошибки", BLOR_URI, AC_Tag_BR);

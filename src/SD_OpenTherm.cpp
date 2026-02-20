@@ -72,6 +72,7 @@ const int FS_BUFMQTT =
 
 const char *path="/smot_par";
 const char *pathmqtt="/smotmqtt";
+const char *pathwebauth="/smotauth";
 
 int SD_Termo::Read_ot_fs(void)
 {  int rc, n, nw;
@@ -504,10 +505,14 @@ int SD_Termo::Read_mqtt_fs(void)
 
     rc = Read_data_fs((char *)pathmqtt, Buff, FS_BUFMQTT, nw, 1);
 #if SERIAL_DEBUG      
-    Serial_db.printf("Read %s rc %i\n", pathmqtt, rc);
+    Serial_db.printf("Read %s rc %i, nw=%d\n", pathmqtt, rc, nw);
 #endif    
-    if(rc)
+    if(rc) {
+        // Если файл не существует, инициализируем веб-аутентификацию значениями по умолчанию
+        web_auth_username[0] = 0;
+        web_auth_password[0] = 0;
         return rc;
+    }
 #if MQTT_USE
     n = sizeof(useMQTT);
     memcpy((void *) &useMQTT, &Buff[0], sizeof(useMQTT));
@@ -534,33 +539,8 @@ int SD_Termo::Read_mqtt_fs(void)
         MQTT_port = _port;
         n += sizeof(MQTT_port);
     }
-    // Read web authentication credentials (if available)
-    if (n < nw) {
-        memcpy((void *) &len, &Buff[n], 1);  n++;
-        if (len > 0 && len <= sizeof(web_auth_username)) {
-            memcpy((void *) web_auth_username, &Buff[n], len);  n += len;
-        } else {
-            web_auth_username[0] = 0;
-            if (len > 0) n += len;
-        }
-        
-        if (n < nw) {
-            memcpy((void *) &len, &Buff[n], 1);  n++;
-            if (len > 0 && len <= sizeof(web_auth_password)) {
-                memcpy((void *) web_auth_password, &Buff[n], len);  n += len;
-            } else {
-                web_auth_password[0] = 0;
-                if (len > 0) n += len;
-            }
-        } else {
-            web_auth_password[0] = 0;
-        }
-    } else {
-        // Old config file, initialize with defaults
-        web_auth_username[0] = 0;
-        web_auth_password[0] = 0;
-    }
 #endif
+    
     return 0;
 }
 
@@ -599,6 +579,76 @@ int SD_Termo::Write_mqtt_fs(void)
         memcpy(&Buff[n],(void *) &_port, sizeof(MQTT_port));
         n += sizeof(MQTT_port);
     }
+#endif
+
+    rc = Write_data_fs((char *)pathmqtt, Buff, n, 1);
+#if SERIAL_DEBUG      
+    Serial_db.printf("Write %s rc %i\n", pathmqtt, rc);
+#endif
+
+    return rc;
+}
+
+// Read web authentication credentials from separate file
+int SD_Termo::Read_web_auth_fs(void)
+{   int rc, n, nw;
+    uint8_t Buff[64]; // Достаточно для username (32) + password (32)
+    uint8_t len;
+
+    rc = Read_data_fs((char *)pathwebauth, Buff, sizeof(Buff), nw, 1);
+#if SERIAL_DEBUG      
+    Serial_db.printf("Read %s rc %i, nw=%d\n", pathwebauth, rc, nw);
+#endif    
+    if(rc) {
+        // Если файл не существует, инициализируем значениями по умолчанию
+        web_auth_username[0] = 0;
+        web_auth_password[0] = 0;
+        return rc;
+    }
+    
+    n = 0;
+    // Read web authentication credentials
+    if (n < nw) {
+        memcpy((void *) &len, &Buff[n], 1);  n++;
+        if (len > 0 && len <= sizeof(web_auth_username)) {
+            memcpy((void *) web_auth_username, &Buff[n], len);  n += len;
+#if SERIAL_DEBUG
+            Serial_db.printf("Read web_auth_username: '%s'\n", web_auth_username);
+#endif
+        } else {
+            web_auth_username[0] = 0;
+            if (len > 0) n += len;
+        }
+        
+        if (n < nw) {
+            memcpy((void *) &len, &Buff[n], 1);  n++;
+            if (len > 0 && len <= sizeof(web_auth_password)) {
+                memcpy((void *) web_auth_password, &Buff[n], len);  n += len;
+#if SERIAL_DEBUG
+                Serial_db.printf("Read web_auth_password: '%s'\n", web_auth_password);
+#endif
+            } else {
+                web_auth_password[0] = 0;
+                if (len > 0) n += len;
+            }
+        } else {
+            web_auth_password[0] = 0;
+        }
+    } else {
+        // Empty file, initialize with defaults
+        web_auth_username[0] = 0;
+        web_auth_password[0] = 0;
+    }
+    
+    return 0;
+}
+
+// Write web authentication credentials to separate file
+int SD_Termo::Write_web_auth_fs(void)
+{   int rc, n=0;
+    uint8_t Buff[64]; // Достаточно для username (32) + password (32)
+    uint8_t len;
+
     // Write web authentication credentials
     len = strlen(web_auth_username)+1;
     memcpy(&Buff[n],(void *) &len, 1); n++;
@@ -608,11 +658,9 @@ int SD_Termo::Write_mqtt_fs(void)
     memcpy(&Buff[n],(void *) &len, 1); n++;
     memcpy(&Buff[n],(void *) web_auth_password, len); n += len;
 
-#endif
-
-    rc = Write_data_fs((char *)pathmqtt, Buff, n, 1);
+    rc = Write_data_fs((char *)pathwebauth, Buff, n, 1);
 #if SERIAL_DEBUG      
-    Serial_db.printf("Write %s rc %i\n", pathmqtt, rc);
+    Serial_db.printf("Write %s rc %i\n", pathwebauth, rc);
 #endif
 
     return rc;

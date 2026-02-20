@@ -28,7 +28,7 @@ static AutoConnectInput Set_CH_GIST("Set_CH_GIST","", "Гистерезис вк
 static AutoConnectCheckbox UsePIDPWM("UsePIDPWM","", "Использовать PWM при выходе U &lt; Tmin", false, AC_Behind , AC_Tag_BR);
 static AutoConnectInput PWM_T_PID("PWM_T_PID","", "Время PWM, сек:",  "", "", AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH);
 
-static AutoConnectButton ApplyPID("ApplyPID",   "Задать", SET_PID_URI, AC_Tag_BR);
+static AutoConnectSubmit ApplyPID("ApplyPID",   "Задать", SET_PID_URI, AC_Tag_BR);
 static AutoConnectAux PID_Page(PID_URI, "PID", true);
 static AutoConnectAux SetPIDPage(SET_PID_URI, "SetPID", false, {}, false);
 
