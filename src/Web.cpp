@@ -102,11 +102,39 @@ void setup_web_common(void) {
   webServer.on("/", onRoot);
   
   // Обработчик для страницы disconnect - принудительно "отключает" пользователя
-  // Увеличиваем счетчик realm, чтобы при следующем запросе браузер запросил аутентификацию заново
+  // Используем агрессивный подход для очистки кэша браузера
   webServer.on("/_ac/disc", HTTP_GET, []() {
-    authRealmCounter++; // Увеличиваем счетчик для изменения realm
-    // Пропускаем запрос дальше к AutoConnect для обработки disconnect
-    // AutoConnect обработает disconnect, а при следующем запросе будет использован новый realm
+    WiFiWebServer& ws = portal.host();
+    
+    // Увеличиваем счетчик realm для изменения realm
+    authRealmCounter++;
+    
+    // Отправляем HTML страницу с JavaScript, которая заставит браузер забыть кэш
+    // и запросить аутентификацию заново
+    String realm = "AutoConnect_" + String(authRealmCounter);
+    String html = "<!DOCTYPE html><html><head><title>Disconnected</title>";
+    html += "<script>";
+    html += "// Очищаем кэш браузера для этого домена";
+    html += "if ('caches' in window) { caches.keys().then(function(names) {";
+    html += "  for (let name of names) caches.delete(name);";
+    html += "}); }";
+    html += "// Используем XMLHttpRequest с неправильными учетными данными для очистки кэша";
+    html += "var xhr = new XMLHttpRequest();";
+    html += "xhr.open('GET', '/', false);";
+    html += "xhr.setRequestHeader('Authorization', 'Basic ' + btoa('invalid:invalid'));";
+    html += "try { xhr.send(); } catch(e) {}";
+    html += "// Перенаправляем на корневую страницу с новым realm";
+    html += "setTimeout(function() {";
+    html += "  window.location.href = '/?logout=' + Date.now();";
+    html += "}, 100);";
+    html += "</script>";
+    html += "<body><h1>Disconnected</h1><p>Please wait...</p></body></html>";
+    
+    ws.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    ws.sendHeader("Pragma", "no-cache");
+    ws.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+    ws.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+    ws.send(200, "text/html", html);
   });
 
   if (WiFi.status() != WL_CONNECTED)  {
@@ -182,16 +210,35 @@ void onConnect(IPAddress& ipaddr) {
 // Redirect from root to INFO_URI
 void onRoot() {
   WiFiWebServer&  webServer = portal.host();
+  
+  // Проверяем параметр logout в URL (добавляется JavaScript после disconnect)
+  String uri = webServer.uri();
+  bool forceLogout = uri.indexOf("logout=") >= 0;
+  
   // Проверяем аутентификацию
   if (config.auth != AC_AUTH_NONE && config.username.length() > 0) {
-    if (!webServer.authenticate(config.username.c_str(), config.password.c_str())) {
-      // Используем уникальный realm на основе счетчика для принудительного запроса аутентификации
-      // После disconnect счетчик увеличивается, realm меняется, браузер забывает кэш
-      String realm = "AutoConnect_" + String(authRealmCounter);
+    // Всегда используем уникальный realm на основе счетчика
+    // После disconnect счетчик увеличивается, realm меняется, браузер забывает кэш
+    String realm = "AutoConnect_" + String(authRealmCounter);
+    
+    // Если был запрос logout, всегда отправляем 401 с новым realm
+    if (forceLogout) {
       webServer.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
-      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
       webServer.sendHeader("Pragma", "no-cache");
-      webServer.sendHeader("Expires", "0");
+      webServer.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+      webServer.sendHeader("Clear-Site-Data", "\"cache\", \"cookies\", \"storage\"");
+      webServer.requestAuthentication();
+      return;
+    }
+    
+    // Проверяем аутентификацию с текущими учетными данными
+    if (!webServer.authenticate(config.username.c_str(), config.password.c_str())) {
+      // Если аутентификация не прошла, отправляем 401 с новым realm
+      webServer.sendHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
+      webServer.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+      webServer.sendHeader("Pragma", "no-cache");
+      webServer.sendHeader("Expires", "Thu, 01 Jan 1970 00:00:00 GMT");
       webServer.requestAuthentication();
       return;
     }
