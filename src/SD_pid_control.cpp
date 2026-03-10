@@ -15,12 +15,14 @@ int debcode = 0;
 int wait_if_takt = 60*3;
 char tmpDebugstr[128] ="";
 
-void SD_Termo::loop_PID(void)
+void SD_Termo::loop_PID(int mode)
 {   static int start = 2;
     static int start_heat = 2;
     static  unsigned long int  t0=0, t0_mean=0, t_start_heat=0, t_stop_heat = 0;
     static float _ustart = 0.f;
     static int OldBoilerStatus=0, issF = 0;
+    static int HW_flag = 0, smooth_increase_flag = 0;
+    static int smooth_increase_temp_t = 60*15;
     unsigned long int t;
     float  u0, _u, _uu;
     int  dt;
@@ -67,6 +69,8 @@ void SD_Termo::loop_PID(void)
 //     Serial_db.printf("==>PID dt %d issF %d xChanged %d (t - mypid.xChanged_t) %d\n", t-t0, issF,  mypid.xChanged, t - mypid.xChanged_t); 
 
     t0 = t;
+    if(mode == 1)
+        return;
 
     {  static int raz = 0;
        MQTT_pub_cmd(raz);
@@ -108,11 +112,13 @@ void SD_Termo::loop_PID(void)
     now = time(nullptr);
 
     if(HotWater_present)
-    {  if(BoilerStatus & 0x04) /* при включении горячей воды не занимаемся регулированием, хотя PID все равно вызываем */
-                return;
+    {   if(BoilerStatus & 0x04) /* при включении горячей воды не занимаемся регулированием, хотя PID все равно вызываем */
+        {   HW_flag = 1;
+            return;
+        }
         if(enable_CentralHeating_real && !(BoilerStatus& 0x08)) //flame off если горелка выключена
         {   dt = now - Bstat.t_HW_off;
-            if(dt < 180 /* 500 */)  //если HW выключилось 180 сек назад или раньше, то не регулируем
+            if(dt < 180 /* 500 */)  //если HW выключилось < 180 сек назад, то не регулируем
                 return;
         }
     }
@@ -145,6 +151,8 @@ void SD_Termo::loop_PID(void)
             enable_CentralHeating_real = false;
             _u = umin;
             start_heat = 0;
+            smooth_increase_flag = 0;
+            HW_flag = 0;
             t_stop_heat = now; //время выключения отопления
         }
     }
@@ -154,19 +162,28 @@ void SD_Termo::loop_PID(void)
 
     if(start_heat == 1 && need_heat == 1) //отопление включено
     {   if(BoilerStatus& 0x08) //если горелка включена
-        {   int dt0;
-            dt0 = 15*60;
-            if((mypid.xTag - tempindoor) > 2.f)
-                                    dt0 = 5*60;
+        {   
+            if(smooth_increase_flag == 0)
+            {
+                if( ((mypid.xTag - tempindoor) > 2.f) || HW_flag)
+                    smooth_increase_temp_t = 5*60;
+                else
+                    smooth_increase_temp_t = 15*60;
+                smooth_increase_flag = 1;
+            }
+
             dt = now - Bstat.t_flame_on;
             _uu = _u;
 //            if(issF == 3)
 //                _ustart = _u;
 
-            if(dt < dt0) //пытаемся плавно повышать температуру
+            if(dt < smooth_increase_temp_t) //пытаемся плавно повышать температуру
             {   float r;
-                r = dt/ float(dt0);
+                r = dt/ float(smooth_increase_temp_t);
                 _uu = _u * r +  _ustart  * (1-r); // корректируем уставку температуры
+
+    Serial_db.printf("==>PID smooth_increase t %d r %g, _uu %g  _u %g  _ustart %g\n", smooth_increase_temp_t, r, _uu, _u, _ustart); 
+
             }
             if(BoilerT > _uu) //однако, если температура  теплоносителя уже достигла заданного значения
             {   _uu = BoilerT;  

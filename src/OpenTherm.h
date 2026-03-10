@@ -28,7 +28,23 @@ enum OpenThermResponseStatus {
 	TIMEOUT
 };
 
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+enum OpenThermMessageType {
+	/*  Master to Slave */
+	READ_DATA       = 0b000,
+	READ            = READ_DATA, // for backwared compatibility
+	WRITE_DATA      = 0b001,
+	WRITE           = WRITE_DATA, // for backwared compatibility
+	INVALID_DATA    = 0b010,
+	RESERVED        = 0b011,
+	/* Slave to Master */
+	READ_ACK        = 0b100,
+	WRITE_ACK       = 0b101,
+	DATA_INVALID    = 0b110,
+	UNKNOWN_DATA_ID = 0b111
+};
 
+#else
 enum OpenThermMessageType {
 	/*  Master to Slave */
 	READ_DATA       = B000,
@@ -43,6 +59,7 @@ enum OpenThermMessageType {
 	DATA_INVALID    = B110,
 	UNKNOWN_DATA_ID = B111
 };
+#endif
 
 typedef OpenThermMessageType OpenThermRequestType; // for backwared compatibility
 

@@ -103,12 +103,23 @@
   #define AUTOCONNECT_APID  "ST_ESP8266"
 #elif defined(ARDUINO_ARCH_ESP32)
   #define AUTOCONNECT_MENU_TITLE  "SmartTherm"
-  #if ST_VERS == 0
-    #define AUTOCONNECT_APID  "ST_ESP32"
-  #elif ST_VERS == 1
-    #define AUTOCONNECT_APID  "ST"
-  #elif ST_VERS == 2
-    #define AUTOCONNECT_APID  "ST2"
+  #ifdef CONFIG_IDF_TARGET_ESP32C6
+   #if ST_VERS == 0
+     #define AUTOCONNECT_APID  "ST_ESP32C6"
+   #elif ST_VERS == 1
+     #define AUTOCONNECT_APID  "STC6"
+   #elif ST_VERS == 2
+     #define AUTOCONNECT_APID  "ST2C6"
+   #endif
+  #else
+
+   #if ST_VERS == 0
+     #define AUTOCONNECT_APID  "ST_ESP32"
+   #elif ST_VERS == 1
+     #define AUTOCONNECT_APID  "ST"
+   #elif ST_VERS == 2
+     #define AUTOCONNECT_APID  "ST2"
+   #endif
   #endif
 
  #else
@@ -119,7 +130,9 @@ error not used in this config
 #if defined(ARDUINO_ARCH_ESP8266)
 //  #define LED_BUILTIN 2
 #elif defined(ARDUINO_ARCH_ESP32)
+  #ifndef LED_BUILTIN
   #define LED_BUILTIN 2
+  #endif
 #endif
 
 #endif //SMART_CONFIG

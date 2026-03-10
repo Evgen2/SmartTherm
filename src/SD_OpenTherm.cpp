@@ -8,7 +8,11 @@ typedef ESP8266WebServer WEBServer;
 #elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
 #include <WebServer.h>
-#include "esp32/rom/rtc.h"
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+ #include <esp_rtc_time.h>
+#else
+ #include "esp32/rom/rtc.h"
+#endif
 typedef WebServer WEBServer;
 #endif
 #include <AutoConnect.h>
@@ -66,6 +70,16 @@ const int FS_BUFMQTT =
             sizeof(SD_Termo::MQTT_devname) + sizeof(SD_Termo::MQTT_interval) + sizeof(SD_Termo::MQTT_port);
 #endif
 
+#define ReadFromBuff(X, dataBuff, n ) do { \
+    memcpy((void *)&X, &dataBuff[n], sizeof(X)); \
+    n += sizeof(X); \
+} while (0)
+
+#define WriteToBuff(X, dataBuff, n ) do { \
+    memcpy( &dataBuff[n], (void *)&X, sizeof(X)); \
+    n += sizeof(X); \
+} while (0)
+
 /**^^^******************************/
 
 
@@ -82,136 +96,84 @@ int SD_Termo::Read_ot_fs(void)
 #if SERIAL_DEBUG      
     Serial_db.printf((PGM_P)F("Read %i bytes\n"), nw);
 #endif    
-
-    n = sizeof(enable_CentralHeating);
-    memcpy((void *) &enable_CentralHeating, &Buff[0], n);
-    memcpy((void *) &enable_HotWater, &Buff[n], sizeof(enable_HotWater));
-    n += sizeof(enable_HotWater);
-    memcpy((void *) &Tset, &Buff[n], sizeof(Tset));
-    n += sizeof(Tset);
-    memcpy((void *) &TdhwSet, &Buff[n], sizeof(TdhwSet));
-    n += sizeof(TdhwSet);
-    memcpy((void *) &UDPserver_repot_period, &Buff[n], sizeof(UDPserver_repot_period));
-    n += sizeof(UDPserver_repot_period);
-    memcpy((void *) &UDPserver_port, &Buff[n], sizeof(UDPserver_port));
-    n += sizeof(UDPserver_port);
-
-    memcpy((void *) &TCPserver_report_period, &Buff[n], sizeof(TCPserver_report_period));
-    n += sizeof(TCPserver_report_period);
-    memcpy((void *) &TCPserver_port, &Buff[n], sizeof(TCPserver_port));
-    n += sizeof(TCPserver_port);
-    
-
-    memcpy((void *) &tcp_remoteIP, &Buff[n], sizeof(tcp_remoteIP));
-    n += sizeof(tcp_remoteIP);
-    memcpy((void *) &Use_remoteTCPserver, &Buff[n], sizeof(Use_remoteTCPserver));
-    n += sizeof(Use_remoteTCPserver);
-
-    memcpy((void *) &UseID2, &Buff[n], sizeof(UseID2));
-    n += sizeof(UseID2);
-    memcpy((void *) &ID2masterID, &Buff[n], sizeof(ID2masterID));
-    n += sizeof(ID2masterID);
-
-    memcpy((void *) &CH2_DHW_flag, &Buff[n], sizeof(CH2_DHW_flag));
-    n += sizeof(CH2_DHW_flag);
-    if(n >= nw) goto END;
-    memcpy((void *) &UseWinterMode, &Buff[n], sizeof(UseWinterMode));
-    n += sizeof(UseWinterMode);
-    if(n >= nw) goto END;
-    memcpy((void *) &Use_OTC, &Buff[n], sizeof(Use_OTC));
-    n += sizeof(Use_OTC);
-    memcpy((void *) &Use_ID29_DHW_flag, &Buff[n], sizeof(Use_ID29_DHW_flag));
-    n += sizeof(Use_ID29_DHW_flag);
-    memcpy((void *) &Immergas_fix_flag, &Buff[n], sizeof(Immergas_fix_flag));
-    n += sizeof(Immergas_fix_flag);
-    memcpy((void *) &CH_StartGist, &Buff[n], sizeof(CH_StartGist));
-    n += sizeof(CH_StartGist);
-
-    memcpy((void *) &Use_MaxRelModLevel, &Buff[n], sizeof(Use_MaxRelModLevel));
-    n += sizeof(Use_MaxRelModLevel);
-    memcpy((void *) &MaxRelModLevelSetting, &Buff[n], sizeof(MaxRelModLevelSetting));
-    n += sizeof(MaxRelModLevelSetting);
-
+    n = 0;
+    ReadFromBuff(enable_CentralHeating,Buff,n);
+    ReadFromBuff(enable_HotWater,Buff,n);
+    ReadFromBuff(Tset,Buff,n);
+    ReadFromBuff(TdhwSet,Buff,n);
+    ReadFromBuff(UDPserver_repot_period,Buff,n);
+    ReadFromBuff(UDPserver_port,Buff,n);
+    ReadFromBuff(TCPserver_report_period,Buff,n);
+    ReadFromBuff(TCPserver_port,Buff,n);
+    ReadFromBuff(tcp_remoteIP,Buff,n);
+    ReadFromBuff(Use_remoteTCPserver,Buff,n);
+    ReadFromBuff(UseID2,Buff,n);
+    ReadFromBuff(ID2masterID,Buff,n);
+    ReadFromBuff(CH2_DHW_flag,Buff,n);
+    ReadFromBuff(UseWinterMode, Buff,n);
+    ReadFromBuff(Use_OTC,Buff,n);
+    ReadFromBuff(Use_ID29_DHW_flag,Buff,n);
+    ReadFromBuff(Immergas_fix_flag,Buff,n);
+    ReadFromBuff(CH_StartGist,Buff,n);
+    ReadFromBuff(Use_MaxRelModLevel,Buff,n);
+    ReadFromBuff(MaxRelModLevelSetting,Buff,n);
 #if RELAY_USE    
-    memcpy((void *) &Relay_present, &Buff[n], sizeof(Relay_present));
-    n += sizeof(Relay_present);
-    memcpy((void *) &Relay_init_sts, &Buff[n], sizeof(Relay_init_sts));
-    n += sizeof(Relay_init_sts);
+    ReadFromBuff(Relay_present, Buff,n);
+    ReadFromBuff(Relay_init_sts,Buff,n);
 #endif
 
 #if ST_VERS == 2
-    memcpy((void *) &OT_slave_present, &Buff[n], sizeof(OT_slave_present));
-    n += sizeof(OT_slave_present);
-    memcpy((void *) &OT_slave_mode, &Buff[n], sizeof(OT_slave_mode));
-    n += sizeof(OT_slave_mode);
+    ReadFromBuff(OT_slave_present,Buff,n);
+    ReadFromBuff(OT_slave_mode,Buff,n);
 #endif
 
 #if PID_USE
     if(n >= nw) goto END;
-    memcpy((void *) &usePID, &Buff[n], sizeof(usePID));
-    n += sizeof(usePID);
+    ReadFromBuff(usePID,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &srcTroom, &Buff[n], sizeof(srcTroom));
-    n += sizeof(srcTroom);
+    ReadFromBuff(srcTroom,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &srcText, &Buff[n], sizeof(srcText));
-    n += sizeof(srcText);
+    ReadFromBuff(srcText,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.Kp, &Buff[n], sizeof(mypid.Kp));
-    n += sizeof(mypid.Kp);
+    ReadFromBuff(mypid.Kp,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.Kd, &Buff[n], sizeof(mypid.Kd));
-    n += sizeof(mypid.Kd);
+    ReadFromBuff(mypid.Kd,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.Ki, &Buff[n], sizeof(mypid.Ki));
-    n += sizeof(mypid.Ki);
+    ReadFromBuff(mypid.Ki,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.xTag, &Buff[n], sizeof(mypid.xTag));
+    ReadFromBuff(mypid.xTag,Buff,n);
     TroomTarget = mypid.xTag;
-    n += sizeof(mypid.xTag);
     if(n >= nw) goto END;
-    memcpy((void *) &umax, &Buff[n], sizeof(umax));
-    n += sizeof(umax);
+    ReadFromBuff(umax,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &umin, &Buff[n], sizeof(umin));
-    n += sizeof(umin);
+    ReadFromBuff(umin,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.u0, &Buff[n], sizeof(mypid.u0));
-    n += sizeof(mypid.u0);
+    ReadFromBuff(mypid.u0,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.y0, &Buff[n], sizeof(mypid.y0));
-    n += sizeof(mypid.y0);
+    ReadFromBuff(mypid.y0,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.u1, &Buff[n], sizeof(mypid.u1));
-    n += sizeof(mypid.u1);
+    ReadFromBuff(mypid.u1,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.y1, &Buff[n], sizeof(mypid.y1));
-    n += sizeof(mypid.y1);
+    ReadFromBuff(mypid.y1,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.Kidiss, &Buff[n], sizeof(mypid.Kidiss));
-    n += sizeof(mypid.Kidiss);
+    ReadFromBuff(mypid.Kidiss,Buff,n);
     if(n >= nw) goto END;
 
-    memcpy((void *) &mypid.Ku, &Buff[n], sizeof(mypid.Ku));
-    n += sizeof(mypid.Ku);
+    ReadFromBuff(mypid.Ku,Buff,n);
     if(n >= nw) goto END;
-    memcpy((void *) &mypid.x0, &Buff[n], sizeof(mypid.x0));
-    n += sizeof(mypid.x0);
+    ReadFromBuff(mypid.x0,Buff,n);
     if(n >= nw) goto END;
     n += sizeof(int) * 2; //reserved
     if(n >= nw) goto END;
 
 #endif //PID_USE
 
-    memcpy((void *) &useCPU_freq, &Buff[n], sizeof(useCPU_freq));
-    n += sizeof(useCPU_freq);
+    ReadFromBuff(useCPU_freq,Buff,n);
     if(n >= nw) goto END;
 
-    memcpy((void *) &PID_PWMperiod, &Buff[n], sizeof(PID_PWMperiod));
-    n += sizeof(PID_PWMperiod);
+    ReadFromBuff(PID_PWMperiod,Buff,n);
+    ReadFromBuff(MinCHtemp,Buff,n);
 
-    memcpy((void *) &MinCHtemp, &Buff[n], sizeof(MinCHtemp));
-    n += sizeof(MinCHtemp);
     if(MinCHtemp < MIN_CH_TEMP)
         MinCHtemp  = MIN_CH_TEMP;
 
@@ -269,6 +231,9 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
    
     if(v != CONFIG_VERSION)
     {   file.close();
+#if SERIAL_DEBUG      
+        Serial_db.printf((PGM_P)F("Config verion %d != %d\n"), v, CONFIG_VERSION);
+#endif        
         return 2;
     }
 
@@ -379,112 +344,63 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
 int SD_Termo::Write_ot_fs(void)
 {   int rc, n;
     uint8_t Buff[FS_BUF];
-    
-    n = sizeof(enable_CentralHeating);
-    memcpy(&Buff[0],(void *) &enable_CentralHeating, n);
-#if SERIAL_DEBUG      
-Serial_db.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_CentralHeating);
-#endif
-    memcpy(&Buff[n],(void *) &enable_HotWater, sizeof(enable_HotWater));
-    n += sizeof(enable_HotWater);
-    memcpy(&Buff[n],(void *) &Tset, sizeof(Tset));
-    n += sizeof(Tset);
-    memcpy(&Buff[n],(void *) &TdhwSet, sizeof(TdhwSet));
-    n += sizeof(TdhwSet);
-    memcpy(&Buff[n],(void *) &UDPserver_repot_period, sizeof(UDPserver_repot_period));
-    n += sizeof(UDPserver_repot_period);
-    memcpy(&Buff[n],(void *) &UDPserver_port, sizeof(UDPserver_port));
-    n += sizeof(UDPserver_port);
-    memcpy(&Buff[n],(void *) &TCPserver_report_period, sizeof(TCPserver_report_period));
-    n += sizeof(TCPserver_report_period);
-    memcpy(&Buff[n],(void *) &TCPserver_port, sizeof(TCPserver_port));
-    n += sizeof(TCPserver_port);
-    
-    memcpy(&Buff[n],(void *) &tcp_remoteIP, sizeof(tcp_remoteIP));
-    n += sizeof(tcp_remoteIP);
-    memcpy(&Buff[n],(void *) &Use_remoteTCPserver, sizeof(Use_remoteTCPserver));
-    n += sizeof(Use_remoteTCPserver);
 
-    memcpy(&Buff[n],(void *) &UseID2, sizeof(UseID2));
-    n += sizeof(UseID2);
-    memcpy(&Buff[n],(void *) &ID2masterID, sizeof(ID2masterID));
-    n += sizeof(ID2masterID);
-
-    memcpy(&Buff[n],(void *) &CH2_DHW_flag, sizeof(CH2_DHW_flag));
-    n += sizeof(CH2_DHW_flag);
-    memcpy(&Buff[n],(void *) &UseWinterMode, sizeof(UseWinterMode));
-    n += sizeof(UseWinterMode);
-    memcpy(&Buff[n],(void *) &Use_OTC, sizeof(Use_OTC));
-    n += sizeof(Use_OTC);
-    memcpy(&Buff[n],(void *) &Use_ID29_DHW_flag, sizeof(Use_ID29_DHW_flag));
-    n += sizeof(Use_ID29_DHW_flag);    
-    memcpy(&Buff[n],(void *) &Immergas_fix_flag, sizeof(Immergas_fix_flag));
-    n += sizeof(Immergas_fix_flag);    
-    memcpy(&Buff[n],(void *) &CH_StartGist , sizeof(CH_StartGist));
-    n += sizeof(CH_StartGist);
-
-    memcpy(&Buff[n],(void *) &Use_MaxRelModLevel, sizeof(Use_MaxRelModLevel));
-    n += sizeof(Use_MaxRelModLevel);
-    memcpy(&Buff[n],(void *) &MaxRelModLevelSetting, sizeof(MaxRelModLevelSetting));
-    n += sizeof(MaxRelModLevelSetting);
-
+    n = 0;
+    WriteToBuff(enable_CentralHeating,Buff,n);
+    WriteToBuff(enable_HotWater,Buff,n);
+    WriteToBuff(Tset,Buff,n);
+    WriteToBuff(TdhwSet,Buff,n);
+    WriteToBuff(UDPserver_repot_period,Buff,n);
+    WriteToBuff(UDPserver_port,Buff,n);
+    WriteToBuff(TCPserver_report_period,Buff,n);
+    WriteToBuff(TCPserver_port,Buff,n);
+    WriteToBuff(tcp_remoteIP,Buff,n);
+    WriteToBuff(Use_remoteTCPserver,Buff,n);
+    WriteToBuff(UseID2,Buff,n);
+    WriteToBuff(ID2masterID,Buff,n);
+    WriteToBuff(CH2_DHW_flag,Buff,n);
+    WriteToBuff(UseWinterMode, Buff,n);
+    WriteToBuff(Use_OTC,Buff,n);
+    WriteToBuff(Use_ID29_DHW_flag,Buff,n);
+    WriteToBuff(Immergas_fix_flag,Buff,n);
+    WriteToBuff(CH_StartGist,Buff,n);
+    WriteToBuff(Use_MaxRelModLevel,Buff,n);
+    WriteToBuff(MaxRelModLevelSetting,Buff,n);
 #if RELAY_USE    
-    memcpy(&Buff[n],(void *) &Relay_present, sizeof(Relay_present));
-    n += sizeof(Relay_present);
-    memcpy(&Buff[n],(void *) &Relay_init_sts, sizeof(Relay_init_sts));
-    n += sizeof(Relay_init_sts);
+    WriteToBuff(Relay_present, Buff,n);
+    WriteToBuff(Relay_init_sts,Buff,n);
 #endif
 
 #if ST_VERS == 2
-    memcpy(&Buff[n],(void *) &OT_slave_present, sizeof(OT_slave_present));
-    n += sizeof(OT_slave_present);
-    memcpy(&Buff[n],(void *) &OT_slave_mode, sizeof(OT_slave_mode));
-    n += sizeof(OT_slave_mode);
+    WriteToBuff(OT_slave_present,Buff,n);
+    WriteToBuff(OT_slave_mode,Buff,n);
 #endif
 
 #if PID_USE
-    memcpy(&Buff[n],(void *) &usePID, sizeof(usePID));
-    n += sizeof(usePID);
-    memcpy(&Buff[n],(void *) &srcTroom , sizeof(srcTroom));
-    n += sizeof(srcTroom);
-    memcpy(&Buff[n],(void *) &srcText , sizeof(srcText));
-    n += sizeof(srcText);
-    memcpy(&Buff[n],(void *) &mypid.Kp , sizeof(mypid.Kp));
-    n += sizeof(mypid.Kp);
-    memcpy(&Buff[n],(void *) &mypid.Kd , sizeof(mypid.Kd));
-    n += sizeof(mypid.Kd);
-    memcpy(&Buff[n],(void *) &mypid.Ki , sizeof(mypid.Ki));
-    n += sizeof(mypid.Ki);
-    memcpy(&Buff[n],(void *) &mypid.xTag , sizeof(mypid.xTag));
-    n += sizeof(mypid.xTag);
-    memcpy(&Buff[n],(void *) &umax , sizeof(umax));
-    n += sizeof(umax);
-    memcpy(&Buff[n],(void *) &umin , sizeof(umin));
-    n += sizeof(umin);
-    memcpy(&Buff[n],(void *) &mypid.u0 , sizeof(mypid.u0));
-    n += sizeof(mypid.u0);
-    memcpy(&Buff[n],(void *) &mypid.y0 , sizeof(mypid.y0));
-    n += sizeof(mypid.y0);
-    memcpy(&Buff[n],(void *) &mypid.u1 , sizeof(mypid.u1));
-    n += sizeof(mypid.u1);
-    memcpy(&Buff[n],(void *) &mypid.y1 , sizeof(mypid.y1));
-    n += sizeof(mypid.y1);
-    memcpy(&Buff[n],(void *) &mypid.Kidiss , sizeof(mypid.Kidiss));
-    n += sizeof(mypid.Kidiss);
-    memcpy(&Buff[n],(void *) &mypid.Ku , sizeof(mypid.Ku));
-    n += sizeof(mypid.Ku);
-    memcpy(&Buff[n],(void *) &mypid.x0 , sizeof(mypid.x0));
-    n += sizeof(mypid.x0);
+    WriteToBuff(usePID,Buff,n);
+    WriteToBuff(srcTroom,Buff,n);
+    WriteToBuff(srcText,Buff,n);
+    WriteToBuff(mypid.Kp,Buff,n);
+    WriteToBuff(mypid.Kd,Buff,n);
+    WriteToBuff(mypid.Ki,Buff,n);
+    WriteToBuff(mypid.xTag,Buff,n);
+    WriteToBuff(umax,Buff,n);
+    WriteToBuff(umin,Buff,n);
+    WriteToBuff(mypid.u0,Buff,n);
+    WriteToBuff(mypid.y0,Buff,n);
+    WriteToBuff(mypid.u1,Buff,n);
+    WriteToBuff(mypid.y1,Buff,n);
+    WriteToBuff(mypid.Kidiss,Buff,n);
+    WriteToBuff(mypid.Ku,Buff,n);
+    WriteToBuff(mypid.x0,Buff,n);
     memset(&Buff[n],0, sizeof(int) * 2); //reserved 
-    n += sizeof(int) * 2;
-#endif
+    n += sizeof(int) * 2; //reserved
 
-memcpy(&Buff[n],(void *) &useCPU_freq , sizeof(useCPU_freq));
-n += sizeof(useCPU_freq);
-memcpy(&Buff[n],(void *) &PID_PWMperiod, sizeof(PID_PWMperiod));
-n += sizeof(PID_PWMperiod);
-memcpy(&Buff[n],(void *) &MinCHtemp, sizeof(MinCHtemp));
-n += sizeof(MinCHtemp);
+#endif //PID_USE
+
+    WriteToBuff(useCPU_freq,Buff,n);
+    WriteToBuff(PID_PWMperiod,Buff,n);
+    WriteToBuff(MinCHtemp,Buff,n);
 
 memset(&Buff[n],0, sizeof(int) * 15); //reserved 
 n += sizeof(int) * 15;
@@ -549,9 +465,7 @@ int SD_Termo::Write_mqtt_fs(void)
     uint8_t len;
 
 #if MQTT_USE
-    memcpy(&Buff[n],(void *) &useMQTT, sizeof(useMQTT));
-    n += sizeof(useMQTT);
-
+    WriteToBuff(useMQTT,Buff,n);
     len = strlen(MQTT_server)+1;
     memcpy(&Buff[n],(void *) &len, 1); n++;
     memcpy(&Buff[n],(void *) MQTT_server, len); n += len;
@@ -572,10 +486,8 @@ int SD_Termo::Write_mqtt_fs(void)
     memcpy(&Buff[n],(void *) &len, 1); n++;
     memcpy(&Buff[n],(void *) MQTT_devname, len);    n += len;
 
-    memcpy(&Buff[n],(void *) &MQTT_interval, sizeof(MQTT_interval));
-    n += sizeof(MQTT_interval);
-    memcpy(&Buff[n],(void *) &MQTT_port, sizeof(MQTT_port));
-    n += sizeof(MQTT_port);
+    WriteToBuff(MQTT_interval,Buff,n);
+    WriteToBuff(MQTT_port,Buff,n);
 
 #endif
 
@@ -908,8 +820,13 @@ extern unsigned short int _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts
     memcpy_P((void *)&MsgOut[50],(void *)(PGM_P)IDENTIFY_TEXT, l);
 
     MsgOut[50+l] = start_sts;	
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
+
     MsgOut[51+l] = rtc_get_reset_reason(0);	
     MsgOut[52+l] = rtc_get_reset_reason(1);
+#endif    
     MsgOut[53+l] = OTmemberCode;
 
     *((unsigned short int *) (&MsgOut[54+l])) = stsOT; 

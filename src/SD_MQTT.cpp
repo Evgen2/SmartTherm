@@ -41,6 +41,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 extern  SD_Termo SmOT;
 extern OpenTherm ot;
+extern int MQTTDebugInfo[15];
 
 /*******************************************************************************/
 //HADevice *pHAdevice;
@@ -335,7 +336,7 @@ extern unsigned int OTcount;
         return;
 
   if(SmOT.stsOT == 0)
-  { if(SmOT.CapabilitiesDetected == 0)
+  { if(SmOT.CapabilitiesDetected < 2 /*== 0 */)
         return;
     else
       SmOT.DetectCapabilities();
@@ -349,7 +350,7 @@ extern unsigned int OTcount;
    if(SmOT.useMQTT != 0x03) 
       return;
 
-  mqtt.max_time_use = 200;
+  mqtt.max_time_use = 300;
   mqtt.callback_at_maxtime = OTloop_callback;
   if(mqtt.ReconnectInterval < SmOT.MQTT_interval*1000)
       mqtt.ReconnectInterval = SmOT.MQTT_interval*1000;
@@ -448,7 +449,7 @@ extern unsigned int OTcount;
     { sensorBoilerRetT.setNameUniqueIdStr(SmOT.MQTT_topic,"Температура обратки", "RetT");
       sensorBoilerRetT.setAvailability(false);
       sensorBoilerRetT.setDeviceClass(temperature_str); 
-      sensorBoilerRetT.setUnitOfMeasurement("°C");
+      sensorBoilerRetT.setUnitOfMeasurement("°C");        
     }
 
     if(SmOT.Pressure_present)
@@ -615,7 +616,6 @@ extern unsigned int OTcount;
     numT_indoor.setMax( 50.);
     numT_indoor.onCommand(onNumberCommand);
 
-
     sensorPID_P.setAvailability(true);
     sensorPID_P.setNameUniqueIdStr(SmOT.MQTT_topic,"dP", "pid_dp");
     sensorPID_P.setDeviceClass(temperature_str); 
@@ -646,7 +646,6 @@ extern unsigned int OTcount;
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
 //    Serial_db.printf("sensorPID_U0 =%s\n", str);
-
     
     sensor_Eff_Mod.setAvailability(true);
     sensor_Eff_Mod.setNameUniqueIdStr(SmOT.MQTT_topic,"EffModH", "effmod_h");
@@ -673,20 +672,20 @@ extern unsigned int OTcount;
     }
 }
 
-
 void OnMQTTconnected(void)
 { 
   statemqtt = 1;
 
   time_t now = time(nullptr);
   Serial_db.printf("On MQTT_connected %d, stsMqtt (%d %d) %s", statemqtt, mqtt.getState(), mqtt._mqtt->state(),  ctime(&now) );
-
+  MQTTDebugInfo[0]++;
 }
 
 void OnMQTTdisconnected(void)
 { statemqtt = 0;
   time_t now = time(nullptr);
   Serial_db.printf("On MQTT_disconnected %d, stsMqtt (%d %d) %s", statemqtt, mqtt.getState(), mqtt._mqtt->state(),  ctime(&now) );
+  MQTTDebugInfo[1]++;
 }
 
 void mqtt_start(void)
@@ -712,8 +711,9 @@ void mqtt_loop(void)
 { char str[80];
 static int st_old = -2;
 static unsigned short n_disconnect = 0;  
+static int mstsold = -127;
 unsigned long  t00=0;
-int dt;
+int dt, msts;
 
 if(SmOT.stsMQTT == 0) 
 {  mqtt_setup();
@@ -731,16 +731,31 @@ bootSts = 12;
       }
       statemqtt = 1;
       state_mqtt = mqtt._mqtt->state();
+      msts = mqtt.getState();
+      if(msts != mstsold)
+      { int id;
+        mstsold = msts;
+        id = msts + 7;
+        if(id >1 && id < 14)
+          MQTTDebugInfo[id]++;
+      }
     } else {
 /* Если Wifi подключен, а MQTT не соединяется, увеличиваем mqtt.ReconnectInterval */      
-      { static int mstsold = -127;
-        int msts = mqtt.getState();
+      { 
+        msts = mqtt.getState();
         if(mstsold == HAMqtt::StateConnecting  && msts ==HAMqtt::StateConnectionFailed)
         { if(n_disconnect < 10)
             n_disconnect++;
           else
           {   mqtt.ReconnectInterval = SmOT.MQTT_interval*1000 *5;
           }
+        }
+        if(msts != mstsold)
+        { int id;
+          mstsold = msts;
+          id = msts + 7;
+          if(id >1 && id < 14)
+            MQTTDebugInfo[id]++;
         }
         mstsold = msts;
       }
@@ -836,6 +851,7 @@ bootSts = 14;
 /******************/          
           }
         }
+
         st_old = SmOT.stsOT;
         if(SmOT.stsT1 >= 0)
         {  
@@ -947,6 +963,7 @@ void MQTTsenddata(void)
 
   sprintf(str,"%.3f", SmOT.FlameModulation);
   sensorModulation.setValue(str);
+  
   if(SmOT.RetT_present)
   { sprintf(str,"%.3f", SmOT.RetT);
     sensorBoilerRetT.setValue(str);  

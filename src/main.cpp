@@ -1,4 +1,4 @@
-/* main.cpp */
+﻿/* main.cpp */
 // контроллер OpenTherm на ESP32 с измерением температуры
 // WiFi, Captive Portal, Web доступ, клиент-сервер (UDP или TCP), удалённый контроль
 // derived from OpenTherm lib by: Ihor Melnyk
@@ -22,7 +22,9 @@ typedef WebServer WEBServer;
 #include "SmartDevice.hpp"
 #include "SD_OpenTherm.hpp"
 
-#include "esp32/clk.h"
+#ifndef CONFIG_IDF_TARGET_ESP32C6
+ #include "esp32/clk.h"
+#endif
 #include "soc/rtc.h"
 
 /************************************/
@@ -73,8 +75,21 @@ char SmartDevice::LocalUrl[24] = "";
 
   const int DS1820_1 = D6; //
   const int DS1820_2 = D2; //
-
 #elif defined(ARDUINO_ARCH_ESP32)
+
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+  const int inPin = 15;  // OpenTherm master in RX2 esp32
+  const int outPin = 23;  // OpenTherm master out D4 esp32
+
+ #if ST_VERS == 2
+   const int inPinSlave  = 19; // OpenTherm slave in
+   const int outPinSlave = 18; // OpenTherm slave out
+ #endif
+
+  const int DS1820_1 = 0; //
+  const int DS1820_2 = 3; //
+  const int RelayPin = 20; //??
+#else
   const int inPin = 16;  // OpenTherm master in RX2 esp32
   const int outPin = 4;  // OpenTherm master out D4 esp32
 
@@ -86,6 +101,7 @@ char SmartDevice::LocalUrl[24] = "";
   const int DS1820_1 = 15; // D15 esp32  3 снизу
   const int DS1820_2 = 26; // D26 esp32  7 снизу
   const int RelayPin = 23;
+#endif
 
 #endif
 
@@ -174,8 +190,12 @@ void Led_Info_reset(int code)
 
 /*********** watchdog ******************/
 #include <esp_task_wdt.h>
-#include "soc/rtc_cntl_reg.h"
-#include "soc/rtc_wdt.h"
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
+ #include "soc/rtc_cntl_reg.h"
+ #include "soc/rtc_wdt.h"
+#endif
 
 #define WDT_TIMEOUT 20 // Timeout in seconds
 // Define WTC Watchdog Timer in milliseconds
@@ -184,10 +204,13 @@ void Led_Info_reset(int code)
 void watchdog_setup(void)
 {
 //wdt  
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
   // Deinitialize the default watchdog (if enabled by default)
   esp_task_wdt_deinit();
   // Initialize the Task Watchdog
-  esp_err_t err = esp_task_wdt_init(WDT_TIMEOUT, true);
+    esp_err_t err = esp_task_wdt_init(WDT_TIMEOUT, true);
   if (err != ESP_OK) {
     Serial_db.printf("WDT Init failed: %s\n", esp_err_to_name(err));
     return;
@@ -196,23 +219,31 @@ void watchdog_setup(void)
   // Add the current task (Arduino loop) to the watchdog watch list
   esp_task_wdt_add(NULL); 
   Serial_db.printf("Watchdog Timeout set to: %d seconds\n", WDT_TIMEOUT);
-
+#endif
 //rtc_wdt
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
   rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC); // Set action on timeout
   rtc_wdt_set_time(RTC_WDT_STAGE0, RTC_WDT_TIME_MS ); // Set timeout to WDT_TIMEOUT seconds + 100 ьы
   rtc_wdt_enable(); // Start the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
   Serial_db.printf("RTC Watchdog Timeout set to: %d ms\n", RTC_WDT_TIME_MS);
+#endif  
 }
 
 void onOTAstart(void)
 { //Serial.println("OTA started");
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
   rtc_wdt_disable(); // stop the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
+#endif  
 }
 
 void exitOTAError(uint8_t err) {
@@ -227,13 +258,22 @@ void Watchdogsreset(void)
   if(t1 - t0 < 5000) //5 sec
       return;
   t0 = t1;
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
+
   esp_task_wdt_reset();
-  rtc_wdt_feed();         
+  rtc_wdt_feed(); 
+#endif          
 }
 
 /*****************************/
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+ #include "esp32c6/rom/rtc.h"
+#else
+ #include "esp32/rom/rtc.h"
+#endif
 
-#include "esp32/rom/rtc.h"
 //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
 /*
 1:	Vbat power on reset
@@ -283,11 +323,17 @@ void set_rtc_flag(int sts)
 
 
 void setup() {
+
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+  LedSts = 0;
+#else
   uint32_t brown_reg_temp = READ_PERI_REG(RTC_CNTL_BROWN_OUT_REG); //save brownout register
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector  
+  LedSts = 1;
+#endif
 
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
-  LedSts = 1;
   digitalWrite(LED_BUILTIN, LedSts);   // Turn the LED on (Note that LOW is the voltage level
 
   Serial.begin(115200);
@@ -306,6 +352,8 @@ void setup() {
   watchdog_setup();
 
   Serial.printf("SmOT.useCPU_freq %d remote control %d\n", SmOT.useCPU_freq, SmOT.Use_remoteTCPserver);
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+#else
   if(SmOT.useCPU_freq > 0)
   { int v = 80;
     if(SmOT.useCPU_freq == 1) v = 160;
@@ -313,6 +361,7 @@ void setup() {
 
     Serial.printf("Set CPU Freq to %d\n", v);
   }
+#endif  
   SmOT.RelayInit();
 /*******************************************/
   SmOT.planner_setup();
@@ -354,7 +403,11 @@ void setup() {
 #endif	
 	Serial_db.printf("Use remote server %d remoteIP: %s\n",  SmOT.Use_remoteTCPserver, SmOT.tcp_remoteIP.toString().c_str());
 
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+#else
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, brown_reg_temp); //enable brownout detector  
+#endif  
 }
 
 
@@ -454,6 +507,12 @@ void loopDS1820(void)
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
+          } else if (t == DEVICE_POR_ERROR || t == DEVICE_GND_ERROR) {
+            SmOT.stsT1 = 2;
+            SmOT.statusDS18b20 |= 0x10;
+#if SERIAL_DEBUG 
+            Serial.printf("ERROR: DS1 error %f\n", t);
+#endif            
           } else {
             SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
             if(SmOT.stsT1 == 1)
@@ -467,7 +526,6 @@ void loopDS1820(void)
           oneWire1.depower();
 //            Serial_db.printf("SmOT T1= %f\n",   SmOT.t1);
           }
-          SmOT.statusDS18b20 &= ~0x04;
           nd = 2;
         }
         break;
@@ -514,6 +572,12 @@ void loopDS1820(void)
       #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
+          } else if (t == DEVICE_POR_ERROR || t == DEVICE_GND_ERROR) {
+            SmOT.stsT2 = 2;
+            SmOT.statusDS18b20 |= 0x1000;
+#if SERIAL_DEBUG 
+            Serial.printf("ERROR: DS2 error %f\n", t);
+#endif            
           } else {
             SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
 
@@ -524,8 +588,6 @@ void loopDS1820(void)
             SmOT.stsT2 = 1;
             SmOT.OnChangeT(t,1);    
           oneWire2.depower(); //??
-
-//            Serial.printf("%f\n",   t);
 //            Serial_db.printf("SmOT T2= %f\n",   SmOT.t2);
           }
           nd = 0;
@@ -1110,6 +1172,15 @@ unsigned int SD_Termo::buildRequest(int ot_id)
   {
 /**************************/
     case OpenThermMessageID::Status: // 0 запрос статуса
+
+#if ST_VERS == 2
+    if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1) && (SmOT.ot_slave_stsOT == 0))
+    {   extern volatile uint16_t ot_SlaveMasterStatus;
+	     request  = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::Status, (unsigned int) (ot_SlaveMasterStatus<<8));
+       BoilerStatusRequest = request;
+        break;
+    }
+#endif
     
 #if PID_USE
       if(!usePID)
@@ -1491,6 +1562,7 @@ void loop_LED(void)
         if(SmOT.stsOT > 0) wt = 1000;
         if(dt >= wt)
         { LedSts = (LedSts+1)&0x01;
+
           digitalWrite(LED_BUILTIN, LedSts);   
           //t0 = t;
           t0 += wt;
@@ -1548,8 +1620,10 @@ static int mday_prev = 0;
 //watchdogs reset    
   Watchdogsreset();  
 /**************************/  
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+#else
   ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
-
+#endif
 /*******************************/
  nowtime = localtime(&prev);
   year_prev = nowtime ->tm_year;
@@ -1576,10 +1650,13 @@ static int mday_prev = 0;
   if(SmOT.enable_CentralHeating)
   {
 #if ST_VERS == 2
+    int mode = 1;
     if(!(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1 && SmOT.ot_slave_stsOT == 0))
-      SmOT.loop_PID();
+      mode = 0;
+
+    SmOT.loop_PID(mode);
 #else
-      SmOT.loop_PID();
+      SmOT.loop_PID(0);
 #endif 
   }  
 #endif

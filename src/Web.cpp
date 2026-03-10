@@ -47,6 +47,7 @@ extern OpenTherm ot;
 
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
+int MQTTDebugInfo[15] ={0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
 
@@ -241,8 +242,6 @@ void loop_web(void);
 void onRoot(void);
 void onConnect(IPAddress& ipaddr);
 #if MQTT_USE
-  extern void mqtt_setup(void);
-//  extern void mqtt_loop(void);
   extern void mqtt_start(void);
   extern int MQTT_pub_usePID(void);
 #endif
@@ -403,6 +402,10 @@ void setup_web_common(void)
     }
 //    Serial_db.printf("MAC: %02x %02x %02x %02x %02x %02x\n",SmOT.Mac[0],SmOT.Mac[1],SmOT.Mac[2],SmOT.Mac[3],SmOT.Mac[4],SmOT.Mac[5]);
 #elif defined(ARDUINO_ARCH_ESP32)
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+//todo
+        esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
+#else
     if(WiFi.getMode() == WIFI_MODE_NULL){
         esp_read_mac(SmOT.Mac, ESP_MAC_WIFI_STA);
 //      Serial_db.printf( "2 MAC NULL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
@@ -411,6 +414,7 @@ void setup_web_common(void)
         esp_wifi_get_mac(WIFI_IF_STA, SmOT.Mac);
 //      Serial_db.printf( "2 MACL %02x %02x %02x %02x %02x %02x\n", SmOT.Mac[0], SmOT.Mac[1], SmOT.Mac[2], SmOT.Mac[3], SmOT.Mac[4], SmOT.Mac[5]);
     }  
+#endif    
 #endif //
 //  Serial_db.printf("(20) %d\n", millis());
 
@@ -512,7 +516,11 @@ void onRoot() {
   WiFiWebServer&  webServer = portal.host();
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  webServer.client().clear();
+#else
   webServer.client().flush();
+#endif  
   webServer.client().stop();
 }
 
@@ -521,7 +529,11 @@ int WiFists = -1;
 
 int OutUTCtime(time_t now);
 
-#include "esp32/rom/rtc.h"
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+  #include "esp32c6/rom/rtc.h"
+#else 
+  #include "esp32/rom/rtc.h"
+#endif  
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  char str[256];
@@ -542,7 +554,7 @@ extern int minRamFree;
       Info3.value = str;
    } else 
       Info3.value = "";
-   sprintf(str,(PGM_P)F("OpenTherm statistics:<br>%d %d  %d %d  % d %d  %d %d  %d %d  %d"), 
+   sprintf(str,(PGM_P)F("OpenTherm statistics:<br>%d %d  %d %d  %d %d  %d %d  %d %d  %d"), 
       OTDebugInfo[0], OTDebugInfo[1], OTDebugInfo[2], OTDebugInfo[3], OTDebugInfo[4], OTDebugInfo[5], OTDebugInfo[6],OTDebugInfo[7], OTDebugInfo[8],OTDebugInfo[9], OTDebugInfo[10]);
    //l = strlen(str);
    //Serial_db.printf("4 l=%d\n", l);
@@ -555,7 +567,6 @@ extern int minRamFree;
       OTslaveDebugInfo[0], OTslaveDebugInfo[1], OTslaveDebugInfo[2], OTslaveDebugInfo[3], OTslaveDebugInfo[4]);
       Info4.value += str;
     }
-
 #endif      
 
   sprintf(str,(PGM_P)F("min free RAM %d"), minRamFree);
@@ -570,7 +581,6 @@ extern int minRamFree;
 
     Info5.value += (PGM_P)F("<br>Время:");
     Info5.value += utc_time_jc;
-
   }
 
    snprintf(str,sizeof(str),(PGM_P)F("Вкл горелки:<br>Всего %d<br>За час %d<br>Пред.час %d<br>Сутки %d<br>Пред.сутки %d"), 
@@ -596,7 +606,6 @@ extern int minRamFree;
 { extern char tmpDebugstr[128];
       Info6.value += "<br>";
       Info6.value += tmpDebugstr;
-
 }
       sprintf(str,"<br>RoomSetpoint change src %d from %f to %f at ", 
       SmOT.src_lastSetPointChange, SmOT.oldTroomSetpoint, SmOT.mypid.xTag); 
@@ -608,7 +617,6 @@ extern int minRamFree;
 
       strftime(str, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
       str[25] = 0;
-
 }
 
       Info6.value += str;
@@ -616,7 +624,6 @@ extern int minRamFree;
 
     }
 #endif   
- 
   
   //https://docs.espressif.com/projects/arduino-esp32/en/latest/api/reset_reason.html
       sprintf(str,"reset reason: %d %d (%d %d %d %d %d|%d)", rtc_get_reset_reason(0), rtc_get_reset_reason(1), 
@@ -624,7 +631,12 @@ extern int minRamFree;
 
   Info7.value = str;
 #if MQTT_USE
-  sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
+//  sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
+
+   sprintf(str,(PGM_P)F("<br>MQTT statistics:<br>%d %d  %d %d  %d %d  %d %d  %d %d  %d %d %d"), 
+      MQTTDebugInfo[0], MQTTDebugInfo[1], MQTTDebugInfo[2], MQTTDebugInfo[3], MQTTDebugInfo[4], MQTTDebugInfo[5], MQTTDebugInfo[6],
+      MQTTDebugInfo[7], MQTTDebugInfo[8],MQTTDebugInfo[9], MQTTDebugInfo[10], MQTTDebugInfo[11], MQTTDebugInfo[12]);
+
   Info7.value += str;
 #endif
 
@@ -772,7 +784,6 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       isChange = 1;
     }
   } 
-
 
 #if MQTT_USE
   int isChangeMQTT = 0;
@@ -1844,8 +1855,6 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   else 
     UsePIDPWM.checked = false;
 
-
-
   Info1.value = "<small>Источник: -1=n/a, 0/1=T1/T2";
   if(SmOT.Toutside_present)
       Info1.value += ", 2=Text";
@@ -1901,7 +1910,6 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
 
   sprintf(str0,"%d",SmOT.PID_PWMperiod);
   PWM_T_PID.value = str0;
-
   
   //Info3.value = "";
   Info4.value = "";
@@ -1909,7 +1917,6 @@ String onSetupPID(AutoConnectAux& aux, PageArgument& args)
   Info6.value = "";
 
   return String();
-
 }
 
 #endif
@@ -2068,8 +2075,7 @@ _t0 = millis();
   rc = WiFi.status();
   { static int oldstatus=-1, oldmode=-1, needStopAP=0 ;
     static long t0 = 0;
-    int mode = WiFi.getMode();
-    int ch = WiFi.channel();
+    int mode; // = WiFi.getMode();
 
  bootSts1 = 2;
 
@@ -2095,22 +2101,8 @@ _t0 = millis();
  bootSts1 = 4;
             Serial_db.printf("crasy state detected\n");
   ST_setCpuFrequencyMhz(SmOT.useCPU_freq);
-/*
-            if(SmOT.useCPU_freq == 0 ) //??
-              setCpuFrequencyMhz(160);
-            else 
-              setCpuFrequencyMhz(240);
-            delay(10);
 
-            if(SmOT.useCPU_freq  == 0) 
-              setCpuFrequencyMhz(240);
-            else  if(SmOT.useCPU_freq  == 1) 
-              setCpuFrequencyMhz(160);
-            else
-              setCpuFrequencyMhz(80);
-            delay(10);
-*/            
- bootSts1 = 5;
+  bootSts1 = 5;
 
             Serial_db.printf("crasy state %d setCpuFrequencyMhz %d\n", SmOT.CrasyState_count, getCpuFrequencyMhz() );
             SmOT.CrasyState_count++; 
@@ -2127,9 +2119,11 @@ _t0 = millis();
     if((millis()-_t0) > 400 )
       Serial_db.printf("loop_web (1) dt=%ld\n", millis()-_t0);
 
+    mode = WiFi.getMode(); 
+    
     if((rc != oldstatus) || mode != oldmode)
     {
-        Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, ch, millis());
+        Serial_db.printf("WiFi: status=%d (%d) mode = %d chanel=%d  (%d)\n", rc, oldstatus, mode, WiFi.channel(), millis());
         if(rc == WL_IDLE_STATUS)
         {  Serial_db.printf("WiFi Idle: t %d stsOT %d\n", millis(), SmOT.stsOT);
 
@@ -2306,7 +2300,7 @@ void setup_read_config(void)
   if(b == false)
   {   Serial.println(F("FlashFS.begin failed"));
   }
-   
+
   SmOT.Read_ot_fs();
 //  SmOT.Read_mqtt_fs();
   SmOT.init(1);

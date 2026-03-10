@@ -479,7 +479,7 @@ public:
   void OnChangeT(float t, int src);
   void OnOpenThermRestore(void);
 #if PID_USE
-  void loop_PID(void);
+  void loop_PID(int mode);
   void loop_mean(void); //получаем средние значения для используемых температур
   int loop_pid_gettemp(int &_start); //получаем значения tindoor и toutdoor
   void set_new_PID_setpoint(float Tsetpoint, int src);

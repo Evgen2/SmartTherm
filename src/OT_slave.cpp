@@ -37,6 +37,7 @@ void LogOT(int code, byte id, int messagetype, unsigned int u88);
 volatile int ot_SlaveSts = 0;
 volatile unsigned long ot_SlaveResponse = 0; 
 volatile unsigned long ot_SlaveRequest = 0; 
+volatile uint16_t ot_SlaveMasterStatus = 0;
 unsigned long ot_SlaveRequest_ms = 0;
 int OT_slaveloop(void);
 int setup_ot_slave(void);
@@ -147,6 +148,19 @@ static int timeOutcounter = 0;
 
    switch(id)
    { 
+/*  HB: Master status 
+    bit: description [ clear/0, set/1]
+0: CH enable [ CH is disabled, CH is enabled]
+1: DHW enable [ DHW is disabled, DHW is enabled]
+*/
+      case OpenThermMessageID::Status:  //0
+      {
+        uint16_t u88;
+        u88 = (request & 0xffff);
+        ot_SlaveMasterStatus =  u88>>8;
+
+      }
+            break;
       case OpenThermMessageID::TSet:  // 1 W
         SmOT.Tset = t;
             break;

@@ -150,7 +150,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    if (InT * xerr < 0.f)
    { // more dissipation on different signs of InT and xerr
       if(fabs(xerr) < 1.f)
-          _Kidiss *= 2.f * fast_sqrt(fabs(xerr));
+          _Kidiss *= fast_sqrt(fabs(xerr));
       else
          _Kidiss *= 2.f * fabs(xerr);
    } else if (fabs(xerr) < 1.f) {
