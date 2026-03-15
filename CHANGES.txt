@@ -1,6 +1,10 @@
+0.8.5.19
+* update used libs: arduino-home-assistant to v.2.1.2, PubSubClient to v. 2.8.2
+ It fix problems with slow MQTT connection
+
 0.8.5.18
 * support Arduino 3.x
-* support for esp32C6 (patial)
+* support for esp32C6 (partial)
 * Code cleanup at read/write config
 * ST2 bugfix
 * DS18B20 update to RobTillaart/DS18B20_RT v 0.2.6

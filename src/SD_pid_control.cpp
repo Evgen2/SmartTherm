@@ -182,7 +182,7 @@ void SD_Termo::loop_PID(int mode)
                 r = dt/ float(smooth_increase_temp_t);
                 _uu = _u * r +  _ustart  * (1-r); // корректируем уставку температуры
 
-    Serial_db.printf("==>PID smooth_increase t %d r %g, _uu %g  _u %g  _ustart %g\n", smooth_increase_temp_t, r, _uu, _u, _ustart); 
+//    Serial_db.printf("==>PID smooth_increase t %d r %g, _uu %g  _u %g  _ustart %g\n", smooth_increase_temp_t, r, _uu, _u, _ustart); 
 
             }
             if(BoilerT > _uu) //однако, если температура  теплоносителя уже достигла заданного значения

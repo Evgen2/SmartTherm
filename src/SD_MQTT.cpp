@@ -35,7 +35,8 @@ void MQTT_pub_relay(void);
 #if ST_VERS == 2
 int  MQTT_pub_Panel(int on);
 #endif
-extern void OTloop_callback(void);
+
+extern void loop_callback(int src);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -350,8 +351,8 @@ extern unsigned int OTcount;
    if(SmOT.useMQTT != 0x03) 
       return;
 
-  mqtt.max_time_use = 300;
-  mqtt.callback_at_maxtime = OTloop_callback;
+  mqtt.set_callback_loop(loop_callback);
+
   if(mqtt.ReconnectInterval < SmOT.MQTT_interval*1000)
       mqtt.ReconnectInterval = SmOT.MQTT_interval*1000;
       
@@ -659,7 +660,7 @@ extern unsigned int OTcount;
     mqtt.onConnected(OnMQTTconnected);
     mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
-    mqtt._mqtt->setSocketTimeout(2); 
+//??    mqtt._mqtt->setSocketTimeout(2); 
     espClient.setTimeout(2); //minimal timeout for WiFiClient class - 2 sec
 
 //    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
@@ -695,7 +696,11 @@ void mqtt_start(void)
   {   mqtt_setup();
   } else {
     int rc;
-    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    if(mqtt.isConnected())
+    { mqtt.disconnect();
+      delay(10);
+    }
+    rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
     { Serial_db.printf("(1) mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
       SmOT.stsMQTT = 2;

@@ -1391,7 +1391,26 @@ void OTloop_callback(void)
           loop_time();
 } 
 
+void loop_callback(int src)
+{ static unsigned long int t0 = 0;
+  unsigned long int t; 
+  const unsigned int max_time_use = 300;
+  unsigned int dt;
 
+  t = millis();
+  dt = t - t0;
+  if(dt > max_time_use)
+  {
+    if( OTloop() ) 
+       OTloopUpdate_t0 = millis();
+    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
+    loop_LED();
+    loop_time();
+    t0  = millis();
+  }
+}
+
+  
 void loop(void)
 {   
     unsigned long t;
