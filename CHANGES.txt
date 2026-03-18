@@ -1,3 +1,13 @@
+0.8.4.12
+* update used libs: arduino-home-assistant to v.2.1.2, PubSubClient to v. 2.8.2
+ It fix problems with slow MQTT connection
+* DS18B20 update to RobTillaart/DS18B20_RT v 0.2.6
+* add MQTT statistic at Debug page
+* support DHWFlowRate, add MQTT sensor
+* add MQTT sensor for control panel on slave OT interface (ST2)
+* fix for ST2, read-only mode for control panel
+* PID: more adequate behavior of integral with adaptive Kdiss  
+
 0.8.4.11
 * PID, OT log changes
 * base temperature for OTC (Outside Temperature Compensation) 

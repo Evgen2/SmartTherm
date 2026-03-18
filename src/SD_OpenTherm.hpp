@@ -127,6 +127,7 @@ public:
   bool Tstorage_present; // ID29
   bool MaxRelModLevel_present; // ID14  MaxRelModLevelSetting 
   bool RemoteRequest_present; // ID4 present, can be used for BLOR = Boiler Lock-out Reset  
+  bool DHWFlowRate_present; // ID19 DHWFlowRate 
 #if RELAY_USE  
   bool Relay_present; //Relay present and use
   bool Relay_init_sts; //Relay state at start
@@ -146,6 +147,8 @@ public:
   float Tset2;   // Control setpoint for 2e CH circuit (°C)
   float Tset2_r; // Temp2 set from responce
 	float MaxTSet; // f8.8  Max CH water setpoint (°C) (Remote parameters 2) ID57
+  float MaxTSetUB; // 49 MaxTSetUBMaxTSetLB:  Max CH water Setpoint upper & lower bounds for adjustment(°C)
+  float MaxTSetLB; // -- // --
 
   float BoilerT; // Boiler flow water temperature (°C) CH
   float BoilerT2; // Boiler CH2 water temperature (°C) CH
@@ -158,6 +161,7 @@ public:
   float FlameModulation; //Relative Modulation Level (%)
   float Pressure; // Water pressure in CH circuit  (bar)
   float MaxRelModLevelSetting; // if MaxRelModLevel_present + need_set_MaxRelModLevel
+  float DHWFlowRate; // ID19 Water flow rate in DHW circuit. (litres / minute)
   unsigned int MaxCapacity;
   unsigned int MinModLevel;
   unsigned int Fault;
@@ -173,6 +177,7 @@ public:
   byte need_send_Blor;
   byte need_set_MaxTSet;
   byte need_write_f; 
+  byte need_report_MQTT_panel; 
   unsigned long t_need_write_config;
 
   int TestCmd;
@@ -247,6 +252,7 @@ public:
   int  src_lastSetPointChange;
   float oldTroomSetpoint; 
   float umin; //минимальная температура теплоносителя
+  float MinCHtemp; //минимум температуры теплоносителя 
   float umax; //максимальная температура теплоносителя
   int useCPU_freq; //0 =240, 1=160, 2=80
 
@@ -276,6 +282,7 @@ public:
     enable_CentralHeating2 = false;
     MaxRelModLevel_present = false;
     RemoteRequest_present  = false; 
+    DHWFlowRate_present = false; // ID19 DHWFlowRate 
 
     CapabilitiesDetected = 0;
 
@@ -304,6 +311,7 @@ public:
 /********************************/      
       need_write_f = 0;
       t_need_write_config = 0;
+      need_report_MQTT_panel = 0;
       RetT = 0.;
       dhw_t = 0.;
       Toutside = 0.;
@@ -311,6 +319,7 @@ public:
       Tstorage = 0.;
       FlameModulation = 0.;
       Pressure = 0.;
+      DHWFlowRate = 0.; 
       MaxRelModLevelSetting = 100.;
       MaxCapacity = MinModLevel = 0;
       Fault = 0;
@@ -357,8 +366,11 @@ public:
       CH_StartGist = 10.f;
       Use_MaxRelModLevel = 0;
       umin = 40;
+      MinCHtemp = MIN_CH_TEMP; 
       umax = 80;
-      MaxTSet = umax;
+      MaxTSet = MAX_CH_TEMP;
+      MaxTSetUB = MAX_CH_TEMP;
+      MaxTSetLB = umin;
     start_sts = 1;
     oldTroomSetpoint = 0.;
     src_lastSetPointChange = -1;

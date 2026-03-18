@@ -46,6 +46,7 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
+int MQTTDebugInfo[15] ={0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0};
 extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
 
@@ -607,6 +608,16 @@ extern int minRamFree;
           _bootCount, _bootReason, _bootSts, _bootSts1, _bootSts2, bootSts2);
 
   Info7.value = str;
+#if MQTT_USE
+//  sprintf(str,"<br>stsMQTTcfg %d useMQTT %d stsMQTT %d", SmOT.stsMQTTcfg, SmOT.useMQTT, SmOT.stsMQTT );
+
+   sprintf(str,(PGM_P)F("<br>MQTT statistics:<br>%d %d  %d %d  %d %d  %d %d  %d %d  %d %d %d"), 
+      MQTTDebugInfo[0], MQTTDebugInfo[1], MQTTDebugInfo[2], MQTTDebugInfo[3], MQTTDebugInfo[4], MQTTDebugInfo[5], MQTTDebugInfo[6],
+      MQTTDebugInfo[7], MQTTDebugInfo[8],MQTTDebugInfo[9], MQTTDebugInfo[10], MQTTDebugInfo[11], MQTTDebugInfo[12]);
+
+  Info7.value += str;
+#endif
+
 #if 0   
    {  int i;
       extern char ot_data_used[60];
@@ -1264,6 +1275,10 @@ if(SmOT.useMQTT)
       } else  if(SmOT.HotWater_present) {
          if(SmOT.enable_HotWater && ot.OTid_used(OpenThermMessageID::Tdhw))
             Info2.value +=  " Горячая вода " + String(SmOT.dhw_t);
+          if(SmOT.DHWFlowRate_present && SmOT.DHWFlowRate > 0.f)
+          {
+              Info2.value += " Расход "  + String(SmOT.DHWFlowRate);
+          }
       }
 
       Info2.value += "<br>";
@@ -1926,7 +1941,7 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
   if (WiFi.status() == WL_CONNECTED)
   {   Info3.value = "<a href=";
       Info3.value += SM_OT_HomePage;
-      Info3.value += F(">Поддрержка проекта</a>\n");
+      Info3.value += F(">Поддержка проекта</a>\n");
   } else 
     Info3.value ="";
     

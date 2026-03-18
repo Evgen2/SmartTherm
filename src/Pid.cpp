@@ -5,6 +5,8 @@
 #if PID_USE
 #include "pid.hpp"
 
+float fast_sqrt(float x);
+
 float  safeFloat(float v) 
 { return (isnan(v) || isinf(v)) ? 0.0f : v; };
 
@@ -105,18 +107,22 @@ void pid::Init_I(float _x)
 
    _Kidiss = Kidiss;
 
-   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
-   {   _Kidiss *= 2.f;
-      if(fabs(InT* Ki) > 80.f)   
-         _Kidiss *= 4.f;  
+   if (InT * xerr < 0.f)
+   { // more dissipation on different signs of InT and xerr
+      if(fabs(xerr) < 1.f)
+          _Kidiss *= fast_sqrt(fabs(xerr));
+      else
+         _Kidiss *= 2.f * fabs(xerr);
+   } else if (fabs(xerr) < 1.f) {
+      _Kidiss *= xerr * fast_sqrt(fabs(xerr));
    }
 
-   if(fabs(xerr) < 1.f)              //Kidiss magic, part 2:
-   {  _Kidiss = Kidiss* fabs(xerr);  //Limit to zero dissipation of the integral with small xerr
-   }
-   else if (InT * xerr < 0.f)
-   { // more dissipation on different signs of InT and xerr
-      _Kidiss *= 2.f * fabs(xerr);
+   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
+   {  _Kidiss *= 2.f;
+      if(fabs(InT* Ki) > 80.f)   
+         _Kidiss *= 4.f;  
+      if (InT * xerr < 0.f)
+         _Kidiss *= 2.f;  
    }
 
    dtf = float(dt) / 1000.f; // dt, sec
@@ -367,5 +373,23 @@ int MatrixInvert(int n, float A[N_X][N_X], float Out[N_X][N_X])
    }
    return 0;
 }
+
+union {
+    float f;
+    int i;
+} pun;
+
+//https://github.com/itchyny/fastinvsqrt
+//about 13.6 times faster than sqrtf in esp32
+float fast_sqrt(float x)
+{
+    float xhalf = 0.5f * x;
+    pun.f = x;
+    pun.i = 0x5f3759df - (pun.i >> 1);    
+    float y = pun.f;
+    y = y * (1.5f - xhalf * y * y); // One Newton-Raphson iteration
+    return x * y;                 // sqrt(x) = x * (1/sqrt(x))
+}
+
 
 #endif //PID_USE

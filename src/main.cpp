@@ -360,11 +360,11 @@ void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
  //  Serial.println(DS18B20_LIB_VERSION);
 
-  SmOT.status = 0x0;
+  SmOT.statusDS18b20 = 0x0;
 
   if(Tsensor1.begin() == false)
   {   SmOT.stsT1 = -1;
-      SmOT.status |= 0x02;
+      SmOT.statusDS18b20 |= 0x02;
       Serial.printf((PGM_P)F("ERROR: No DS18b20(1) found on pin %i\n"), DS1820_1);
       delay(100);
       if(Tsensor1.begin() )
@@ -374,7 +374,7 @@ void setupDS1820(void)
 
   }  else {
 M1:      SmOT.stsT1 = 0;
-      SmOT.status |= 0x01;
+      SmOT.statusDS18b20 |= 0x01;
 
       Tsensor1.setResolution(12);
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
@@ -383,7 +383,7 @@ M1:      SmOT.stsT1 = 0;
 
   if(Tsensor2.begin() == false)
   {   SmOT.stsT2 = -1;
-      SmOT.status |= 0x0200;
+      SmOT.statusDS18b20|= 0x0200;
       Serial.printf((PGM_P)F("ERROR: No DS18b20(2) found on pin %i\n"), DS1820_2);
       delay(100);
       if(Tsensor2.begin() )
@@ -393,7 +393,7 @@ M1:      SmOT.stsT1 = 0;
 
   }  else {
 M2:   SmOT.stsT2 = 0;
-      SmOT.status |= 0x0100;
+      SmOT.statusDS18b20 |= 0x0100;
       Tsensor2.setResolution(12);
       Tsensor2.setConfig(DS18B20_CRC);  // or 1
       Serial.printf((PGM_P)F("DS18b20(2) found on pin %i\n"), DS1820_2);
@@ -409,7 +409,7 @@ void loopDS1820(void)
 //  Serial.printf("loopDS1820 nd %i %li\n", nd, millis());
   switch(nd)
   {   case 0:
-        if(SmOT.status&0x01)
+        if(SmOT.statusDS18b20&0x01)
         { Tsensor1.requestTemperatures();
           nd = 1;
           start = millis();
@@ -421,7 +421,7 @@ void loopDS1820(void)
         if(millis()-start > 900)
         {   rc = Tsensor1.isConversionComplete();
             if(!rc)
-            { SmOT.status |= 0x04;
+            { SmOT.statusDS18b20 |= 0x04;
               nd = 2;
 #if SERIAL_DEBUG 
               Serial.println(F("ERROR: DS1 timeout or disconnect"));
@@ -433,15 +433,27 @@ void loopDS1820(void)
         }
         if(rc)
         { t = Tsensor1.getTempC();
-          SmOT.status &= ~0x04; // сброс бита таймаута
-          if (t == DEVICE_CRC_ERROR || t == DEVICE_DISCONNECTED)
-          { SmOT.stsT1 = 2;
-            SmOT.status |= 0x10;
+          SmOT.statusDS18b20 &= ~0x04; // сброс бита таймаута
+          if (t ==  DEVICE_DISCONNECTED)
+          { SmOT.stsT1 = 4;
+            SmOT.statusDS18b20|= 0x20;
+#if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS1 Disconnected"));
+#endif            
+          } else if (t == DEVICE_CRC_ERROR) {
+            SmOT.stsT1 = 2;
+            SmOT.statusDS18b20 |= 0x10;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
+          } else if (t == DEVICE_POR_ERROR || t == DEVICE_GND_ERROR) {
+            SmOT.stsT1 = 2;
+            SmOT.statusDS18b20 |= 0x10;
+#if SERIAL_DEBUG 
+            Serial.printf(F("ERROR: DS1 error %d\n"), t);
+#endif            
           } else {
-            SmOT.status &= ~0x10; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
@@ -450,13 +462,13 @@ void loopDS1820(void)
             SmOT.OnChangeT(t,0);    
 //            Serial.printf("SmOT T1= %f\n",   SmOT.t1);
           }
-          SmOT.status &= ~0x04;
+          SmOT.statusDS18b20 &= ~0x04;
           nd = 2;
         }
         break;
 
       case 2:
-        if(SmOT.status&0x0100)
+        if(SmOT.statusDS18b20&0x0100)
         { Tsensor2.requestTemperatures();
           nd = 3;
           start = millis();
@@ -469,7 +481,7 @@ void loopDS1820(void)
         if(millis()-start > 900) //900
         { rc = Tsensor2.isConversionComplete();
           if(!rc)
-          { SmOT.status |= 0x0400;
+          { SmOT.statusDS18b20|= 0x0400; //бит таймаута
             nd = 0;
 #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 timeout or disconnect"));
@@ -480,17 +492,29 @@ void loopDS1820(void)
           rc = Tsensor2.isConversionComplete();
         }
         if(rc)
-        {  SmOT.status &= ~0x0400; // сброс бита таймаута
+        {  SmOT.statusDS18b20 &= ~0x0400; // сброс бита таймаута
 
           t = Tsensor2.getTempC();
-          if (t == DEVICE_CRC_ERROR || t == DEVICE_DISCONNECTED)
-          { SmOT.stsT2 = 2;
-            SmOT.status |= 0x1000;
+          if (t ==  DEVICE_DISCONNECTED)
+          { SmOT.stsT2 = 4;
+            SmOT.statusDS18b20 |= 0x2000;
+      #if SERIAL_DEBUG 
+            Serial.println(F("ERROR: DS2 Disconnected"));
+      #endif            
+          } else  if (t == DEVICE_CRC_ERROR)  {
+            SmOT.stsT2 = 2;
+            SmOT.statusDS18b20 |= 0x1000;
       #if SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
+          } else if (t == DEVICE_POR_ERROR || t == DEVICE_GND_ERROR) {
+            SmOT.stsT2 = 2;
+            SmOT.statusDS18b20 |= 0x1000;
+#if SERIAL_DEBUG 
+            Serial.printf(F("ERROR: DS2 error %d\n"), t);
+#endif            
           } else {
-            SmOT.status &= ~0x1000; // сброс бита CRC error
+            SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
 
             if(SmOT.stsT2 == 1)
                 SmOT.t2 = (SmOT.t2 + t) * 0.5;
@@ -877,6 +901,11 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::CHPressure: //18 Water pressure in CH circuit
         SmOT.Pressure = t;
+        break;
+
+    case OpenThermMessageID::DHWFlowRate: //19 Water flow rate in DHW circuit. (litres / minute)
+      SmOT.DHWFlowRate = t;
+//      Serial.printf("DHWFlowRate=%g\n", t);
         break;
 
     case OpenThermMessageID::OEMDiagnosticCode: //115
@@ -1356,8 +1385,22 @@ M0:
           break;
         }
 
-      case 13: //getFault flags
- //Serial.printf("13 Request: %d\n",OpenThermMessageID::ASFflags);
+      case 13: // DHWFlowRate
+        st++;
+
+// Serial.printf("13 Request: %d %d %d %x %g\n",OpenThermMessageID::DHWFlowRate, 
+// ot.OTid_used(OpenThermMessageID::DHWFlowRate), SmOT.HotWater_present, (SmOT.BoilerStatus & 0x04), SmOT.DHWFlowRate);
+        if(ot.OTid_used(OpenThermMessageID::DHWFlowRate) && SmOT.HotWater_present &&
+             ((SmOT.BoilerStatus & 0x04) || SmOT.DHWFlowRate > 0.f) )
+        {
+          request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::DHWFlowRate, 0); //19
+        }  else {
+              goto M0;
+        }
+        break;
+
+      case 14: //getFault flags
+ //Serial.printf("14 Request: %d\n",OpenThermMessageID::ASFflags);
         st++;
           if(ot.OTid_used(OpenThermMessageID::ASFflags)) 
           {
@@ -1371,7 +1414,7 @@ M0:
             break;
           }
 
-      case 14: //getFault code
+      case 15: //getFault code
         st = 0;
           if(ot.OTid_used(OpenThermMessageID::OEMDiagnosticCode)) 
           {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::OEMDiagnosticCode, 0);
@@ -1403,15 +1446,19 @@ int OTloop(void)
     int rc = 0;
 
 #if ST_VERS == 2
-  if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
-  { if(SmOT.ot_slave_stsOT == -2)
-    { if(SmOT.stsOT == 0)
-      {   Serial.printf("setup_slave 2\n");
-              setup_ot_slave();
+  if(SmOT.OT_slave_present)
+  { if(SmOT.OT_slave_mode == 1)
+    { if(SmOT.ot_slave_stsOT == -2)
+      { if(SmOT.stsOT == 0)
+        {   Serial.printf("setup_slave 2\n");
+                setup_ot_slave();
+        }
       }
+      else
+        OT_slaveloop();
+    } else {
+        OT_slaveloop();
     }
-    else
-      OT_slaveloop();
   }
 
 #endif
@@ -1541,6 +1588,25 @@ void OTloop_callback(void)
     loop_LED();
     loop_time();
 } 
+
+void loop_callback(int src)
+{ static unsigned long int t0 = 0;
+  unsigned long int t; 
+  const unsigned int max_time_use = 300;
+  unsigned int dt;
+
+  t = millis();
+  dt = t - t0;
+  if(dt > max_time_use)
+  {
+    if( OTloop() ) 
+       OTloopUpdate_t0 = millis();
+//    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
+    loop_LED();
+    loop_time();
+    t0  = millis();
+  }
+}
 
 void loop(void)
 {   unsigned long t;

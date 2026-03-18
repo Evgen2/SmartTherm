@@ -902,7 +902,7 @@ void SD_Termo::OpenThermInfo(void)
         memcpy((void *)&msg->Buf[20],(void *)&dhw_t,4);
     memcpy((void *)&msg->Buf[24],(void *)&FlameModulation,4);
     memcpy((void *)&msg->Buf[28],(void *)&Pressure,4);
-    memcpy((void *)&msg->Buf[32],(void *)&status,4);
+    memcpy((void *)&msg->Buf[32],(void *)&statusDS18b20,4);
     memcpy((void *)&msg->Buf[36],(void *)&t1,4);
     memcpy((void *)&msg->Buf[40],(void *)&t2,4);
     memcpy((void *)&msg->Buf[44],(void *)&rcode[0],4); //todo
@@ -1194,7 +1194,9 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
     {   char stOT;
         stOT = stsOT;
         memcpy((void *)&msg->Buf[8],(void *) &stOT,1); 
-        stOT = ot_slave_stsOT;
+        stOT = ot_slave_stsOT; //-2 not initialise,  -1 not init interface, 0 - normal work, 2 - timeout
+        if(OT_slave_mode && ot_slave_stsOT >= 0)
+                stOT |= 0x4;
         memcpy((void *)&msg->Buf[9],(void *) &stOT,1); 
     }
 #else
@@ -1670,7 +1672,7 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[32],(void *)&Pressure, 4); 
 	 memcpy((void *)&MsgOut[36],(void *)&Tset, 4); 
 	 memcpy((void *)&MsgOut[40],(void *)&TdhwSet, 4); 
-	 memcpy((void *)&MsgOut[44],(void *)&status, 4);  //статус внешних датчиков температуры - (не OT)
+	 memcpy((void *)&MsgOut[44],(void *)&statusDS18b20, 4);  //статус внешних датчиков температуры - (не OT)
 	 memcpy((void *)&MsgOut[48],(void *)&t1,4); 
 	 memcpy((void *)&MsgOut[52],(void *)&t2,4); 
 
@@ -1906,6 +1908,11 @@ extern OpenTherm ot;
                 RemoteRequest_present = true;                 
             else
                 RemoteRequest_present = false;
+            ot.Get_OTid_count(OpenThermMessageID::DHWFlowRate, count, countok); //ID 19
+            if(countok > 1)
+                DHWFlowRate_present = true;                 
+            else
+                DHWFlowRate_present = false;                            
 
     } else  if(CapabilitiesDetected  == 2) {
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
@@ -1941,6 +1948,10 @@ extern OpenTherm ot;
                 RemoteRequest_present = true;
         else
                 RemoteRequest_present  = false;
+        if(ot.OTid_used(OpenThermMessageID::DHWFlowRate))
+                DHWFlowRate_present = true;                 
+        else
+                DHWFlowRate_present = false;                    
 
     }
 

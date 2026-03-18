@@ -11,7 +11,7 @@
 #define MASTER_VERSION     0
 #define MASTER_SUBVERSION  8
 #define MASTER_SUBVERSION1 4
-#define MASTER_REVISION    11
+#define MASTER_REVISION    12
 
 /***************/
 
@@ -88,7 +88,7 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
 
   const int ReservParam[16];    /* резерв параметры */ 
 
-  int status;
+  int statusDS18b20;
   int sts;                 /* состояние       */  
   int sts_next;            /* состояние на следующий такт  */
   
@@ -121,7 +121,7 @@ static char LocalUrl[24]; /* smth like http://192.168.200.201 */
   Use_remoteTCPserver = 0;
 	TCPserver_t = 0;
   TZoffset = 3600*3; //MSK-3
-  status = -1;
+  statusDS18b20 = -1;
     Mac[0]= Mac[1] = Mac[2] =Mac[3] =Mac[4] =Mac[5] = 0; 
     IdNumber = 0;
 	 ClientId = ClientId_k = 0; 

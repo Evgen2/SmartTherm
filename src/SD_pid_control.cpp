@@ -20,6 +20,8 @@ void SD_Termo::loop_PID(void)
     static  unsigned long int  t0=0, t0_mean=0, t_start_heat=0, t_stop_heat = 0;
     static float _ustart = 0.f;
     static int OldBoilerStatus=0, issF = 0;
+    static int smooth_increase_temp_t = 60*15;
+    static int HW_flag = 0;
     unsigned long int t;
     float  u0, _u, _uu;
     int rc, dt;
@@ -98,7 +100,9 @@ void SD_Termo::loop_PID(void)
 
     if(HotWater_present)
     {  if(BoilerStatus & 0x04) /* при включении горячей воды не занимаемся регулированием, хотя PID все равно вызываем */
-                return;
+       {    HW_flag = 1;
+            return;
+       }
         if(enable_CentralHeating_real && !(BoilerStatus& 0x08)) //flame off если горелка выключена
         {   dt = now - Bstat.t_HW_off;
             if(dt < 180 /* 500 */)  //если HW выключилось 180 сек назад или раньше, то не регулируем
@@ -147,11 +151,19 @@ void SD_Termo::loop_PID(void)
             _uu = _u;
 //            if(issF == 3)
 //                _ustart = _u;
+            if(HotWater_present && HW_flag )
+            {  smooth_increase_temp_t = 60*5;
+            } else {
+                smooth_increase_temp_t = 60*15;
+            }
 
-            if(dt < 15*60) //пытаемся плавно повышать температуру
+
+            if(dt < smooth_increase_temp_t) //пытаемся плавно повышать температуру
             {   float r;
-                r = dt/(60.*15.);
+                r = dt/float(smooth_increase_temp_t);
                 _uu = _u * r +  _ustart  * (1-r); //то корректируем уставку температуры
+            } else {
+                HW_flag = 0;
             }
             if(BoilerT > _uu) //однако, если температура  теплоносителя уже достигла заданного значения
             {   _uu = BoilerT;  
