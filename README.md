@@ -1,6 +1,6 @@
 # SmartTherm
 
-Version 0.8.5.19
+Version 0.8.5.20
 
 
 Open source for [SmartTherm](https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103) ESP8266/ESP32 OpenTherm controller
@@ -24,4 +24,4 @@ Features:
 
 
 ## License
-Copyright (c) 2022-2025 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).
+Copyright (c) 2022-2026 Evgen2. Licensed under the [MIT license](/LICENSE?raw=true).

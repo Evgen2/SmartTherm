@@ -13,8 +13,8 @@
 
 /************************************/
 extern OpenTherm ot_slave;
+extern OpenTherm ot;
 extern SD_Termo SmOT;
-
 
 int OTslaveDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 
@@ -64,6 +64,7 @@ static int timeOutcounter = 0;
 #if  OT2_SLAVE_DEBUG
     Serial_db.printf("Slave processRequest: request %x status %x\n", request, status); 
 #endif
+
     if (status == OpenThermResponseStatus::SUCCESS) {
         ot_SlaveSts = 0;
 //        SmOT.response = response; 
@@ -131,7 +132,8 @@ static int timeOutcounter = 0;
 //    uint16_t data = ot_slave.getUInt(request);
     float t = ot_slave.getFloat(request);
 
-//    Serial_db.printf("Slave processRequest: id %x data %x\n", id, data); 
+//    uint16_t data = ot_slave.getUInt(request);
+//    Serial_db.printf("Slave processRequest: id %d data %x\n", id, data); 
 
         if (!ot_slave.isValidRequest(request))
         {
@@ -144,7 +146,6 @@ static int timeOutcounter = 0;
 //    ot.sendResponse(response);
  //         return;
         }
-
 
    switch(id)
    { 
@@ -162,10 +163,12 @@ static int timeOutcounter = 0;
       }
             break;
       case OpenThermMessageID::TSet:  // 1 W
-        SmOT.Tset = t;
-            break;
+        if(SmOT.OT_slave_mode == 1)
+          SmOT.Tset = t;
+        break;
       case OpenThermMessageID::TdhwSet: //56 W
-        SmOT.TdhwSet = t;
+        if(SmOT.OT_slave_mode == 1)
+          SmOT.TdhwSet = t;
         break;
       default:
       break;
@@ -216,6 +219,8 @@ int setup_ot_slave(void)
   {
 //    Serial_db.printf("setup_slave\n");
 
+    Serial_db.printf("setup handleInterruptslave\n");
+
  ot_slave.begin(handleInterruptslave, processRequest);
     SmOT.ot_slave_stsOT = -1;
   }
@@ -230,6 +235,73 @@ void sendResponse_ot_slave(void)
 
 ot_slave.sendResponse(ot_SlaveResponse);
     ot_SlaveSts = 4;
+}
+
+//ot_SlaveResponse
+//ot_SlaveRequest
+
+void makeRO_Response_ot_slave(void)
+{   uint16_t u88;
+    OpenThermMessageID id = ot_slave.getDataID(ot_SlaveRequest);
+
+    if(!ot.OTid_used(id))
+    {   ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, id, 0);   
+        return;
+    }
+
+    switch(id)
+    { case OpenThermMessageID::Status:  //0
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_SlaveMasterStatus<<8|(SmOT.BoilerStatus&0xff));   
+//  Serial_db.printf("Status: resp %x %x\n", ot_SlaveMasterStatus<<8|(SmOT.BoilerStatus&0xff), SmOT.BoilerStatus); 
+        break;
+      case OpenThermMessageID::TSet:  // 1 W
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.Tset));   
+        break;
+
+    case OpenThermMessageID::ASFflags: //5
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, SmOT.Fault);   
+        break;
+
+    case OpenThermMessageID::RelModLevel: //17 Relative Modulation Level 
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.FlameModulation));   
+        break;
+
+    case OpenThermMessageID::CHPressure: //18 Water pressure in CH circuit
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.Pressure));   
+        break;
+
+    case OpenThermMessageID::DHWFlowRate: //19 Water flow rate in DHW circuit. (litres / minute)
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.DHWFlowRate));   
+        break;
+
+    case OpenThermMessageID::Tboiler:  //25
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.BoilerT));   
+        break;
+
+    case OpenThermMessageID::Tdhw: //26
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.dhw_t));   
+            break;
+
+    case OpenThermMessageID::Toutside: //27
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.Toutside));   
+        break;
+
+    case OpenThermMessageID::Tret: //28
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.RetT));   
+        break;
+
+    case OpenThermMessageID::MaxTSetUBMaxTSetLB: //49 s8/s8 Max CH water Setpoint upper & lower bounds for adjustment(°C)
+      u88 = ot_slave.temperatureToData(SmOT.MaxTSetUB)<<8 | ot_slave.temperatureToData(SmOT.MaxTSetLB);
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, u88);   
+        break;
+
+      case OpenThermMessageID::TdhwSet: //56 W
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::READ_ACK, id, ot_slave.temperatureToData(SmOT.TdhwSet));   
+        break;
+
+      default:
+        ot_SlaveResponse = ot_slave.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, id, 0);   
+    }
 }
 
 
@@ -249,11 +321,24 @@ int OT_slaveloop(void)
     t0 = t;
   }
 #else
+
+if(SmOT.OT_slave_mode == 1)
+{
   if(ot_SlaveSts == 3 && ot_slave.isReady())
   {
     if(millis() - ot_SlaveRequest_ms > 21) //send response after 21 ms
         sendResponse_ot_slave();
   }
+} else {
+  if(ot_SlaveSts == 1 && ot_slave.isReady())
+  {
+    makeRO_Response_ot_slave();
+    if(millis() - ot_SlaveRequest_ms > 21) //send response after 21 ms
+        sendResponse_ot_slave();
+  }
+
+}
+  
 #endif
 
   {  time_t now = time(nullptr);

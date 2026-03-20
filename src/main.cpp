@@ -563,7 +563,7 @@ void loopDS1820(void)
             SmOT.stsT2 = 4;
             SmOT.statusDS18b20 |= 0x2000;
 #if SERIAL_DEBUG 
-            Serial.println(F("ERROR: DS1 Disconnected"));
+            Serial.println(F("ERROR: DS2 Disconnected"));
 #endif            
 
           } else  if (t == DEVICE_CRC_ERROR)  {
@@ -1043,15 +1043,19 @@ int OTloop(void)
 
 #if ST_VERS == 2
 static int slst = 0;
-  if(SmOT.OT_slave_present && SmOT.OT_slave_mode == 1)
-  { if(SmOT.ot_slave_stsOT == -2)
-    { if(SmOT.stsOT == 0)
-      {   Serial_db.printf("setup_slave 2\n");
-              setup_ot_slave();
+  if(SmOT.OT_slave_present)
+  { if(SmOT.OT_slave_mode == 1)
+    { if(SmOT.ot_slave_stsOT == -2)
+      { if(SmOT.stsOT == 0)
+        {   Serial_db.printf("setup_slave 2\n");
+                setup_ot_slave();
+        }
       }
+      else
+        OT_slaveloop();
+    } else {
+        OT_slaveloop();
     }
-    else
-      OT_slaveloop();
   }
 
 #endif
@@ -1080,8 +1084,8 @@ if (ot.isReady())
 #else
 
     if(SmOT.OT_slave_present && (SmOT.OT_slave_mode == 1)) 
-    { // Serial_db.printf("SmOT.ot_slave_stsOT %d ot_SlaveSts %d  %d\n", SmOT.ot_slave_stsOT, ot_SlaveSts, millis() );
-
+    { 
+//    Serial_db.printf("SmOT.ot_slave_stsOT %d ot_SlaveSts %d  %d\n", SmOT.ot_slave_stsOT, ot_SlaveSts, millis() );
       if(SmOT.ot_slave_stsOT == 0)
       { if(ot_SlaveSts == 1)
         { int ids; 
@@ -1403,7 +1407,7 @@ void loop_callback(int src)
   {
     if( OTloop() ) 
        OTloopUpdate_t0 = millis();
-    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
+//    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
     loop_LED();
     loop_time();
     t0  = millis();

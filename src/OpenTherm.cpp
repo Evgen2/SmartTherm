@@ -583,11 +583,9 @@ void OpenTherm::init_OTids(void)
 
 int OpenTherm::OTid_used(OpenThermMessageID id)
 {	int ind;
-//	int ind, rc = 0 ;
+	if(id > 127)
+		return 0;
 	ind = id_to_index[id];
-
-//	if(OT_ids[ind].used) rc = 1;
-//	return rc;
 	return OT_ids[ind].used;
 }
 
@@ -640,6 +638,12 @@ int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 
 // use https://github.com/Jeroen88/EasyOpenTherm/blob/main/src/EasyOpenTherm.h
 // https://github.com/Evgen2/SmartTherm/blob/v0.8.5/doc/OpenTherm%20Member%20Ids.md
+// 21 ?
+// 52 ?
+// 208  THERMONA THERM ?
+// 211  FERROLI DOMI ?
+// 249 ?
+
 OpenThermVendor OTvendorList[] =
 {	1,  "Baxi Fourtech/Luna 3",
     2,  "AWB/Brink/Viessmann", 
