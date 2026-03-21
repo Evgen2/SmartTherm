@@ -126,13 +126,16 @@ void SD_Termo::loop_PID(int mode)
     _u = mypid.u;
     if(_u > umax)
         _u = umax;
-
+    if(usePID & 0x04)
+    {  loop_pwm(_u, need_heat);
+    } 
+    
     if(_u <= mypid.xTag || (_u <= umin - 0.5f) )
     {   need_heat = 0;
     }  else if(_u >= umin + 0.5f) {
         need_heat = 1;
     }
-
+    
 //    Serial_db.printf("==>PID _u %f need_heat %d\n", _u, need_heat); 
 
     if(need_heat == 1 && (start_heat == 0 || start_heat == 2)) //включение отопления
@@ -235,6 +238,59 @@ oldTroomSetpoint = mypid.xTag;
 #endif    
 }
 
+void SD_Termo::loop_pwm(float &_u, int &need_heat)
+{   if(_u > umin)
+    {   PID_PWM_sts = 0;
+        Serial_db.printfm(DEBUG_PID,"PID_PWM_sts %d, _u = %g\n", PID_PWM_sts, _u);
+             return;
+    }
+    if( _u <= mypid.xTag)
+    {   PID_PWM_sts = 0;
+        need_heat = 0;
+//Serial_db.printfm(DEBUG_PID,"PID_PWM_sts %d, need_heat = 0,  _u = %g\n", PID_PWM_sts, _u);
+        return;
+    }
+    unsigned long int t = millis();
+    float pwm;
+    pwm = (_u - mypid.xTag) / (umin - mypid.xTag);
+
+    switch(PID_PWM_sts) 
+    {   case 0:
+        {
+//Serial_db.printfm(DEBUG_PID,"PID_PWM_sts %d at %ld pwm %g\n", PID_PWM_sts, t, pwm);
+            PID_PWM_sts = 1;
+            PID_PWM_t0 = t;
+            _u = umin;
+            need_heat = 1;
+        }
+            break;
+        case 1:
+        if(t - PID_PWM_t0 > int(PID_PWMperiod*1000 * pwm))
+        {   PID_PWM_sts = 2;
+//Serial_db.printfm(DEBUG_PID,"PID_PWM_sts change to %d at %ld, dt %ld\n", PID_PWM_sts, t, t-PID_PWM_t0);
+            _u = umin - 10;
+            need_heat = 0;
+        } else {
+            _u = umin;
+            need_heat = 1;
+//Serial_db.printfm(DEBUG_PID,"PID_PWM_sts %d dt %ld _u%g pwm %g\n", PID_PWM_sts, t-PID_PWM_t0, _u, pwm);
+        }
+            break;
+        case 2:
+        if(t-PID_PWM_t0 >= PID_PWMperiod*1000)
+        {   PID_PWM_sts = 1;
+//Serial.printf("PID_PWM_sts change to %d at %ld, dt %ld\n", PID_PWM_sts, t, t-PID_PWM_t0);
+            _u = umin;
+            need_heat = 1;
+            PID_PWM_t0 += PID_PWMperiod*1000;
+        } else {
+            _u = umin - 10;
+            need_heat = 0;
+//Serial.printf("PID_PWM_sts %d dt %ld _u%g pwm %g\n", PID_PWM_sts, t-PID_PWM_t0, _u, pwm);
+        }
+            break;
+    }   
+}
 
 //получаем средние значения для используемых температур
 void SD_Termo::loop_mean(void) 

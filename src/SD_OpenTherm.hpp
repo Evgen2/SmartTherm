@@ -262,6 +262,8 @@ public:
   int InTstartset;
   int IsSetTemp; //01 tempIndoor set | 0x02 tempOutdoor set
   int PID_PWMperiod;
+  int PID_PWM_sts;
+  unsigned long int PID_PWM_t0;
 #endif
   int start_sts; //1 - start state, need ask server for last I and U0(?),  &0x02 - OT start log, 0 - not start
   unsigned short int UseID2;
@@ -389,6 +391,8 @@ public:
       TroomTarget = 18.f;
       IsSetTemp = 0;
       PID_PWMperiod = 15*60; //15 мин 
+      PID_PWM_sts = 0;
+      PID_PWM_t0 = 0; 
     _U0start = 0;
     InTstartset = 0;
 #endif
@@ -483,6 +487,7 @@ public:
   void loop_mean(void); //получаем средние значения для используемых температур
   int loop_pid_gettemp(int &_start); //получаем значения tindoor и toutdoor
   void set_new_PID_setpoint(float Tsetpoint, int src);
+  void loop_pwm(float &u, int &need_heat);
 #endif
   void DetectCapabilities(void);
   void handle_SConfigSMemberIDcode(uint16_t u88);
