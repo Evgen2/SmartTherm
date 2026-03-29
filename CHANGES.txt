@@ -1,5 +1,5 @@
 0.8.5.22
-* Add more PID diagnostic to Debug screan
+* Add more PID diagnostic to Debug screen
 * OpenTherm planner fix
 * Setup page update, add info from OT_ID::MaxCapacityMinModLevel (15) if present and warning on min modulation
 * Add indirect determination of HW presence if the boiler rejects SConfigSMemberIDcode (ID3)     
