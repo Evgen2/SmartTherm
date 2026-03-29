@@ -27,8 +27,8 @@ void SD_Termo::planner_setup(void)
 
     rc = plan.add(1, OpenThermMessageID::TdhwSetUBTdhwSetLB,	MODE_START,0); //48
     rc = plan.add(1, OpenThermMessageID::MaxTSetUBMaxTSetLB,	MODE_START,0); //49
-	if(Use_MaxRelModLevel)
-    	rc = plan.add(2, OpenThermMessageID::MaxRelModLevelSetting, MODE_START|MODE_CH,0); //14 (**)
+// 	if(Use_MaxRelModLevel)
+ 	rc = plan.add(2, OpenThermMessageID::MaxRelModLevelSetting, MODE_START|MODE_CH,0); //14 (**)
     rc = plan.add(2, OpenThermMessageID::RemoteRequest,		MODE_START|MODE_CH|MODE_HW,0); //4 (**) (*)
     rc = plan.add(1, OpenThermMessageID::MaxCapacityMinModLevel,	MODE_START,0); //15
 	
@@ -49,7 +49,7 @@ void SD_Termo::planner_setup(void)
 	else
 		rc = plan.add(1, OpenThermMessageID::Toutside,				0,				MODE_CH|MODE_HW|MODE_IDLE);	//27 
 	rc = plan.add(1, OpenThermMessageID::Texhaust,					0,				MODE_CH|MODE_HW|MODE_IDLE);	//33 
-	if(Use_ID29_DHW_flag)
+	if(Use_ID29_DHW_flag) //??
 		rc = plan.add(1, OpenThermMessageID::Tstorage,				0,				MODE_CH|MODE_HW|MODE_IDLE);	//29 (*)
     rc = plan.add(1, OpenThermMessageID::TrSet,					MODE_CH,			0);	//16 (*)
 	rc = plan.add(1, OpenThermMessageID::Tr,					MODE_CH,			0);	//24 (*)
@@ -184,7 +184,7 @@ void SD_Termo::handle_SConfigSMemberIDcode(uint16_t u88)
 }
 
 int SD_Termo::planner_loop(void)
-{   int rc,ind, lev;
+{   int rc,ind, lev=0;
 
     if(plan.mask == MODE_START)
     {   if(plan.step == 1 && responseID  == -1)
@@ -204,17 +204,19 @@ int SD_Termo::planner_loop(void)
 	} else 	if(plan.mask == MODE_TEST) {
 M_TEST:	ind = plan.run(lev, 0);
 
+//Serial.printf("plan MODE_TEST ind %d cmd %2d lev %2d step %d count0 %d ncycle %d sts %d %ld\n", ind, plan.it[ind].cmd, lev, plan.step, plan.count0, plan.ncycle, plan.sts,  millis());
+
 		if(plan.sts & 0x01)
-		{  if(plan.step >= plan.n*2)
+		{  	if(plan.ncycle >= 2)
 			{	extern unsigned int OTDebugInfo[12];
-				int v, n;
-				if(OTDebugInfo[0] > 10)
-				{	v =  (OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
-					n = plan.n*4; // при большом количестве ошибок увеличиваем время теста
-					if(v > 30)
-							n = plan.n*8;
+				int n, v;
+				if(OTDebugInfo[0] > 20)
+				{	v =  (OTDebugInfo[1] + OTDebugInfo[2] + OTDebugInfo[3] + OTDebugInfo[4])*100/OTDebugInfo[0]; 
+					n = 2;
+					if(v > 20) // при большом количестве ошибок увеличиваем время теста
+							n = 4;
 //					Serial.printf("planner error ratio %d\n", v);
-					if( v < 10 || plan.step >= n)
+					if( v < 10 || plan.ncycle >= n)
 					{   //			 Serial_db.printf("planner MODE_TEST end\n");
 						planner_validate();
 						plan.SetMode(MODE_IDLE);
@@ -223,7 +225,7 @@ M_TEST:	ind = plan.run(lev, 0);
 				}
 			}
 			plan.sts = 0;
-			plan.count0 = plan.ind[0] = plan.vind[0] = 0;
+			plan.count0 = plan.ind[0] = plan.vind = 0;
         }
 		plan.step++;
 
@@ -305,6 +307,7 @@ M0:
 	if(rc0 < 0)
 	{	if(mode == 0)
 		{	sts |= 0x01;
+			ncycle++; 
 			return 0;	
 		}
 		rc1 = find_next(1, vrc1);
@@ -313,10 +316,10 @@ M0:
 			sts |= 0x02;
 			rc1 = find_next(1, vrc1);
 			if(rc1 < 0)
-			{	vind[0] += ind[0]+1;
-				if(vind[0] >= n)
+			{	vind += ind[0]+1;
+				if(vind >= n)
 				{	sts |= 0x01;
-					vind[0] -= n;
+					vind -= n;
 				}
 				count0 = 0;
 				ind[0] = -1;
@@ -326,10 +329,10 @@ M0:
 		rc = vrc1; //rc1; // it[rc1].cmd;
 		lev = 1;
 		ind[1] = rc1;
-		vind[0] += ind[0]+1;
-		if(vind[0] >= n)
+		vind += ind[0]+1;
+		if(vind >= n)
 		{	sts |= 0x01;
-			vind[0] -= n;
+			vind -= n;
 		}
 		count0 = 0;
 		ind[0] = -1;
@@ -352,7 +355,7 @@ int planner::find_next(int level, int &indrc)
 		if(count0 == n0)
 			return -1;
 		for(; ii<n;  ii++) 
-		{	vii = vind[0] + ii; 
+		{	vii = vind + ii; 
 			if(vii >=n) 
 				vii -= n;
 			if((it[vii].mask[0] & mask ) && (it[vii].type  > 0))

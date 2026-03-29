@@ -14,6 +14,7 @@ void  MQTT_pub_cmd2(int val);
 int debcode = 0;
 int wait_if_takt = 60*3;
 char tmpDebugstr[128] ="";
+char U0_debug[256];
 
 void SD_Termo::loop_PID(int mode)
 {   static int start = 2;
@@ -80,7 +81,9 @@ void SD_Termo::loop_PID(int mode)
 /************** считаем u0 ********************/
     if(is & 0x02)
     {   if(tempoutdoor <= mypid.y0) /* for example xTag=20, y0 =10 tempoutdoor = -5*/
-            u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
+        {    u0 = mypid.u0 + (mypid.u1 - mypid.u0) * (tempoutdoor - mypid.y0) /(mypid.y1 - mypid.y0) + mypid.Ku * (mypid.xTag - mypid.x0);
+sprintf(U0_debug, "0 %x Toutdoor %g u0 %g mypid:y0 %g xTag %g Ku %g", is, tempoutdoor, u0, mypid.y0, mypid.xTag, mypid.Ku );        
+        }
         else
         {  if(mypid.xTag > tempoutdoor) /* for example xTag=20, y0 =10 tempoutdoor = 15 */
             {   u0 = mypid.xTag + (mypid.u0 + mypid.Ku * (mypid.xTag - mypid.x0) - mypid.xTag)  * (tempoutdoor - mypid.xTag) /(mypid.y0 - mypid.xTag);
@@ -88,8 +91,10 @@ void SD_Termo::loop_PID(int mode)
                 u0 = mypid.xTag;
             }
         }
+sprintf(U0_debug, "1 %x Toutdoor %g u0 %g mypid:y0 %g xTag %g", is, tempoutdoor, u0, mypid.y0, mypid.xTag);        
     } else { //нет внешней температуры
         u0 = _U0start + mypid.Ku * (mypid.xTag - mypid.x0);
+sprintf(U0_debug, "2 %x u0 %g _U0start %g mypid: Ku %g xTag %g x0 %g", is,  u0, _U0start, mypid.Ku, mypid.xTag, mypid.x0 );        
     } 
     u0 =  safeFloat( u0); 
     if(u0 < 0.f)

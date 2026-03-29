@@ -339,8 +339,6 @@ extern unsigned int OTcount;
   if(SmOT.stsOT == 0)
   { if(SmOT.CapabilitiesDetected < 2 /*== 0 */)
         return;
-    else
-      SmOT.DetectCapabilities();
   } else {
     if(OTcount < 30)
         return;

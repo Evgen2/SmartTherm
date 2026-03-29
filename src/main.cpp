@@ -916,12 +916,14 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::MaxRelModLevelSetting: //14 Maximum relative modulation level setting (%) W
         SmOT.Decriment_NeedSet(OpenThermMessageID::MaxRelModLevelSetting);
-    //        SmOT.MaxRelModLevelSetting = t;
         break;
 
     case OpenThermMessageID::MaxCapacityMinModLevel:	//15 MaxCapacityMinModLevel, // u8 / u8  Maximum boiler capacity (kW) / Minimum boiler modulation level(%) R
         SmOT.MinModLevel =  (u88 & 0xff);
         SmOT.MaxCapacity =  ((u88>>8) & 0xff);
+//    Serial.printf("Макс.мощность %d кВт\n", SmOT.MaxCapacity);
+//    Serial.printf("Мин.модуляция %d %%\n", SmOT.MinModLevel);
+
         break;
 
     case OpenThermMessageID::TrSet: // 16  Room Setpoint (°C) TrSet:  

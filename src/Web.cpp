@@ -96,12 +96,14 @@ ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
 /************* SetupPage ***************/
 ACText(Ctrl2, "", "", "", AC_Tag_DIV);
-//ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
-AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
-AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
-AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
-ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
+
+AutoConnectCheckbox CtrlChB_CH("ChB_CH","1", "Отопление", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox CtrlChB_HW("ChB_HW","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
+AutoConnectCheckbox CtrlChB_CH2("ChB_CH2","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
+ACInput(SetMaxMod,"", "проценты","",  "0-100%", AC_Tag_BR, AC_Input_Text, STYLE_WIDTH); 
 AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_BR);
+ACText(MmodWarning, "", "", "", AC_Tag_DIV);
+
 #if RELAY_USE
 AutoConnectCheckbox CtrlChBUseRelay("ChbUseRelay","5", "Реле", false, AC_Behind , AC_Tag_None);
 AutoConnectCheckbox CtrlChBStartRelaySts("ChbStartRelay","6", "Вкл при старте", false, AC_Behind , AC_Tag_BR);
@@ -120,11 +122,8 @@ ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); /
 ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить удаленное управление", false, AC_Behind , AC_Tag_DIV);
   
-//AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
-//ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
 ACSubmit(ApplyChB, "Задать", SET_PAR_URI, AC_Tag_DIV);
 ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
-
 
 /************* SetupAdditionPage for MConfigMMemberIDcode ***************/
 AutoConnectCheckbox UseID2ChB("UseID2ChB","", "Использовать OT ID2", false, /* AC_Infront */  AC_Behind , AC_Tag_None);
@@ -202,13 +201,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 #endif 
 
 #if MQTT_USE
-  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1,  SetMaxMod,  CtrlChB3, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod, CtrlChB2,
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB_CH,  SetTmaxPID, SetTminPID, Info2,  CtrlChBMmod, SetMaxMod, MmodWarning, CtrlChB_HW, CtrlChB_CH2, 
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
      CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd, ApplyChB});
 #else
- AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1,  SetMaxMod,  CtrlChB3, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod, CtrlChB2,
+ AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB_CH, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod,  SetMaxMod, MmodWarning,CtrlChB_HW, CtrlChB_CH2, 
   #if RELAY_USE
  CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
@@ -603,6 +602,10 @@ extern int minRamFree;
         SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
 
       Info6.value += str;
+extern char U0_debug[256];
+      Info6.value += "<br>";
+      Info6.value += U0_debug;
+
 { extern char tmpDebugstr[128];
       Info6.value += "<br>";
       Info6.value += tmpDebugstr;
@@ -715,7 +718,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   float fv;
   bool check;
 
-  if( CtrlChB1.checked) check = true;
+  if( CtrlChB_CH.checked) check = true;
   else                  check = false;
   if(check != SmOT.enable_CentralHeating)
   { isChange++;
@@ -729,7 +732,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
   }
 
-  if( CtrlChB2.checked) check = true;
+  if( CtrlChB_HW.checked) check = true;
   else                  check = false;
   if(check != SmOT.enable_HotWater)
   { isChange++;
@@ -737,7 +740,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   }
   
   if(SmOT.CH2_present) 
-  { if( CtrlChB3.checked) check = true;
+  { if( CtrlChB_CH2.checked) check = true;
     else                  check = false;
     if(check != SmOT.enable_CentralHeating2)
     { isChange++;
@@ -1526,7 +1529,7 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  const char *pstr; 
-   char str[40]; 
+   char str[80]; 
     
 #if RELAY_USE
     CtrlChBUseRelay.enable = true;
@@ -1542,29 +1545,44 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
         CtrlChBStartRelaySts.enable = false;
     }
 #endif
-
-//  Serial_db.printf("SmOT.MaxRelModLevel_present =%d SmOT.Use_MaxRelModLevel %d\n ", SmOT.MaxRelModLevel_present, SmOT.Use_MaxRelModLevel);
-   
+  
   if(SmOT.MaxRelModLevel_present)
   {     CtrlChBMmod.enable = true;
         if(SmOT.Use_MaxRelModLevel)
         {   CtrlChBMmod.checked = true;
+            CtrlChBMmod.post = AC_Tag_None;
             SetMaxMod.enable = true;
             sprintf(str, "%d",int(SmOT.MaxRelModLevelSetting+0.5));
             SetMaxMod.value = str;           
+            MmodWarning.enable = true;
+            if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::MaxCapacityMinModLevel))
+            { if( SmOT.MinModLevel <= SmOT.MaxRelModLevelSetting)
+                sprintf(str,"<small>Мин.модуляция %d %%</small>", SmOT.MinModLevel);
+              else
+                sprintf(str,"Мин.модуляция %d %%, я знаю что делаю", SmOT.MinModLevel);
+
+              MmodWarning.value = str;
+            } else if(SmOT.MaxRelModLevelSetting < 10) {
+              MmodWarning.value = "Я знаю что делаю";
+            } else {
+              MmodWarning.value = "";
+            }
         } else {
             CtrlChBMmod.checked = false;
+            CtrlChBMmod.post = AC_Tag_BR;
             SetMaxMod.enable = false;
+            MmodWarning.enable = false;
         }  
   } else {
        SetMaxMod.enable = false;
        CtrlChBMmod.enable = false;
+       MmodWarning.enable = false;
   }
 
   if( SmOT.enable_CentralHeating)
-      CtrlChB1.checked = true;
+      CtrlChB_CH.checked = true;
   else
-      CtrlChB1.checked = false;
+      CtrlChB_CH.checked = false;
 
   Info1.value ="";
 
@@ -1572,19 +1590,19 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   if (SmOT.stsOT >= 0)
   {
     if(SmOT.HotWater_present) 
-    { CtrlChB2.enable  =  true;    
+    { CtrlChB_HW.enable  =  true;    
       if(SmOT.enable_HotWater)
-        CtrlChB2.checked = true;
+        CtrlChB_HW.checked = true;
       else
-        CtrlChB2.checked = false;
+        CtrlChB_HW.checked = false;
     } else {
-      CtrlChB2.enable  = false;
+      CtrlChB_HW.enable  = false;
     }
 
     if(SmOT.CH2_present) 
-      CtrlChB3.enable  = true;
+      CtrlChB_CH2.enable  = true;
     else
-      CtrlChB3.enable  = false;
+      CtrlChB_CH2.enable  = false;
 
 
     Ctrl2.value = "Котёл: "; 
@@ -1596,12 +1614,19 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
     }
 
     if(SmOT.DHW_tank_present) 
-        Ctrl2.value +=  "\nбойлер косвенного нагрева";
+        Ctrl2.value +=  "<br>бойлер косвенного нагрева";
+
+    if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::MaxCapacityMinModLevel))
+    {   sprintf(str,"<small><br>Макс.мощность %d кВт", SmOT.MaxCapacity);
+      Ctrl2.value += str;
+        sprintf(str,"<br>Мин.модуляция %d %%</small>", SmOT.MinModLevel);
+      Ctrl2.value += str;     
+    }
 
 /*********************************/      
  } else {
-    CtrlChB2.enable  = false;
-    CtrlChB3.enable  = false;
+    CtrlChB_HW.enable  = false;
+    CtrlChB_CH2.enable  = false;
     Ctrl2.value = ""; 
  }
 

@@ -222,6 +222,7 @@ public:
 	void begin(void(*handleInterruptCallback)(void), void(*processResponseCallback)(unsigned long, OpenThermResponseStatus));
 	
 	void init_OTids(void);
+	void update_OTids(void);
 	int update_OTid(int id, int sts);
     void SetUsed_OTid(int id, int used);
 	int OTid_used(OpenThermMessageID id);

@@ -533,6 +533,12 @@ void SD_Termo::init(int src)
   { mypid.NextTact();
     mypid.dSt.n = mypid.dSt.ind = 0;
   }
+  if(mypid.Ku != 1.f)
+  {
+    Serial_db.printf("Warning: mypid.Ku %gn", mypid.Ku);
+    mypid.Ku = 1.f;
+  }
+  
 // Serial_db.printf("src %d _U0start ->mypid.u0\n",  src, _U0start);
 
 #endif   
@@ -2058,6 +2064,7 @@ extern OpenTherm ot;
                 MaxRelModLevel_present = true;                 
             else
                 MaxRelModLevel_present = false;
+    Serial.printf("1 MaxRelModLevel_present %d countok %d \n", MaxRelModLevel_present, countok); 
 
             ot.Get_OTid_count(OpenThermMessageID::RemoteRequest, count, countok); //ID 4
             if(countok > 1)
@@ -2072,6 +2079,18 @@ extern OpenTherm ot;
                 DHWFlowRate_present = false;                            
 
     } else  if(CapabilitiesDetected  == 2) {
+        ot.update_OTids();
+
+        if(!ot.OTid_used(OpenThermMessageID::SConfigSMemberIDcode))
+        {
+//            Serial.printf("Клиника детектед\n");
+//  котёл Stout Plus
+            if(ot.OTid_used(OpenThermMessageID::Tdhw) && ot.OTid_used(OpenThermMessageID::TdhwSet))
+            { //  Serial.printf("Есть температура горячей воды и её уставка \n");
+                HotWater_present = true;
+            }
+        }
+
         if(ot.OTid_used(OpenThermMessageID::CHPressure))
                 Pressure_present = true;
         else
@@ -2110,14 +2129,7 @@ extern OpenTherm ot;
                 DHWFlowRate_present = true;                 
         else
                 DHWFlowRate_present = false;                    
-
-    }
-
-//  Serial_db.printf("**** DetectCapabilities CapabilitiesDetected %d:\n", CapabilitiesDetected) ;
-//    Serial_db.printf("Pressure_present %d  Toutside_present %d RetT_present %d:\n", 
-//                Pressure_present, Toutside_present, RetT_present  ) ;
-//    Serial_db.printf("MaxRelModLevel_present %d  \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting)); 
-                
+    }               
 }
 
 void SD_Termo::OnOpenThermRestore(void)

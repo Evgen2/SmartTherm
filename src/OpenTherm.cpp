@@ -568,7 +568,6 @@ byte id_to_index[128];
 
 void OpenTherm::init_OTids(void)
 {  int i;
-   i = 0;
    for(i=0; i<N_OT_NIDS; i++)
    {	OT_ids[i].used = 2;
    		OT_ids[i].count = 0;
@@ -577,7 +576,20 @@ void OpenTherm::init_OTids(void)
 		id_to_index[(OT_ids[i].id)] = i;
    }
    OT_ids[0].used = 1;
+}
 
+void OpenTherm::update_OTids(void)
+{  int i;
+   for(i=0; i<N_OT_NIDS; i++)
+   {	if(OT_ids[i].used)
+		{  if(OT_ids[i].count > 0 && OT_ids[i].countOk > 0)
+				OT_ids[i].used = 1;
+			else
+				OT_ids[i].used = 0;
+
+		}
+   }
+   OT_ids[0].used = 1;
 }
 
 
