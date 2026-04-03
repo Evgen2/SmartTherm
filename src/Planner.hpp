@@ -39,18 +39,19 @@ class planner
 	int ind0, n0, count0;
 	int ind1;
 	int ind[2];
-	int vind[2];
+	int vind;
 	int step;
 	int mask;
+	unsigned int ncycle;
 	plan_item it[NUM_PLAN];
 
 	planner(void)
 	{ n = 0;
 		n0 = 0;
-		count0 = 0;
+		count0 = ncycle = 0;
 		ind0 = ind1 = 0;
 		ind[0] = ind[1] = -1;
-		vind[0] = vind[1] = 0;
+		vind = 0;
 		mask = 0;
 		sts = 0;
 		step = 0;
@@ -75,10 +76,10 @@ class planner
 	void SetMode(int _mask)
 	{	mask = _mask;
 		ind[0] = ind[1]  = -1;
-		vind[0] = vind[1] = 0;
+		vind = 0;
 		sts = 0;
 		count0 = 0;
-
+		ncycle = 0;
 //		Serial.printf("Planner set mode to %x\n", _mask);
 
 		if(_mask == MODE_START)
