@@ -1,5 +1,6 @@
 0.8.5.23
-
+* PID bugfix
+ 
 0.8.5.22
 * Add more PID diagnostic to Debug screen
 * OpenTherm planner fix
