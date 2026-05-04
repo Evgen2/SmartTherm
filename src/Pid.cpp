@@ -19,7 +19,7 @@ void  pid::Set_NewTag( float _Tag, float _x)
    _xerrnew = _Tag - _x;
    dtag = _Tag - xTag;
    xTag = _Tag;
-   if(fabs(dtag) > 0.5)
+   if(fabsf(dtag) > 0.5f)
    {  //Init_I(_x);
       Init_I(dtag,  _xerrnew);
 
@@ -77,7 +77,7 @@ void pid::Init_I(float _x)
 
  int pid::Pid(float _x, float _u0)
  {  unsigned long int t, dt;
-    float dX, dtf, _dft, _u;
+    float dX, dtf, _dft, _u, xerr_abs;
     float _Kidiss;
     t  = millis();
     dt = t - pid_t; // dt, msec
@@ -106,20 +106,21 @@ void pid::Init_I(float _x)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss  
 
    _Kidiss = Kidiss;
+   xerr_abs = fabsf(xerr);
 
    if (InT * xerr < 0.f)
    { // more dissipation on different signs of InT and xerr
-      if(fabs(xerr) < 1.f)
-          _Kidiss *= fast_sqrt(fabs(xerr));
+      if(xerr_abs < 1.f)
+          _Kidiss *= fast_sqrt(xerr_abs);
       else
-         _Kidiss *= 2.f * fabs(xerr);
-   } else if (fabs(xerr) < 1.f) {
-      _Kidiss *= xerr * fast_sqrt(fabs(xerr));
+         _Kidiss *= 2.f * xerr_abs;
+   } else if (xerr_abs < 1.f) {
+      _Kidiss *= xerr_abs * fast_sqrt(xerr_abs);
    }
 
-   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
-   {  _Kidiss *= 2.f;
-      if(fabs(InT* Ki) > 80.f)   
+   if(fabsf(InT* Ki) > 40.f) // more dissipation on big InT  
+   {  _Kidiss = Kidiss * 2.f;
+      if(fabsf(InT* Ki) > 80.f)   
          _Kidiss *= 4.f;  
       if (InT * xerr < 0.f)
          _Kidiss *= 2.f;  
@@ -127,7 +128,7 @@ void pid::Init_I(float _x)
 
    dtf = float(dt) / 1000.f; // dt, sec
    _Kidiss =  _Kidiss * dtf / float(t_interval);
-   if(_Kidiss > 0.5) _Kidiss = 0.5;
+   if(_Kidiss > 0.5f) _Kidiss = 0.5f;
 
    InT = safeFloat(InT * (1.f - _Kidiss) + xerr * dtf); // grad * sec
 #if SERIAL_DEBUG 
@@ -146,7 +147,7 @@ void pid::Init_I(float _x)
    if(dSt.n <= 4)
          u = _u + _u0;
    else
-         u = (u + _u + _u0) * 0.5; //filter output of pid
+         u = (u + _u + _u0) * 0.5f; //filter output of pid
 
 #if SERIAL_DEBUG 
 //   Serial.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",

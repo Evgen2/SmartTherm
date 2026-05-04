@@ -1,3 +1,6 @@
+0.8.4.13
+* PID bugfix
+
 0.8.4.12
 * update used libs: arduino-home-assistant to v.2.1.2, PubSubClient to v. 2.8.2
  It fix problems with slow MQTT connection
