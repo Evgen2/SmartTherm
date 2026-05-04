@@ -57,39 +57,39 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
    switch(sts)
    {  case 1: // старая уставка выше текущей температуры, новая уставка выше старой
-      {  if(InTold < 0.) // старый интеграл отрицательный, клиент хочет тепла
-            InTold = 0.;
+      {  if(InTold < 0.f) // старый интеграл отрицательный, клиент хочет тепла
+            InTold = 0.f;
          InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
       }
             break;
       case 2: // старая уставка выше текущей температуры, новая уставка ниже старой и выше текущей температуры
          InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
-         if(InTnew < 0.) // клиент хочет тепла
-               InTnew = 0.;
+         if(InTnew < 0.f) // клиент хочет тепла
+               InTnew = 0.f;
             break;
 
       case 3:  // старая уставка выше текущей температуры, новая уставка ниже старой и ниже текущей температуры 
          InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
-         if(InTnew > 0.) // клиент не хочет тепла
-               InTnew = 0.;
+         if(InTnew > 0.f) // клиент не хочет тепла
+               InTnew = 0.f;
             break;
 
       case 4: // старая уставка ниже текущей температуры, новая уставка выше старой и выше текущей температуры
          InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);   //_dtag * 2.f/Ki;
-         if(InTnew < 0.) // клиент хочет тепла
-               InTnew = 0.;
+         if(InTnew < 0.f) // клиент хочет тепла
+               InTnew = 0.f;
             break;
 
       case 5: // старая уставка ниже текущей температуры, новая уставка выше старой и ниже текущей температуры
             InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
-            if(InTnew > 0.) // клиент не хочет тепла
-                  InTnew = 0.;
+            if(InTnew > 0.f) // клиент не хочет тепла
+                  InTnew = 0.f;
                break;
 
       case 6: // старая уставка ниже текущей температуры, новая уставка ниже старой
       InTnew = InTold + (Kp + Ku)/Ki * (_NewTag -_OldTag);
-         if(InTnew > 0.) // клиент не хочет тепла
-               InTnew = 0.;
+         if(InTnew > 0.f) // клиент не хочет тепла
+               InTnew = 0.f;
             break;  
    }
 
@@ -98,7 +98,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    Serial_db.printf("_NewTag %g _OldTag %g  InTnew  %g InTold %g \n", _NewTag, _OldTag, InTnew , InTold);
 
 
-   if(fabs(_NewTag -_OldTag) > 0.5)
+   if(fabsf(_NewTag -_OldTag) > 0.5f)
          dSt.n = dSt.ind = 0;
 
    InT = InTnew;
@@ -109,7 +109,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
  void pid::Pid(float _x, float _u0)
  {  unsigned long int t;
     static unsigned long int t_d = 0;
-    float dX, dtf,  _u;
+    float dX, dtf,  _u, xerr_abs;
     static float _dft = 0.f;
     float _Kidiss;
     t  = millis();
@@ -146,23 +146,24 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 //Limit for InT with constant  xerr:  InTlim = xerr * t_interval/Kidiss
 
    _Kidiss = Kidiss;
-   
+   xerr_abs = fabsf(xerr);
+
    if (InT * xerr < 0.f)
    { // more dissipation on different signs of InT and xerr
-      if(fabs(xerr) < 1.f)
-          _Kidiss *= fast_sqrt(fabs(xerr));
+      if(xerr_abs < 1.f)
+          _Kidiss *= fast_sqrt(xerr_abs);
       else
-         _Kidiss *= 2.f * fabs(xerr);
-   } else if (fabs(xerr) < 1.f) {
+         _Kidiss *= 2.f * xerr_abs;
+   } else if (xerr_abs < 1.f) {
 //      _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr
 //      _Kidiss *= fast_sqrt(xerr); //??
 //      _Kidiss *= xerr*xerr; //??
-      _Kidiss *= xerr * fast_sqrt(fabs(xerr));
+      _Kidiss *= xerr_abs * fast_sqrt(xerr_abs);
    }
 
-   if(fabs(InT* Ki) > 40.f) // more dissipation on big InT  
+   if(fabsf(InT* Ki) > 40.f) // more dissipation on big InT  
    {   _Kidiss = Kidiss* 2.f;
-      if(fabs(InT* Ki) > 80.f)   
+      if(fabsf(InT* Ki) > 80.f)   
          _Kidiss *= 4.f;  
       if (InT * xerr < 0.f)
          _Kidiss *= 2.f;  
@@ -171,7 +172,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    dtf = float(dt) / 1000.f; // dt, sec 
    _Kidiss =  _Kidiss * dtf / float(t_interval); // normalize for time interval
 
-   if(_Kidiss > 0.5) _Kidiss = 0.5;
+   if(_Kidiss > 0.5f) _Kidiss = 0.5f;
 
    InT = safeFloat(InT * (1.f - _Kidiss) + xerr * dtf); // grad * sec
 
@@ -219,7 +220,7 @@ int TempStack::calcD(float xerr, unsigned long int tt, float &diff)
    float dmid, xm, ym;
    int Np;
    float coeff[N_X];
-const float NormC = 1000000.;
+const float NormC = 1000000.f;
 
   //https://www.freecodecamp.org/news/the-least-squares-regression-method-explained/   
 

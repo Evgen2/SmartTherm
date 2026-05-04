@@ -261,6 +261,7 @@ public:
   float _U0start;
   int InTstartset;
   int IsSetTemp; //01 tempIndoor set | 0x02 tempOutdoor set
+  byte usePIDPWM; // 1/0 использовать PWM  для PID да/нет
   int PID_PWMperiod;
   int PID_PWM_sts;
   unsigned long int PID_PWM_t0;
@@ -386,6 +387,7 @@ public:
 #endif     
 #if PID_USE
       usePID = 0;
+      usePIDPWM = 0;
       srcTroom =  srcText = 0;
       tempindoor =  tempoutdoor = 0.;
       TroomTarget = 18.f;

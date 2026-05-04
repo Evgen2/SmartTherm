@@ -60,8 +60,12 @@ const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::en
             sizeof(SD_Termo::mypid.Ki) + sizeof(SD_Termo::mypid.xTag) + sizeof(SD_Termo::umax)     + sizeof(SD_Termo::umin)         + sizeof(SD_Termo::mypid.u0) +
             sizeof(SD_Termo::mypid.y0) + sizeof(SD_Termo::mypid.u1)   + sizeof(SD_Termo::mypid.y1) + sizeof(SD_Termo::mypid.Kidiss) + sizeof(SD_Termo::mypid.Ku) +
             sizeof(SD_Termo::mypid.x0) + sizeof(int) * 2 //reserved 
+            + sizeof(SD_Termo::useCPU_freq) + sizeof(SD_Termo::PID_PWMperiod) + sizeof(SD_Termo::MinCHtemp) + sizeof(SD_Termo::usePIDPWM)
+            + sizeof(byte) * 3 + sizeof(int) * 14 //reserved
+#else            
+            + sizeof(SD_Termo::useCPU_freq) + sizeof(SD_Termo::MinCHtemp) + sizeof(int) * 15 //reserved 
 #endif
-            + sizeof(SD_Termo::useCPU_freq) + sizeof(SD_Termo::PID_PWMperiod) + sizeof(SD_Termo::MinCHtemp) + sizeof(int) * 15 //reserved 
+ 
     ;
 
 #if MQTT_USE
@@ -166,18 +170,24 @@ int SD_Termo::Read_ot_fs(void)
     n += sizeof(int) * 2; //reserved
     if(n >= nw) goto END;
 
-#endif //PID_USE
-
     ReadFromBuff(useCPU_freq,Buff,n);
     if(n >= nw) goto END;
-
     ReadFromBuff(PID_PWMperiod,Buff,n);
+    if(n >= nw) goto END;
     ReadFromBuff(MinCHtemp,Buff,n);
+    if(n >= nw) goto END;
+    ReadFromBuff(usePIDPWM,Buff,n);
+    if(n >= nw) goto END;
+// sizeof(byte) * 3 + sizeof(int) * 14 //reserved
+#else    
+    ReadFromBuff(useCPU_freq,Buff,n);
+    if(n >= nw) goto END;
+    ReadFromBuff(MinCHtemp,Buff,n);
+
+#endif //PID_USE
 
     if(MinCHtemp < MIN_CH_TEMP)
         MinCHtemp  = MIN_CH_TEMP;
-
-    //sizeof(int) * 15); //reserved 
 
 END:
 
@@ -395,16 +405,19 @@ int SD_Termo::Write_ot_fs(void)
     WriteToBuff(mypid.x0,Buff,n);
     memset(&Buff[n],0, sizeof(int) * 2); //reserved 
     n += sizeof(int) * 2; //reserved
-
-#endif //PID_USE
-
     WriteToBuff(useCPU_freq,Buff,n);
     WriteToBuff(PID_PWMperiod,Buff,n);
     WriteToBuff(MinCHtemp,Buff,n);
+    WriteToBuff(usePIDPWM,Buff,n);
+    memset(&Buff[n],0, sizeof(byte) * 3 + sizeof(int) * 14); //reserved 
+    n +=  sizeof(byte) * 3 + sizeof(int) * 14;
+#else    
+    WriteToBuff(useCPU_freq,Buff,n);
+    WriteToBuff(MinCHtemp,Buff,n);
+    memset(&Buff[n],0, sizeof(int) * 15); //reserved 
+    n += sizeof(int) * 15;
 
-memset(&Buff[n],0, sizeof(int) * 15); //reserved 
-n += sizeof(int) * 15;
-
+#endif //PID_USE
 
 #if SERIAL_DEBUG      
     if( n > sizeof(Buff) )    
@@ -2086,7 +2099,8 @@ extern OpenTherm ot;
 //            Serial.printf("Клиника детектед\n");
 //  котёл Stout Plus
             if(ot.OTid_used(OpenThermMessageID::Tdhw) && ot.OTid_used(OpenThermMessageID::TdhwSet))
-            { //  Serial.printf("Есть температура горячей воды и её уставка \n");
+            { 
+               // Serial.printf("Есть температура горячей воды и её уставка \n");
                 HotWater_present = true;
             }
         }

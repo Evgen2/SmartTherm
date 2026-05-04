@@ -947,7 +947,7 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
-        if(fabs(SmOT.BoilerT-SmOT.Tset) > 5.) 
+        if(fabsf(SmOT.BoilerT-SmOT.Tset) > 5.f) 
         { SmOT.need_set_T(1);
         }          
         break;
@@ -958,7 +958,7 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::Toutside: //27
     if( ot.OTid_used(OpenThermMessageID::Toutside) == 1)
-      SmOT.Toutside = (SmOT.Toutside + t) * 0.5;
+      SmOT.Toutside = (SmOT.Toutside + t) * 0.5f;
     else
       SmOT.Toutside = t;
     SmOT.OnChangeT(t,2);
@@ -979,7 +979,7 @@ An OEM-specific fault/error code
     case OpenThermMessageID::Texhaust: //33
       { float tmp;
         tmp = (float)u88;
-        if(tmp < -40. || tmp > 500)
+        if(tmp < -40.f || tmp > 500.f)
           tmp = t;
         SmOT.Texhaust = tmp;
       }
