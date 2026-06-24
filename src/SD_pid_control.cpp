@@ -19,7 +19,7 @@ char U0_debug[256];
 void SD_Termo::loop_PID(int mode)
 {   static int start = 2;
     static int start_heat = 2;
-    static  unsigned long int  t0=0, t0_mean=0, t_start_heat=0, t_stop_heat = 0;
+    static  unsigned long int  t0=0, t_start_heat=0, t_stop_heat = 0;
     static float _ustart = 0.f;
     static int OldBoilerStatus=0, issF = 0;
     static int HW_flag = 0, smooth_increase_flag = 0;
@@ -36,10 +36,10 @@ void SD_Termo::loop_PID(int mode)
         return;
 
     t = millis();
-    if(t - t0_mean >= (unsigned long int)(mypid.t_interval*1000)) 
-    {   loop_mean(); //получаем средние значения для используемых температур
-        t0_mean = t;
-    }
+//    if(t - t0_mean >= (unsigned long int)(mypid.t_interval*1000)) 
+//    {   loop_mean(); //получаем средние значения для используемых температур
+//        t0_mean = t;
+//    }
 
     if((stsOT == 0) && !(OldBoilerStatus & 0x08) &&  (BoilerStatus & 0x08) ) //Flame status changed from off to on
         issF = 4;
@@ -300,6 +300,12 @@ void SD_Termo::loop_pwm(float &_u, int &need_heat)
 //получаем средние значения для используемых температур
 void SD_Termo::loop_mean(void) 
 {   unsigned long t = millis();
+    static  unsigned long int  t0_mean=0;
+
+    if(t - t0_mean < (unsigned long int)(mypid.t_interval*1000)) 
+        return;
+
+    t0_mean = t;
 
     for(int i=0; i <= MAX_PID_SRC; i++)
     {

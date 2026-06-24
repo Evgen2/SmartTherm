@@ -150,9 +150,12 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 
    if (InT * xerr < 0.f)
    { // more dissipation on different signs of InT and xerr
-      if(xerr_abs < 1.f)
+/*      if(xerr_abs < 1.f)
           _Kidiss *= fast_sqrt(xerr_abs);
       else
+         _Kidiss *= 2.f * xerr_abs;
+*/         
+      if(xerr_abs > 1.f)
          _Kidiss *= 2.f * xerr_abs;
    } else if (xerr_abs < 1.f) {
 //      _Kidiss *= fabs(xerr); // Limit to zero dissipation of the integral with small xerr

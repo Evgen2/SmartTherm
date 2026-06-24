@@ -126,7 +126,7 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88);
 #endif
 
 /* DS18b20 */
-#include <OneWire.h>
+//#include <OneWire.h>
 #include <DS18B20.h>
 
 void loopDS1820(void);
@@ -1671,6 +1671,8 @@ static int mday_prev = 0;
 	      interrupts();
   }
   
+  SmOT.loop_mean();
+
 #if PID_USE
   if(SmOT.enable_CentralHeating)
   {
