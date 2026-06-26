@@ -27,7 +27,7 @@ void SD_Termo::planner_setup(void)
 
     rc = plan.add(1, OpenThermMessageID::TdhwSetUBTdhwSetLB,	MODE_START,0); //48
     rc = plan.add(1, OpenThermMessageID::MaxTSetUBMaxTSetLB,	MODE_START,0); //49
-// 	if(Use_MaxRelModLevel)
+  if(Use_MaxRelModLevel)
  	rc = plan.add(2, OpenThermMessageID::MaxRelModLevelSetting, MODE_START|MODE_CH,0); //14 (**)
     rc = plan.add(2, OpenThermMessageID::RemoteRequest,		MODE_START|MODE_CH|MODE_HW,0); //4 (**) (*)
     rc = plan.add(1, OpenThermMessageID::MaxCapacityMinModLevel,	MODE_START,0); //15
