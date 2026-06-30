@@ -72,6 +72,7 @@ class planner
 		}
 	}
 	void set_used(int cmd, int _use);
+	void set_mask(int cmd, int _mask0,  int _mask1);
 	int run(int &lev, int mode);
 	void SetMode(int _mask)
 	{	mask = _mask;

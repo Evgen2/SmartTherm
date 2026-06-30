@@ -302,7 +302,6 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
     return 0;
 }
 
-
 int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
 {   int rc=0, i, n, nw;
     unsigned short int crs, v;
@@ -345,7 +344,6 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
     file.close();
     return rc;
 }
-
 
 /* 
     при изменении числа записываемых параметров
@@ -2072,12 +2070,14 @@ extern OpenTherm ot;
             else
                 Dhw_t_present = false;
 
+
             ot.Get_OTid_count(OpenThermMessageID::MaxRelModLevelSetting, count, countok); //ID 14
+// Serial_db.printf("SD_Termo::DetectCapabilities MaxRelModLevelSetting %d %d\n", count, countok);
             if(countok > 1)
                 MaxRelModLevel_present = true;                 
             else
                 MaxRelModLevel_present = false;
-    Serial.printf("1 MaxRelModLevel_present %d countok %d \n", MaxRelModLevel_present, countok); 
+//    Serial.printf("1 MaxRelModLevel_present %d countok %d \n", MaxRelModLevel_present, countok); 
 
             ot.Get_OTid_count(OpenThermMessageID::RemoteRequest, count, countok); //ID 4
             if(countok > 1)
@@ -2128,6 +2128,8 @@ extern OpenTherm ot;
                 Dhw_t_present = true;
         else
                 Dhw_t_present  = false;
+
+//  Serial_db.printf("SD_Termo::DetectCapabilities 2 MaxRelModLevelSetting used %d \n", ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting));
 
         if(ot.OTid_used(OpenThermMessageID::MaxRelModLevelSetting))
                 MaxRelModLevel_present = true;

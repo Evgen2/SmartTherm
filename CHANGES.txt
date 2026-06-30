@@ -1,3 +1,7 @@
+0.8.5.25
+* Max modulation fix
+* AutoConnect v 1.5.1, check box for Max modulation use disabled (grayed) at start
+
 0.8.5.24
 * PID-independent cycle for obtaining average temperature SD_Termo::loop_mean()
 * fork of RobTillaart/DS18B20_RT with change of PaulStoffregen/OneWire to 

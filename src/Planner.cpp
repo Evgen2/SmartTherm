@@ -9,7 +9,7 @@
 #include "SD_OpenTherm.hpp"
 
 void SD_Termo::planner_setup(void)
-{   int rc;
+{   int rc, mode;
 	int _outside_fun = 0;
 #if PID_USE
 	if(srcTroom == 2)
@@ -27,11 +27,13 @@ void SD_Termo::planner_setup(void)
 
     rc = plan.add(1, OpenThermMessageID::TdhwSetUBTdhwSetLB,	MODE_START,0); //48
     rc = plan.add(1, OpenThermMessageID::MaxTSetUBMaxTSetLB,	MODE_START,0); //49
-  if(Use_MaxRelModLevel)
- 	rc = plan.add(2, OpenThermMessageID::MaxRelModLevelSetting, MODE_START|MODE_CH,0); //14 (**)
+	mode = 0;
+	if(Use_MaxRelModLevel)
+			mode = MODE_CH;
+ 	rc = plan.add(2, OpenThermMessageID::MaxRelModLevelSetting, MODE_START, mode); //14 (**)
+
     rc = plan.add(2, OpenThermMessageID::RemoteRequest,		MODE_START|MODE_CH|MODE_HW,0); //4 (**) (*)
     rc = plan.add(1, OpenThermMessageID::MaxCapacityMinModLevel,	MODE_START,0); //15
-	
 
 	rc = plan.add(1, OpenThermMessageID::Tboiler,				MODE_CH|MODE_IDLE,	MODE_HW);	//25
     rc = plan.add(1, OpenThermMessageID::Tret,					MODE_CH,			MODE_HW|MODE_IDLE);	//28
@@ -106,7 +108,8 @@ void SD_Termo::need_set_blor(void)
 }
 
 void SD_Termo::need_set_MaxRelModLevel(int n)
-{	NeedSet(OpenThermMessageID::MaxRelModLevelSetting, n);
+{	
+	NeedSet(OpenThermMessageID::MaxRelModLevelSetting, n);
 }
 
 void SD_Termo::need_set_T_CH2(int n)
@@ -394,4 +397,14 @@ void planner::set_used(int cmd, int _use)
 		}
 	}
 }
-	
+
+void planner::set_mask(int cmd, int _mask0,  int _mask1)
+{	int i;
+	for(i=0; i<n; i++)
+	{	if(it[i].cmd == cmd)
+		{	it[n].mask[0] = _mask0;
+			it[n].mask[1] = _mask1;
+			break;
+		}
+	}
+}

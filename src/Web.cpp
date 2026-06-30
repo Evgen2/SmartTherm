@@ -200,7 +200,7 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, Info3, Info4, Info5, Info6, Info7,  Apply, SetBoilerTemp, SetDHWTemp, SetBoilerTemp2, SetNewBoilerTemp });
 #endif 
 
-#if MQTT_USE
+#if MQTT_USE 
   AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB_CH,  SetTmaxPID, SetTminPID, Info2,  CtrlChBMmod, SetMaxMod, MmodWarning, CtrlChB_HW, CtrlChB_CH2, 
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
@@ -898,6 +898,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       if(SmOT.Use_MaxRelModLevel)
       { if(!check)
         {   SmOT.Use_MaxRelModLevel = 0;
+            SmOT.plan.set_mask(OpenThermMessageID::MaxRelModLevelSetting,MODE_START, 0);
             isChange++; 
         } else {
             iv = SetMaxMod.value.toInt();
@@ -910,8 +911,9 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
       } else {
         if(check)
         {   SmOT.Use_MaxRelModLevel = 1;
+            isChange++; 
             redir = 1;
-
+            SmOT.plan.set_mask(OpenThermMessageID::MaxRelModLevelSetting,MODE_START, MODE_CH);
         } else {
             SmOT.Use_MaxRelModLevel = 0;
         }
@@ -920,7 +922,6 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
-
 
 #if MQTT_USE
     if(isChangeMQTT)
@@ -1042,7 +1043,6 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
     isChange = 1;
   }
   
-
   if(isChange)
         SmOT.need_write_f = 1;  //need write changes to FS
   
@@ -1529,7 +1529,7 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  const char *pstr; 
-   char str[80]; 
+   char str[100]; 
     
 #if RELAY_USE
     CtrlChBUseRelay.enable = true;
@@ -1545,9 +1545,10 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
         CtrlChBStartRelaySts.enable = false;
     }
 #endif
-  
+
   if(SmOT.MaxRelModLevel_present)
   {     CtrlChBMmod.enable = true;
+        CtrlChBMmod.disabled = false; 
         if(SmOT.Use_MaxRelModLevel)
         {   CtrlChBMmod.checked = true;
             CtrlChBMmod.post = AC_Tag_None;
@@ -1555,17 +1556,16 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
             sprintf(str, "%d",int(SmOT.MaxRelModLevelSetting+0.5));
             SetMaxMod.value = str;           
             MmodWarning.enable = true;
-            if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::MaxCapacityMinModLevel))
-            { if( SmOT.MinModLevel <= SmOT.MaxRelModLevelSetting)
-                sprintf(str,"<small>Мин.модуляция %d %%</small>", SmOT.MinModLevel);
-              else
-                sprintf(str,"Мин.модуляция %d %%, я знаю что делаю", SmOT.MinModLevel);
-
-              MmodWarning.value = str;
-            } else if(SmOT.MaxRelModLevelSetting < 10) {
-              MmodWarning.value = "Я знаю что делаю";
-            } else {
-              MmodWarning.value = "";
+            MmodWarning.value = "";
+            if(SmOT.CapabilitiesDetected)
+            { if(ot.OTid_used(OpenThermMessageID::MaxCapacityMinModLevel))
+              { if( SmOT.MaxRelModLevelSetting <= SmOT.MinModLevel)
+                {   sprintf(str,"<small>Мин.модуляция %d%%, я знаю что делаю %g</small>", SmOT.MinModLevel, SmOT.MaxRelModLevelSetting);
+                    MmodWarning.value = str;
+                }
+              } else if(SmOT.MaxRelModLevelSetting < 10) {
+                MmodWarning.value = "Я знаю что делаю";
+              }
             }
         } else {
             CtrlChBMmod.checked = false;
@@ -1574,9 +1574,15 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
             MmodWarning.enable = false;
         }  
   } else {
-       SetMaxMod.enable = false;
-       CtrlChBMmod.enable = false;
-       MmodWarning.enable = false;
+    if(SmOT.CapabilitiesDetected)
+    { CtrlChBMmod.enable = false;
+      CtrlChBMmod.disabled = false; 
+    } else {
+      CtrlChBMmod.enable = true;
+      CtrlChBMmod.disabled = true; 
+    }
+    SetMaxMod.enable = false;
+    MmodWarning.enable = false;
   }
 
   if( SmOT.enable_CentralHeating)
@@ -2197,6 +2203,7 @@ _t0 = millis();
  bootSts1 = 104;
 
 //  portal.handleClient();
+#if 0
   { static int old_status = 0;
     if( portal.portalStatus() !=  old_status)
     {  old_status = portal.portalStatus();
@@ -2204,6 +2211,7 @@ _t0 = millis();
     }
   }
  bootSts1 = 9;
+ #endif //0
 
  if((millis()-_t0) > 600 )
     Serial_db.printf("loop_web(2) loop_web dt=%d\n", millis()-_t0);
