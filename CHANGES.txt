@@ -1,3 +1,8 @@
+0.8.5.26
+* ST2 fixes
+* on OTA_inprogress stop MQTT work
+* PID fix
+
 0.8.5.25
 * Max modulation fix
 * AutoConnect v 1.5.1, check box for Max modulation use disabled (grayed) at start

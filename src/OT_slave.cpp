@@ -18,10 +18,12 @@ extern SD_Termo SmOT;
 
 int OTslaveDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 
+//#define OTSLAVE_DEBUG
+
 #if OTSLAVE_DEBUG
 void LogOT(int code, byte id, int messagetype, unsigned int u88);
 #else 
-#define  LogOT
+#define  LogOT(a,b,c,d)
 #endif
 /* 
 0 get request SUCCESS
@@ -103,13 +105,12 @@ static int timeOutcounter = 0;
         return;
     }
 
-#if OT_DEBUG
-  { unsigned int u88;
+#if OTSLAVE_DEBUG
+  { unsigned int  parity, messagetype;
     byte iid;
-    u88 = (request & 0xffff);
     iid = (request >> 16 & 0xFF);
-    parity = otslave.parity(request);
-    messagetype = otslave.getMessageType(request);
+    parity = ot_slave.parity(request);
+    messagetype = ot_slave.getMessageType(request);
     if(parity)
       LogOT(0,  iid,  messagetype,  u88);
     else 

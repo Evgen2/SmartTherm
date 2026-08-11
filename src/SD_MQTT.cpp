@@ -553,6 +553,7 @@ extern unsigned int OTcount;
       sprintf(str,"%.3f", SmOT.t1);
       sensorT1.setValue(str);  
 //   Serial_db.printf("***000 MQTT T1=%s\n",  str); 
+//   Serial.printf("***000 MQTT T1=%s %d\n",  str, millis()/1000); 
 
     }  else {
       sensorT1.setAvailability(false);
@@ -709,6 +710,7 @@ void mqtt_start(void)
 }
 
 extern RTC_NOINIT_ATTR  unsigned short int  bootSts;
+extern int OTA_inprogress;
 
 void mqtt_loop(void)
 { char str[80];
@@ -771,11 +773,18 @@ bootSts = 12;
       return; // return from   mqtt_loop() if not connected
     }
 
+      
     t00 = millis();  
     dt = t00 - lastAvailabilityToggleAt;
     if ((dt > SmOT.MQTT_interval*1000) || (SmOT.MQTT_need_report && dt > 1000))
     {   
-//      Serial_db.printf("MQTT 10 t %d\n", millis() );
+      if(OTA_inprogress)
+        return;
+        
+//   Serial_db.printf("MQTT 10 t %d\n", millis() );
+//   Serial_db.printf("MQTT dt %d (%d %d %d)\n", dt,  SmOT.MQTT_need_report, SmOT.MQTT_interval, SmOT.stsOT);
+//   Serial_db.printf("MQTT 11  %ld FreeHeap %dn", millis(), ESP.getFreeHeap() );
+//   Serial_db.printf(" dt %d (%d %d %d)\n", dt,  SmOT.MQTT_need_report, SmOT.MQTT_interval, SmOT.stsOT);
 
         if(SmOT.stsOT == -1)
         { sensorOT.setAvailability(false);
@@ -814,6 +823,7 @@ bootSts = 12;
 #endif            
 
           } else {
+//      Serial_db.printf("MQTT 11\n");
             if(st_old != SmOT.stsOT)
             {
               sensorOT.setState(true);
@@ -855,6 +865,8 @@ bootSts = 14;
           }
         }
 
+//        Serial_db.printf("MQTT 22 %d %d\n",SmOT.stsT1, SmOT.t_mean[0].can_report );
+
         st_old = SmOT.stsOT;
         if(SmOT.stsT1 >= 0)
         {  
@@ -863,11 +875,14 @@ bootSts = 14;
             {  if(SmOT.t_mean[0].can_report)
                { sprintf(str,"%.3f", SmOT.t_mean[0].x);
                   sensorT1.setValue(str);
+//   Serial.printf("***111 MQTT T1=%s %d\n",  str, millis()/1000); 
+
                   SmOT.t_mean[0].can_report = 0; 
                 }
             }  else { 
                 sprintf(str,"%.3f", SmOT.t1);
                 sensorT1.setValue(str); 
+//   Serial.printf("***222 MQTT T1=%s %d\n",  str, millis()/1000); 
             } 
 #else
                 sprintf(str,"%.3f", SmOT.t1);
@@ -912,6 +927,8 @@ bootSts = 15;
 
 void MQTTsenddata(void)
 { char str[120];
+
+//   Serial_db.printf("MQTTsenddata  %ld\n", millis() );
 
   sprintf(str,"%.3f", SmOT.BoilerT);           
   sensorBoilerT.setValue(str);

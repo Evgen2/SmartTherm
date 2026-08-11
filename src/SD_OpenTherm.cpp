@@ -1027,6 +1027,11 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
 //         TCPserver_report_period, TCPserver_close_on_send, TCPserver_sts);
 
     Lsend = 6 + 72;
+#if ST_VERS == 2
+    if(OT_slave_present)
+        Lsend += 4;
+#endif
+
     MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 
@@ -1073,6 +1078,14 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
         stOT = stsOT;
         memcpy((void *)&MsgOut[8],(void *) &stOT,1); 
         stOT = ot_slave_stsOT;
+     
+        if(OT_slave_present)
+        {
+            if(OT_slave_mode && ot_slave_stsOT >= 0)
+                stOT |= 0x4;
+
+            memcpy((void *)&MsgOut[78],(void *) &ot_slave_t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+        }
         memcpy((void *)&MsgOut[9],(void *) &stOT,1); 
     }
  #else
@@ -1080,7 +1093,7 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
  #endif
  
     memcpy((void *)&MsgOut[10],(void *) &t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
-     
+
 {
 //     Serial_db.printf("t_lastwork =  %s ", ctime(&t_lastwork));
 //     Serial_db.printf("  %02x %02x %02x %02x \n", MsgOut[10], MsgOut[11],MsgOut[12], MsgOut[13]);
@@ -1544,6 +1557,16 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
         }
 #endif
 
+#if ST_VERS == 2
+    if(OT_slave_present)
+    {   if(B_flags_toSet & 0x2000)
+            OT_slave_mode = 1;
+        else
+            OT_slave_mode = 0;
+    }
+#endif    
+
+
             vT = CHtempLimit(vT);
             TdhwSet_toSet = CHtempLimit(TdhwSet_toSet);
 
@@ -1773,6 +1796,15 @@ void SD_Termo::callback_Set_State( U8 *bf, int len, PACKED unsigned char * &MsgO
        if(B_flags & 0x1000)
             r = 1;
         RelayOnOff(r);
+    }
+#endif    
+
+#if ST_VERS == 2
+    if(OT_slave_present)
+    {   if(B_flags & 0x2000)
+            OT_slave_mode = 1;
+        else
+            OT_slave_mode = 0;
     }
 #endif    
 

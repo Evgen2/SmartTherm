@@ -33,7 +33,7 @@ using WiFiWebServer = WebServer;
   AutoConnectFS::FS& name = AUTOCONNECT_APPLIED_FILESYSTEM;
   name.begin(AUTOCONNECT_FS_INITIALIZATION);
 */
-
+#include <Arduino.h>
 #include <AutoConnect.h>
 #include <AutoConnectFS.h>
 AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
@@ -269,6 +269,7 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 #endif
 
 extern void onOTAstart(void);
+extern void onOTAEnd(void);
 extern void exitOTAError(uint8_t err); 
 extern int ST_setCpuFrequencyMhz(int code);
 extern void OTloop_callback(void);
@@ -281,7 +282,6 @@ String utc_time_jc;
 
 /************************************/
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
-
 
 void setup_web_common(void)
 {   
@@ -359,7 +359,7 @@ void setup_web_common(void)
 #endif
     portal.onOTAStart(onOTAstart);
     portal.onOTAError(exitOTAError);
-
+    portal.onOTAEnd(onOTAEnd);
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
   config.portalTimeout = 1; 
@@ -2076,6 +2076,7 @@ String onAbout(AutoConnectAux& aux, PageArgument& args)
 int sRSSI = 0;
 int razRSSI = 0;
 extern int LedSts; 
+extern int OTA_inprogress;
 
 void loop_web()
 {  int rc,  dt;
@@ -2085,6 +2086,8 @@ unsigned long _t0;
 _t0 = millis();
 
  bootSts1 = 1;
+ if(OTA_inprogress)
+            Serial.printf("loop_web  %ld\n",  millis() - portal._portalAccessPeriod  );
 //  portal.handleClient();
 
   /* 3->0->3->7->1->7->1 //изменения статуса при коннекте-реконнекте 
@@ -2189,13 +2192,19 @@ _t0 = millis();
     unsigned long dt_h, dt_p;
     dt_h = millis() - t_h;
     dt_p = millis() - portal._portalAccessPeriod;
-    
+
+//todo OTA_inprogress     
     if(dt_p < 1000 || (dt_p < 5000 && dt_h > 10)  || dt_h > 100 )
     { 
-//      Serial_db.printf("portal.handleClient dt_h %ld  %ld\n", dt_h, millis() - portal._portalAccessPeriod  );
+if(OTA_inprogress)      
+      Serial.printf("portal.handleClient dt_h %ld  %ld\n", dt_h, millis() - portal._portalAccessPeriod  );
+
  bootSts1 = 103;
       
       portal.handleClient();
+ if(OTA_inprogress)
+            Serial.printf("portal.handleClient()  %ld\n",  millis() - portal._portalAccessPeriod  );
+
       t_h = millis();
     }
 }

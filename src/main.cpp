@@ -233,8 +233,20 @@ void watchdog_setup(void)
 #endif  
 }
 
+int OTA_inprogress = 0;
+int OTA_inprogress2 = 0;
+
+void onOTAEnd(void)
+{
+    Serial.println("OTA end");
+    OTA_inprogress = 0;
+}
+
 void onOTAstart(void)
-{ //Serial.println("OTA started");
+{   Serial.printf("OTA started\n");
+  OTA_inprogress = 1;
+	OTA_inprogress2 = 1;
+
 #ifdef CONFIG_IDF_TARGET_ESP32C6
 //todo
 #else
@@ -244,10 +256,12 @@ void onOTAstart(void)
   rtc_wdt_disable(); // stop the RTC WDT timer
   rtc_wdt_protect_on(); // Enable RTC WDT write protection  
 #endif  
+  Serial.printf("OTA_inprogress %d\n", OTA_inprogress);
 }
 
 void exitOTAError(uint8_t err) {
-//  Serial.printf("OTA error occurred %d\n", err);
+  Serial.printf("OTA error occurred %d\n", err);
+  OTA_inprogress = 0;
    watchdog_setup();
 }
 
@@ -1191,6 +1205,7 @@ unsigned int SD_Termo::buildRequest(int ot_id)
 #if PID_USE
       if(!usePID)
          enable_CentralHeating_real = enable_CentralHeating;
+
       if(CH2_DHW_flag && enable_HotWater)
       {  request = ot.buildSetBoilerStatusRequest(enable_CentralHeating_real, enable_HotWater, enable_Cooling, Use_OTC, 1, UseWinterMode);
       } else {
@@ -1275,6 +1290,8 @@ unsigned int SD_Termo::buildRequest(int ot_id)
 
   case OpenThermMessageID::MaxRelModLevelSetting: //14 W
   { 	unsigned int data = ot.temperatureToData(MaxRelModLevelSetting);
+// Serial_db.printf("SD_Termo::buildRequest MaxRelModLevelSetting\n");
+
     request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxRelModLevelSetting, data);
   }
         break;
@@ -1424,6 +1441,8 @@ void loop(void)
 
    t = millis();
    dt = t - OTloopUpdate_t0;
+if(OTA_inprogress)
+    Serial_db.printf("loop dt %d\n", dt) ;
 
 #if ST_VERS == 2
   { int dtm = OT_CICLE_TIME;
@@ -1483,6 +1502,7 @@ void loop2(void)
     switch(irot)
     {  case 0: 
        loop_web();
+       if(OTA_inprogress == 0) // stop all activity on OTA exept web server
           irot++;
         break;
         case 1:
