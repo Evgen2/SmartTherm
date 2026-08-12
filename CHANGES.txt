@@ -1,6 +1,6 @@
 0.8.5.26
 * ST2 fixes
-* on OTA_inprogress stop MQTT work
+* on OTA_inprogress stop all exept webserwer work
 * PID fix
 
 0.8.5.25
