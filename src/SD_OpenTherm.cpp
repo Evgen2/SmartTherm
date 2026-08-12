@@ -1025,6 +1025,11 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
 //         TCPserver_report_period, TCPserver_close_on_send, TCPserver_sts);
 
     Lsend = 6 + 72;
+#if ST_VERS == 2
+    if(OT_slave_present)
+        Lsend += 4;
+#endif
+
     MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)&bf[0],6); 
 
@@ -1071,6 +1076,14 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
         stOT = stsOT;
         memcpy((void *)&MsgOut[8],(void *) &stOT,1); 
         stOT = ot_slave_stsOT;
+        if(OT_slave_present)
+        {
+            if(OT_slave_mode && ot_slave_stsOT >= 0)
+                stOT |= 0x4;
+
+            memcpy((void *)&MsgOut[78],(void *) &ot_slave_t_lastwork,sizeof(time_t));  //sizeof(time_t) 4 ESP32, 8 ESP8266
+        }
+
         memcpy((void *)&MsgOut[9],(void *) &stOT,1); 
     }
  #else
@@ -1384,6 +1397,15 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
             RelayOnOff(r);
         }
 #endif
+
+#if ST_VERS == 2
+    if(OT_slave_present)
+    {   if(B_flags_toSet & 0x2000)
+            OT_slave_mode = 1;
+        else
+            OT_slave_mode = 0;
+    }
+#endif    
 
             vT = CHtempLimit(vT);
             TdhwSet_toSet = CHtempLimit(TdhwSet_toSet);

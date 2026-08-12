@@ -131,6 +131,26 @@ void SD_Termo::loop_PID(void)
             t_start_heat = now; //время включения отопления
             _ustart  = _u;
         }
+    } else if(need_heat == 0) { // отопление не нужно
+
+        if(start_heat == 1 || start_heat == 2) { //выключение отопления
+            dt =  now - t_start_heat;
+            if(dt > 180) //3 минуты - защита от кратковременного включения
+            {
+                enable_CentralHeating_real = false;
+                _u = umin;
+                start_heat = 0;
+//                smooth_increase_flag = 0;
+                HW_flag = 0;
+                t_stop_heat = now; //время выключения отопления
+            }
+        } else if (enable_CentralHeating_real) { // сюда попадем, если отключим PID при отсутствии необходимости в отоплении, а замем снова включим его
+                enable_CentralHeating_real = false;
+                HW_flag = 0;
+                t_stop_heat = now; //время выключения отопления
+        }
+    }
+/*
     } else if(need_heat == 0 && (start_heat == 1 || start_heat == 2)) { //выключение отопления
         dt =  now - t_start_heat;
         if(dt > 180) //3 минуты - защита от кратковременного включения
@@ -141,7 +161,7 @@ void SD_Termo::loop_PID(void)
             t_stop_heat = now; //время выключения отопления
         }
     }
-
+*/
 //    Serial.printf("==>PID _u %f need_heat %d enable_CentralHeating_real %d\n",
 //             _u, need_heat, enable_CentralHeating_real); 
 

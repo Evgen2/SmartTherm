@@ -210,8 +210,17 @@ void watchdog_setup(void)
   Serial.printf("RTC Watchdog Timeout set to: %d msec\n", RTC_WDT_TIME_MS);
 }
 
+int OTA_inprogress = 0;
+
+void onOTAEnd(void)
+{
+    Serial.println("OTA end");
+    OTA_inprogress = 0;
+}
+
 void onOTAstart(void)
 { //Serial.println("OTA started");
+  OTA_inprogress = 1;
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
   rtc_wdt_protect_off(); // Disable RTC WDT write protection
@@ -221,6 +230,7 @@ void onOTAstart(void)
 
 void exitOTAError(uint8_t err) {
 //  Serial.printf("OTA error occurred %d\n", err);
+   OTA_inprogress = 0;
    watchdog_setup();
 }
 
@@ -1664,8 +1674,10 @@ void loop2(void)
     switch(irot)
     {  case 0: 
        loop_web();
+
+       if(OTA_inprogress == 0) // stop all activity on OTA exept web server
           irot++;
-        break;
+	break;
         
         case 1:
          SmOT.loop();

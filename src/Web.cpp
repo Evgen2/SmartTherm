@@ -269,6 +269,7 @@ String onSetOT_slave(AutoConnectAux& aux, PageArgument& args);
 #endif
 
 extern void onOTAstart(void);
+extern void onOTAEnd(void);
 extern void exitOTAError(uint8_t err); 
 extern void OTloop_callback(void);
 
@@ -359,6 +360,7 @@ void setup_web_common(void)
 
     portal.onOTAStart(onOTAstart);
     portal.onOTAError(exitOTAError);
+    portal.onOTAEnd(onOTAEnd);
 
 //  portal.join({InfoPage, Setup_Page, SetTempPage});     // Join pages.
   config.ota = AC_OTA_BUILTIN;
@@ -857,7 +859,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
         if(check)
         {   SmOT.Use_MaxRelModLevel = 1;
             redir = 1;
-
+            isChange++; 
         } else {
             SmOT.Use_MaxRelModLevel = 0;
         }
