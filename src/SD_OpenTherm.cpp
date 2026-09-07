@@ -2135,6 +2135,8 @@ extern OpenTherm ot;
                // Serial.printf("Есть температура горячей воды и её уставка \n");
                 HotWater_present = true;
             }
+        } else if(HotWater_present == false && ot.OTid_used(OpenThermMessageID::Tdhw) && ot.OTid_used(OpenThermMessageID::TdhwSet)) { // Hubert AGB 24 DP ?
+            HotWater_present = true;
         }
 
         if(ot.OTid_used(OpenThermMessageID::CHPressure))

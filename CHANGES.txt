@@ -1,3 +1,7 @@
+0.8.5.27
+* detect DHW presence even if boiler not report it (Hubert AGB 24)
+* setup page informs on max/min temperatures for CH & DHW if applicable(OT MaxTSetUBMaxTSetLB & TdhwSetUBTdhwSetLB)
+
 0.8.5.26
 * ST2 fixes
 * on OTA_inprogress stop all exept webserwer work

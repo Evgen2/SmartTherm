@@ -1149,6 +1149,7 @@ M00:
 //            request = buildRequest(0);
 
  #if OT_DEBUGLOG
+ SmOT.Use_remoteTCPserver = 1; //debug
          OTlog(request,0);
  #endif          
 #endif
@@ -1817,25 +1818,35 @@ void OTlog(unsigned int reqresp, int sts)
 { unsigned int b[2];
   unsigned long t = millis();
   int lb, rc;
-static unsigned long t0 = 0; 
 
   if(!SmOT.Use_remoteTCPserver)
     return;
-    
+  if(SmOT.nOTlog == 0 && SmOT.stsOT == -1)  
+    return; //пока нет связи с котлом, не пишем в лог
+
   lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
 
   if(SmOT.nOTlog < 1024 && lb > 1)
   { b[0] = ( (((sts<<6)|(SmOT.nOTlog & 0x3f)) << 24) | (t & 0xffffff)); //  
     
-{
+#if SERIAL_DEBUG
+  {
   unsigned long t1;
+  static unsigned long t0 = 0; 
+  
   t1 = t & 0xffffff;
   if((t1-t0) > 1000 ) 
-    Serial_db.printf("==>+dt %ld t1=%ld, t0=%ld\n", t1-t0, t1, t0);
+  { Serial_db.printf("==>+dt %ld t1=%ld, t0=%ld %x %x ", t1-t0, t1, t0, reqresp,  sts);
+#if ST_VERS  == 2    
+    Serial_db.printf(" %d %d\n", SmOT.stsOT, SmOT.ot_slave_stsOT);
+#else
+    Serial_db.printf(" %d\n", SmOT.stsOT);
+#endif
+  }  
   t0 = t1;
-}    
-//    Serial_db.printf("SmOT.nOTlog %d Lbuf= %d sts %d %8x\n", 
-//        SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), sts, b[0]);
+} 
+#endif //SERIAL_DEBUG   
+
     b[1] =  reqresp;
 
     rc = SmOT.OTlogBuf.Add( b);

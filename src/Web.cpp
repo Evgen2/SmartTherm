@@ -201,13 +201,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 #endif 
 
 #if MQTT_USE 
-  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB_CH,  SetTmaxPID, SetTminPID, Info2,  CtrlChBMmod, SetMaxMod, MmodWarning, CtrlChB_HW, CtrlChB_CH2, 
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB_CH,  SetTmaxPID, SetTminPID, Info2,  CtrlChBMmod, SetMaxMod, MmodWarning, CtrlChB_HW, Info3, CtrlChB_CH2, 
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
      CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd, ApplyChB});
 #else
- AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB_CH, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod,  SetMaxMod, MmodWarning,CtrlChB_HW, CtrlChB_CH2, 
+ AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB_CH, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod,  SetMaxMod, MmodWarning,CtrlChB_HW, Info3, CtrlChB_CH2, 
   #if RELAY_USE
  CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
@@ -1591,6 +1591,7 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
       CtrlChB_CH.checked = false;
 
   Info1.value ="";
+  Info3.value ="";
 
  /*********************************/      
   if (SmOT.stsOT >= 0)
@@ -1636,7 +1637,12 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
     Ctrl2.value = ""; 
  }
 
-    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br>";
+    if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::MaxTSetUBMaxTSetLB))
+    { sprintf(str,"<small>Котёл сообщает: max %.1f, min %.1f<br></small>", SmOT.MaxTSetUB, SmOT.MaxTSetLB);
+      Info2.value += str;
+    }
+    Info2.value += "<br>";
 
     sprintf(str,"%.1f",SmOT.umax);
     SetTmaxPID.value = str;
@@ -1651,6 +1657,13 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
       CtrlChB_UseRemoteControl.checked = true;
     else
       CtrlChB_UseRemoteControl.checked = false;
+
+    if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::TdhwSetUBTdhwSetLB))
+    { sprintf(str,"<small>Котёл сообщает: max %.1f, min %.1f<br></small>", SmOT.TdhwSetUB, SmOT.TdhwSetLB);
+      Info3.value += str;
+    } else {
+      Info3.value ="";
+    }
 
  
 #if MQTT_USE
@@ -2165,7 +2178,8 @@ _t0 = millis();
 
 //        Serial_db.printf("WiFi: t %d stsOT %d %d %d\n", millis(), SmOT.stsOT, SmOT.ns_OT, SmOT.nr_OT);
 
-        if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
+
+        if(rc == WL_CONNECTED &&  (oldstatus != WL_CONNECTED))
         {   Serial_db.printf("WiFi status chage to connected\n");
             needStopAP = 1;
             t0 = millis();
