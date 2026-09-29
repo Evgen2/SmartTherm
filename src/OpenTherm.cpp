@@ -673,6 +673,7 @@ OpenThermVendor OTvendorList[] =
 	33, "Viessmann",
 	41, "Italtherm/Radiant",
 	56,	"Baxi Luna Duo-Tec P67=2",
+	71, "Haier TechLine",
 	125, "Kotitonttu", // Toivo Т24 OK with OpenTherm
 	131, "Bosch/Nefit converter", // bosch / nefit EMS to OpenTherm converter 
     148, "Navien",

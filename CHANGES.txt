@@ -1,3 +1,7 @@
+0.8.5.28
+* update for SmartTherm controller change T1 pin from 15 to 17, detect presence DS18B20 on 15 or 17 pin
+* MQTT timeout change from 2 to 5 sec
+
 0.8.5.27
 * detect DHW presence even if boiler not report it (Hubert AGB 24)
 * setup page informs on max/min temperatures for CH & DHW if applicable(OT MaxTSetUBMaxTSetLB & TdhwSetUBTdhwSetLB)

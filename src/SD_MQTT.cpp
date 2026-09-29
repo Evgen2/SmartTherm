@@ -208,7 +208,7 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
     sender->setMode(mode); // report mode back to the HA panel
     if(is_change)
     { SmOT.need_write_f |= 0x11; 
-      SmOT.t_need_write_config = millis();
+      SmOT.t_need_write_config = millis();        
     }
 }
 
@@ -660,7 +660,8 @@ extern unsigned int OTcount;
     mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
 //??    mqtt._mqtt->setSocketTimeout(2); 
-    espClient.setTimeout(2); //minimal timeout for WiFiClient class - 2 sec
+//  espClient.setTimeout(2); //minimal timeout for WiFiClient class - 2 sec
+    espClient.setTimeout(5); //minimal timeout for WiFiClient class - 2 sec
 
 //    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
     rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
