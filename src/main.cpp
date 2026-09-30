@@ -80,6 +80,7 @@ char SmartDevice::LocalUrl[24] = "";
 #endif
 
   const int DS1820_1 = 15; // D15 esp32  3 снизу
+  const int DS1820_1v = 17; // D17 
   const int DS1820_2 = 26; // D26 esp32  7 снизу
   const int RelayPin = 23;
 
@@ -120,8 +121,10 @@ void loopDS1820(void);
 void setupDS1820(void);
 
 OneWire oneWire1(DS1820_1);
+OneWire oneWire1v(DS1820_1v);
 OneWire oneWire2(DS1820_2);
-DS18B20 Tsensor1(&oneWire1);
+//DS18B20 Tsensor1(&oneWire1);
+DS18B20 *pTsensor1;
 DS18B20 Tsensor2(&oneWire2);
 extern int OTDebugInfo[12];
 extern unsigned int OTcount;
@@ -369,9 +372,47 @@ static int _SConfigSMemberIDcode = 0;
 void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
  //  Serial.println(DS18B20_LIB_VERSION);
-
+  int pin_v = 0;
   SmOT.statusDS18b20 = 0x0;
 
+  pTsensor1 = new DS18B20(&oneWire1); pin_v = 0;
+  if(pTsensor1->begin() == false)
+  { delete pTsensor1;
+    pTsensor1 = new DS18B20(&oneWire1v); pin_v = 1;
+    if(pTsensor1->begin() == false)
+    { delay(100); 
+      // 2nd attempt
+      SmOT.stsT1 = -1;
+      SmOT.statusDS18b20 |= 0x02;
+      Serial.printf((PGM_P)F("ERROR: No DS18b20(1) found on pins %d & %d\n"), DS1820_1, DS1820_1v);
+      delay(100);
+      if(pTsensor1->begin() )
+      { Serial.println(F("2nd attempt(1) Ok"));
+        goto M1;
+      } else {
+        delete pTsensor1;
+        pTsensor1 = new DS18B20(&oneWire1); pin_v = 0;
+        if(pTsensor1->begin() )
+        { Serial.println(F("2nd attempt(1) Ok"));
+          goto M1;
+        }
+      }
+    } else  {
+      goto M1;
+    }
+  }  else {
+M1:  SmOT.stsT1 = 0;
+    SmOT.statusDS18b20 |= 0x01;
+
+    pTsensor1->setResolution(12);
+    pTsensor1->setConfig(DS18B20_CRC);  // or 1
+    if(pin_v)
+      Serial.printf((PGM_P)F("DS18b20(1) found on pin %i\n"), DS1820_1v);
+    else  
+      Serial.printf((PGM_P)F("DS18b20(1) found on pin %i\n"), DS1820_1);
+  }
+
+#if 0  
   if(Tsensor1.begin() == false)
   {   SmOT.stsT1 = -1;
       SmOT.statusDS18b20 |= 0x02;
@@ -390,6 +431,7 @@ M1:      SmOT.stsT1 = 0;
       Tsensor1.setConfig(DS18B20_CRC);  // or 1
       Serial.printf((PGM_P)F("DS18b20(1) found on pin %i\n"), DS1820_1);
   }
+#endif
 
   if(Tsensor2.begin() == false)
   {   SmOT.stsT2 = -1;
@@ -420,7 +462,7 @@ void loopDS1820(void)
   switch(nd)
   {   case 0:
         if(SmOT.statusDS18b20&0x01)
-        { Tsensor1.requestTemperatures();
+        { pTsensor1->requestTemperatures();
           nd = 1;
           start = millis();
         }  else nd = 2;
@@ -429,7 +471,7 @@ void loopDS1820(void)
         if(millis()-start < 700)
               break;
         if(millis()-start > 900)
-        {   rc = Tsensor1.isConversionComplete();
+        {   rc = pTsensor1->isConversionComplete();
             if(!rc)
             { SmOT.statusDS18b20 |= 0x04;
               nd = 2;
@@ -439,10 +481,10 @@ void loopDS1820(void)
               break;
             }
         } else {
-          rc = Tsensor1.isConversionComplete();
+          rc = pTsensor1->isConversionComplete();
         }
         if(rc)
-        { t = Tsensor1.getTempC();
+        { t = pTsensor1->getTempC();
           SmOT.statusDS18b20 &= ~0x04; // сброс бита таймаута
           if (t ==  DEVICE_DISCONNECTED)
           { SmOT.stsT1 = 4;
@@ -2032,6 +2074,9 @@ void OTlog(unsigned int reqresp, int sts)
   int lb;
   if(!SmOT.Use_remoteTCPserver)
     return;
+
+  if(SmOT.nOTlog == 0 && SmOT.stsOT == -1)  
+    return; //пока нет связи с котлом, не пишем в лог
     
   lb = SmOT.OTlogBuf.Lbuf/SmOT.OTlogBuf.Litem - SmOT.OTlogBuf.GetLbuf(); //
 

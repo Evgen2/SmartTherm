@@ -224,6 +224,7 @@ END:
 #if MQTT_USE
     Serial.printf((PGM_P)F("useMQTT=%i\n"), useMQTT);
 #endif
+   Serial.printf("%s Read_ot_fs  buff size %d, read %d need %d\n", __FUNCTION__,  sizeof(Buff), nw, n);
 #endif // SERIAL_DEBUG      
 
     return 0;

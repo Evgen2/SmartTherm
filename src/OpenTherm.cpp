@@ -615,14 +615,14 @@ int OpenTherm::Get_OTid_count(OpenThermMessageID id, int &count, int &countok)
 
 // use https://github.com/Jeroen88/EasyOpenTherm/blob/main/src/EasyOpenTherm.h
 OpenThermVendor OTvendorList[] =
-{	1,  "Baxi Fourtech/Luna 3",
-    2,  "AWB/Brink/Viessmann",
-	4,  "Baxi Slim", //    4:    "ATAG/Baxi/Brötje/ELCO/GEMINOX",
-    5,  "Itho Daalderop",
-    6,  "IDEAL",
-    8,  "Buderus/Bosch/Hoval",
-	9,  "Ferrolli",
-    11, "Remeha/De Dietrich",
+{	1, "Baxi Fourtech/Luna 3",
+	2, "AWB/Brink/Viessmann",
+	4, "Baxi Slim", //    4:    "ATAG/Baxi/Brötje/ELCO/GEMINOX",
+	5, "Itho Daalderop",
+	6, "IDEAL",
+	8, "Buderus/Bosch/Hoval",
+	9, "Ferrolli",
+	11, "Remeha/De Dietrich",
 	13, "Lamborghini", // sb f24
 	16, "Unical",
 	24, "Vaillant/Bulex",
@@ -630,13 +630,14 @@ OpenThermVendor OTvendorList[] =
 	29, "Itho Daalderop",
 	33, "Viessmann",
 	41, "Italtherm/Radiant",
-	56,	"Baxi Luna Duo-Tec P67=2",
+	56, "Baxi Luna Duo-Tec P67=2",
+	71, "Haier TechLine",
 	125, "Kotitonttu", // Toivo Т24 OK with OpenTherm
 	131, "Bosch/Nefit converter", // bosch / nefit EMS to OpenTherm converter 
 	148, "Navien",
-    173, "Intergas",
-    247, "Baxi Ampera",
-    248, "Zota" // Lux-X, mk-s plus
+	173, "Intergas",
+	247, "Baxi Ampera",
+	248, "Zota" // Lux-X, mk-s plus
 };
 
 const char * GetOTVendorName(int id)

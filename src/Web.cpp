@@ -867,7 +867,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   } 
 
   if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
+        SmOT.need_write_f |= 0x1;  //need write changes to FS
 
 
 #if MQTT_USE
@@ -1257,12 +1257,12 @@ if(SmOT.useMQTT)
     } else {
         Info3.value = "";
     }
-    if(ot.OTid_used(OpenThermMessageID::Toutside))
-    {   Info3.value += "Text " + String(SmOT.Toutside) + "<br>";
-    }
 
   if(SmOT.stsOT != -1)
   {
+    if(ot.OTid_used(OpenThermMessageID::Toutside))
+    {   Info3.value += "Text " + String(SmOT.Toutside) + "<br>";
+    }
    Info2.value = " Выходная температура  "  + String(SmOT.BoilerT);
       if(ot.OTid_used(OpenThermMessageID::Tret))
       { Info2.value +=  " Обратка " + String(SmOT.RetT);

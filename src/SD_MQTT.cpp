@@ -645,8 +645,8 @@ extern unsigned int OTcount;
     mqtt.onConnected(OnMQTTconnected);
     mqtt.onDisconnected(OnMQTTdisconnected);
     SmOT.stsMQTT = 1;
-    mqtt._mqtt->setSocketTimeout(2); 
-    espClient.setTimeout(2); //minimal timeout for WiFiClient class - 2 sec
+    mqtt._mqtt->setSocketTimeout(5 /* 2 */); 
+    espClient.setTimeout(5); //minimal timeout for WiFiClient class - 2 sec
 
 //    rc= mqtt.begin(SmOT.MQTT_server,  SmOT.MQTT_user, SmOT.MQTT_pwd);
     rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
