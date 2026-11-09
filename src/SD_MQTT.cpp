@@ -143,10 +143,10 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
       if(SmOT.TdhwSet != temperatureFloat) is_change = 1;
       SmOT.TdhwSet = temperatureFloat;
       SmOT.need_set_dhwT = 2;
-#if SERIAL_DEBUG      
-    Serial.print("DHW Target temperature: ");
-    Serial.println(temperatureFloat);
-#endif    
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onTargetTemperatureCommand: DHW Target temperature: %f\n", temperatureFloat);
+#endif
+
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
 
 #if PID_USE
@@ -156,17 +156,19 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
       if(SmOT.TroomTarget != temperatureFloat) is_change = 1;
       SmOT.set_new_PID_setpoint(temperatureFloat, 1); //change mypid.xTag 
       SmOT.TroomTarget = temperatureFloat;
-      Serial.printf("**** MQTT Set_NewTag: xTag = %f  = %f\n", SmOT.TroomTarget, SmOT.mypid.xTag);
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onTargetTemperatureCommand: PID Target temperature: %f\n", temperatureFloat);
+#endif
+
 #endif
     } else {
       if(SmOT.Tset != temperatureFloat) is_change = 1;
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T = 2;
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
-#if SERIAL_DEBUG      
-    Serial.print("CH Target temperature: ");
-    Serial.println(temperatureFloat);
-#endif    
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onTargetTemperatureCommand: CH Target temperature: %f\n", temperatureFloat);
+#endif
     }
     if(is_change)
     { SmOT.need_write_f |= 0x11; 
@@ -190,10 +192,17 @@ void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender) {
 //        Serial.println(F("off"));
         if(SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = false;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommand: CH off\n");
+#endif
+
     } else if (mode == HAHVAC::HeatMode) {
 //        Serial.println("heat");
         if(!SmOT.enable_CentralHeating) is_change = 1;
         SmOT.enable_CentralHeating = true;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommand: CH On\n");
+#endif
 
 #if 0        
     } else if (mode == HAHVAC::AutoMode) {
@@ -221,10 +230,16 @@ void onModeCommandPID(HAHVAC::Mode mode, HAHVAC* sender) {
 //        Serial.println(F("PID off"));
         if(SmOT.usePID) is_change = 1;
         SmOT.usePID = 0;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommandPID: usePID = 0\n");
+#endif
     } else if (mode == HAHVAC::AutoMode) {
 //        Serial.println("PID on");
         if(!SmOT.usePID) is_change = 1;
         SmOT.usePID = 1;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommandPID: usePID = 1\n");
+#endif
     }
 
     sender->setMode(mode); // report mode back to the HA panel
@@ -241,14 +256,19 @@ void onModeCommandDHW(HAHVAC::Mode mode, HAHVAC* sender) {
 //        Serial.println(F("DHW off"));
         if(SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = false;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommandDHW: DHW off\n");
+#endif
     } else if (mode == HAHVAC::HeatMode) {
 //        Serial.println("DHW heat");
         if(!SmOT.enable_HotWater) is_change = 1;
         SmOT.enable_HotWater = true;
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onModeCommandDHW: DHW on\n");
+#endif
     }
 
     sender->setMode(mode); // report mode back to the HA panel
-    Serial.printf("SmOT.enable_HotWater %d\n", SmOT.enable_HotWater);
     if(is_change)
     { SmOT.need_write_f |= 0x11; 
       SmOT.t_need_write_config = millis();
@@ -265,15 +285,19 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 //    } else 
     
     if (sender == &numT_outdoor) {
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onNumberCommand: T_outdoor: %f\n", t);
+#endif
 #if SERIAL_DEBUG      
       Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
         
     } else if (sender == &numT_indoor) {
-#if SERIAL_DEBUG      
-//      Serial.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
-#endif      
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onNumberCommand: T_indoor: %f\n", t);
+#endif
+
       SmOT.OnChangeT(t,3);
     }
 /*
@@ -298,6 +322,10 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 void onRelayCommand(bool state, HASwitch* sender)
 { if(sender == &relayHA)
   {
+#if MQTT_DEBUG
+    Serial.printf("MQTT:onRelayCommand: Relay: %s\n", state ? "ON" : "OFF");
+#endif
+
     if(state)
       SmOT.RelayOnOff(1);
     else
@@ -330,8 +358,7 @@ extern unsigned int OTcount;
         return;
   }
 
-
-   Serial.printf("SmOT.useMQTT = %d\n", SmOT.useMQTT);
+  Serial.printf("SmOT.useMQTT = %d\n", SmOT.useMQTT);
    if(SmOT.useMQTT != 0x03) 
       return;
 
@@ -424,9 +451,8 @@ extern unsigned int OTcount;
     relayHA.setNameUniqueIdStr(SmOT.MQTT_topic,"Реле", "Relay");
     relayHA.setAvailability(true);
     relayHA.setDeviceClass("switch");
-    relayHA.setState(SmOT.Relay_sts);
+    relayHA.setCurrentState(SmOT.Relay_sts); 
     relayHA.onCommand(onRelayCommand);
-
   }
 #endif//RELAY_USE    
 
@@ -644,6 +670,7 @@ extern unsigned int OTcount;
 #endif
     mqtt.onConnected(OnMQTTconnected);
     mqtt.onDisconnected(OnMQTTdisconnected);
+    mqtt.setKeepAlive(60);
     SmOT.stsMQTT = 1;
     mqtt._mqtt->setSocketTimeout(5 /* 2 */); 
     espClient.setTimeout(5); //minimal timeout for WiFiClient class - 2 sec

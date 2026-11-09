@@ -457,7 +457,6 @@ static unsigned int jj=0xffff, Nlost=0;
 
 			case MCMD_GETDATA:
   	   p_sd->callback_getdata(bf, MsgOut, Lsend, get_buf);
-//  	   p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
 				break;
 
 			case  MCMD_TESTCMD:
@@ -474,7 +473,7 @@ static unsigned int jj=0xffff, Nlost=0;
 				break;
 
 			case MCMD_SET_TCPSERVER:
-		p_sd->callback_set_tcp_server(bf, MsgOut, Lsend, get_buf);
+		p_sd->callback_set_tcp_server(bf, len, MsgOut, Lsend, get_buf);
 				break;
 
 			case MCMD_GET_OT_INFO:
@@ -514,9 +513,89 @@ static unsigned int jj=0xffff, Nlost=0;
   return (0);
 }
 /**********************************************************************/
-int tcp_serversts = 0;
+int tcp_serversts = -1;
 unsigned long t00_server=0;
-
+/*****************************************************************/
+/* Асинхронный DNS-запрос host by name */
+// Флаг для отслеживания состояния запроса
+volatile bool dnsFound = false;
+ip_addr_t resolvedIP;
+// Функция обратного вызова (Callback) - сработает, когда DNS-сервер ответит
+void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg) {
+    if (ipaddr != NULL) {
+        resolvedIP = *ipaddr;
+  		IPAddress ip(ipaddr->u_addr.ip4.addr);		
+#if SERIAL_DEBUG
+   		Serial.printf("[DNS] Get IP: %s \n", ip.toString().c_str());
+#endif		
+        dnsFound = true;
+		if(ip != p_sd->tcp_remoteIP)
+		{
+#if SERIAL_DEBUG
+				Serial.printf("[DNS] not equal to tcp_remoteIP: %s \n", p_sd->tcp_remoteIP.toString().c_str());
+#endif				
+			if(ip && ip[0] != 127)
+			{	p_sd->tcp_remoteIP = ip;
+				p_sd->t_need_write_config = millis();
+				p_sd->need_write_f |= 0x11;
+			}
+#if SERIAL_DEBUG
+		} else {
+   			Serial.printf("[DNS] Equal to tcp_remoteIP\n");
+#endif			
+		}
+#if SERIAL_DEBUG
+    } else {
+        Serial.printf("[DNS] Ошибка: Не удалось разрешить имя %s\n", name);
+#endif		
+    }
+}
+// Функция запуска асинхронного поиска
+void resolve_host_async(const char* host) {
+    dnsFound = false;
+    ip_addr_t addr;
+    
+#if SERIAL_DEBUG
+    Serial.printf("[DNS] Запуск асинхронного запроса для: %s\n", host);
+#endif    
+    // Вызываем функцию lwIP. 
+    // ERR_OK означает, что IP уже был в кеше и записан в addr.
+    // ERR_INPROGRESS означает, что запрос отправлен, ждем callback.
+    err_t err = dns_gethostbyname(host, &addr, dns_callback, NULL);
+    
+    if (err == ERR_OK) {
+        resolvedIP = addr;
+        dnsFound = true;
+  		IPAddress ip(addr.u_addr.ip4.addr);		
+        dnsFound = true;
+#if SERIAL_DEBUG
+        Serial.println("[DNS] Найдено мгновенно в локальном кеше!");
+   		Serial.printf("IP: %s \n", ip.toString().c_str());
+#endif
+		if(ip != p_sd->tcp_remoteIP)
+		{	
+#if SERIAL_DEBUG
+			Serial.printf("[DNS] not equal to tcp_remoteIP: %s \n", p_sd->tcp_remoteIP.toString().c_str());
+#endif
+			if(ip && ip[0] != 127)
+			{	p_sd->tcp_remoteIP = ip;
+				p_sd->t_need_write_config = millis();
+				p_sd->need_write_f |= 0x11;
+			}
+#if SERIAL_DEBUG
+		} else {
+   			Serial.printf("[DNS] Equal to tcp_remoteIP\n");
+#endif
+		}
+#if SERIAL_DEBUG
+    } else if (err == ERR_INPROGRESS) {
+        Serial.println("[DNS] Запрос отправлен. Ожидаем ответ сети...");
+    } else {
+        Serial.println("[DNS] Ошибка при инициализации запроса.");
+#endif
+    }
+}
+/*****************************************************************/
 void loop_servertcp(void)
 {   int rc;
 
@@ -532,6 +611,13 @@ void loop_servertcp(void)
 	
 	switch(tcp_serversts)
 	{
+		case -1:
+			if(p_sd->remote_Host)
+		 		resolve_host_async(p_sd->remote_Host);
+			tcp_serversts = 0;
+
+			break;
+
 		case 0:
 			if (TcpServer_Lsend > 0) {
 				tcp_serversts = 3;
@@ -540,7 +626,7 @@ void loop_servertcp(void)
 
 		case 3:
 		//Next tcp_sts: 0/4 (sts=2)
-			if(!p_sd->tcp_remoteIP) //Empty IP !!!
+			if(!p_sd->tcp_remoteIP ||p_sd->tcp_remoteIP[0] == 127) //Empty IP or local !!!
 			{	tcp_serversts = 0;
 				TcpServer_Lsend = 0;
 			} else {

@@ -506,13 +506,15 @@ void loopDS1820(void)
 #endif            
           } else {
             SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
+            if(SmOT.useDS18B20correction)
+              t += SmOT.shift_DS_1;   
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
                 SmOT.t1 = t;
             SmOT.stsT1 = 1;
             SmOT.OnChangeT(t,0);    
-//            Serial.printf("SmOT T1= %f\n",   SmOT.t1);
+//            Serial.printf("SmOT T1= %f %ld ",   t, millis()-start);
           }
           SmOT.statusDS18b20 &= ~0x04;
           nd = 2;
@@ -567,6 +569,8 @@ void loopDS1820(void)
 #endif            
           } else {
             SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
+            if(SmOT.useDS18B20correction)
+              t += SmOT.shift_DS_2;
 
             if(SmOT.stsT2 == 1)
                 SmOT.t2 = (SmOT.t2 + t) * 0.5;
@@ -575,8 +579,8 @@ void loopDS1820(void)
             SmOT.stsT2 = 1;
             SmOT.OnChangeT(t,1);    
 
-//            Serial.printf("SmOT T2= %f\n",   SmOT.t2);
           }
+
           nd = 0;
         }
 
@@ -900,6 +904,20 @@ An OEM-specific fault/error code
     case OpenThermMessageID::TrSet: // 16  Room Setpoint (°C) TrSet:  
         break;
 
+    case OpenThermMessageID::RelModLevel: //17 Relative Modulation Level 
+        SmOT.FlameModulation = t;
+        SmOT.Bstat.calcIntegral(t);
+        break;
+
+    case OpenThermMessageID::CHPressure: //18 Water pressure in CH circuit
+        SmOT.Pressure = t;
+        break;
+
+    case OpenThermMessageID::DHWFlowRate: //19 Water flow rate in DHW circuit. (litres / minute)
+      SmOT.DHWFlowRate = t;
+//      Serial.printf("DHWFlowRate=%g\n", t);
+        break;
+
     case OpenThermMessageID::Tr: // 24 f8.8  Room temperature (°C)
         break;
 
@@ -946,18 +964,14 @@ An OEM-specific fault/error code
       }
         break;
 
-    case OpenThermMessageID::RelModLevel: //17 Relative Modulation Level 
-        SmOT.FlameModulation = t;
-        SmOT.Bstat.calcIntegral(t);
+    case OpenThermMessageID::TdhwSetUBTdhwSetLB: //48 s8/s8 DHW Setpoint upper & lower bounds for adjustment(°C)
+      SmOT.TdhwSetUB = float((u88>>8) & 0xff);
+      SmOT.TdhwSetLB = float(u88 & 0xff);
         break;
 
-    case OpenThermMessageID::CHPressure: //18 Water pressure in CH circuit
-        SmOT.Pressure = t;
-        break;
-
-    case OpenThermMessageID::DHWFlowRate: //19 Water flow rate in DHW circuit. (litres / minute)
-      SmOT.DHWFlowRate = t;
-//      Serial.printf("DHWFlowRate=%g\n", t);
+    case OpenThermMessageID::MaxTSetUBMaxTSetLB: //49 s8/s8 Max CH water Setpoint upper & lower bounds for adjustment(°C)
+      SmOT.MaxTSetUB = float((u88>>8) & 0xff);
+      SmOT.MaxTSetLB = float(u88 & 0xff);
         break;
 
     case OpenThermMessageID::OEMDiagnosticCode: //115
@@ -1045,7 +1059,7 @@ unsigned int buildRequestOnStart(void)
 int buildRequestIfNeed(unsigned int &request)
 {   int rc = 0, need,flag, i,j,j0, s;
     static int raz=0, rraz=0, sts = 0, idrep=0;
-    const int Nneed = 5;
+    const int Nneed = 8;
 
 /***************************************************/
   need = flag = 0;
@@ -1066,7 +1080,18 @@ int buildRequestIfNeed(unsigned int &request)
                   { need++, flag |= 0x10; s = 5; } //s = Nneed
   if(ot.OTid_used(OpenThermMessageID::MaxTSet) && SmOT.need_set_MaxTSet) 
                   { need++, flag |= 0x20; s = 6; } //s = Nneed
-                  
+  if(ot.OTid_used(OpenThermMessageID::TdhwSetUBTdhwSetLB) && SmOT.need_set_TdhwSetUBTdhwSetLB) 
+                  { need++, flag |= 0x40; s = 7; } 
+  if(ot.OTid_used(OpenThermMessageID::MaxTSetUBMaxTSetLB) && SmOT.need_set_MaxTSetUBMaxTSetLB) 
+                  { need++, flag |= 0x80; s = 8; } 
+/*
+{int count, countok;
+  ot.Get_OTid_count(OpenThermMessageID::MaxTSetUBMaxTSetLB, count, countok);
+Serial.printf("==>> MaxTSetUBMaxTSetLB %d %d (%d %d)\n",ot.OTid_used(OpenThermMessageID::MaxTSetUBMaxTSetLB), SmOT.need_set_MaxTSetUBMaxTSetLB, count, countok);
+  ot.Get_OTid_count(OpenThermMessageID::MaxTSet, count, countok);
+Serial.printf("==>> MaxTSet %d %d (%d %d)\n",ot.OTid_used(OpenThermMessageID::MaxTSet), SmOT.need_set_MaxTSet, count, countok);
+}
+*/
   if(need == 1)
   { sts = s;
     if(rraz == 0)
@@ -1122,6 +1147,10 @@ int buildRequestIfNeed(unsigned int &request)
     case 1:
         if(SmOT.need_set_T > 0)
         { request = ot.buildSetBoilerTemperatureRequest(SmOT.Tset); //1
+          if(SmOT.Kotitonttu_fix_flag)
+          {  SmOT.need_set_MaxTSet = 1;
+             SmOT.MaxTSet = SmOT.Tset; 
+          }
           SmOT.need_set_T--;
         }
       break;
@@ -1160,8 +1189,7 @@ int buildRequestIfNeed(unsigned int &request)
 
         }
 //Serial.printf("RemoteRequest data %x\n", data);
-        
-	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::RemoteRequest, data);
+	          request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::RemoteRequest, data); //4
             SmOT.need_set_RemoteRequest--;
         }
       break;
@@ -1169,11 +1197,24 @@ int buildRequestIfNeed(unsigned int &request)
     case 6: //MaxTSet 
         if(SmOT.MaxTSet >= MIN_CH_TEMP && SmOT.MaxTSet <= MAX_CH_TEMP)
         { 	unsigned int data = ot.temperatureToData(SmOT.MaxTSet);
-            request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxTSet, data);
+            request  = ot.buildRequest(OpenThermMessageType::WRITE_DATA, OpenThermMessageID::MaxTSet, data); //57
             SmOT.need_set_MaxTSet--;
         }
 
       break;
+
+    case 7:
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::TdhwSetUBTdhwSetLB, 0);  //48
+            SmOT.need_set_TdhwSetUBTdhwSetLB--;
+        }
+      break;
+
+    case 8:
+        {   request = ot.buildRequest(OpenThermMessageType::READ_DATA, OpenThermMessageID::MaxTSetUBMaxTSetLB, 0);  //49
+            SmOT.need_set_MaxTSetUBMaxTSetLB--;
+        }
+      break;
+
   }
 
 /********************************/
@@ -1636,6 +1677,8 @@ static unsigned long OTloopUpdate_t0 =0;
 void OTloop_callback(void)
 {   if( OTloop() ) 
        OTloopUpdate_t0 = millis();
+    else 
+      delay(1);
 //  Serial.printf("OTloop_callback %ld\n", millis());
     loop_LED();
     loop_time();
@@ -1653,6 +1696,8 @@ void loop_callback(int src)
   {
     if( OTloop() ) 
        OTloopUpdate_t0 = millis();
+    else
+      delay(1);
 //    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
     loop_LED();
     loop_time();
@@ -1663,6 +1708,7 @@ void loop_callback(int src)
 void loop(void)
 {   unsigned long t;
     int dt;
+
 #if T_DEBUG 
   static int count=0, told=0;
   int dt1;
@@ -1701,6 +1747,7 @@ void loop(void)
        OTloopUpdate_t0 = millis();
   }  else {
      loop2();
+      delay(1);
   }
 #endif //st_VERS  
 }
@@ -1997,7 +2044,6 @@ void SD_Termo::RelayInit(void)
 #if RELAY_USE
   if(Relay_present)
   {
-
     pinMode(RelayPin, OUTPUT);  
     RelayOnOff(Relay_init_sts); 
   }

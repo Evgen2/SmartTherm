@@ -43,7 +43,9 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 
 #endif
 
-extern  SD_Termo SmOT;
+extern SD_Termo SmOT;
+extern OpenTherm ot;
+
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
 int MQTTDebugInfo[15] ={0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0};
@@ -96,9 +98,9 @@ ACSubmit(SetNewBoilerTemp,"Задать", SET_T_URI, AC_Tag_DIV);
 
 /************* SetupPage ***************/
 ACText(Ctrl2, "", "", "", AC_Tag_DIV);
-//ACCheckbox(CtrlChB1,"checkbox", "uniqueapid");
-AutoConnectCheckbox CtrlChB1("CtrlChB1","1", "Отопление", false, AC_Behind , AC_Tag_BR);
-AutoConnectCheckbox CtrlChB2("CtrlChB2","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
+//ACCheckbox(CtrlChB_CH,"checkbox", "uniqueapid");
+AutoConnectCheckbox CtrlChB_CH("ChB_CH","1", "Отопление", false, AC_Behind , AC_Tag_BR);
+AutoConnectCheckbox CtrlChB_HW("ChB_HW","2", "Горячая вода", false, AC_Behind , AC_Tag_DIV);
 AutoConnectCheckbox CtrlChB3("CtrlChB3","3", "Отопление CH2", false, AC_Behind , AC_Tag_DIV);
 ACInput(SetMaxMod,"", "проценты","",  "0-100%",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
 AutoConnectCheckbox CtrlChBMmod("CtrlChBmmod","4", "Макс модуляция", false, AC_Behind , AC_Tag_BR);
@@ -120,8 +122,6 @@ ACInput(SetTmaxPID,"", "Tmax:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); /
 ACInput(SetTminPID,"", "Tmin:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
 AutoConnectCheckbox CtrlChB_UseRemoteControl("CtrlChB5","5", "Разрешить удаленное управление", false, AC_Behind , AC_Tag_DIV);
   
-//AutoConnectCheckbox checkbox("checkbox", "uniqueapid", "Use APID unique", false);
-//ACCheckbox(CtrlChB2,"a2", "", true,  AC_Behind , AC_Tag_DIV);
 ACSubmit(ApplyChB, "Задать", SET_PAR_URI, AC_Tag_DIV);
 ACSubmit(ApplyAdd, "Дополнительно", SETUP_ADD_URI, AC_Tag_None);
 
@@ -135,18 +135,18 @@ AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2
 AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лето/зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox Kotitonttu_fix_ChB("Kotitonttu","", "Kotitonttu fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox DS18B20_fix_ChB("DSfix","", "Коррекция DS18B20 ", false, AC_Behind, AC_Tag_BR);
+ACInput(DS18B20_shift1, "", "Смещение T1:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(DS18B20_shift2, "", "Смещение T2:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+
 AutoConnectCheckbox UseCPU_FREQ_ChB("CPUFREQ","", "CPU FREQ", false, AC_Behind, AC_Tag_None);
 ACInput(CPU_FREQ,"", " ","", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
 
-#if PID_USE
-ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, SetupPID, Info1, SendBLOR });
-#else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2,  ApplyAddpar, Info1, SendBLOR});
-#endif //#if PID_USE
-
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, 
+    Immergas_fix_ChB, Kotitonttu_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, DS18B20_fix_ChB, DS18B20_shift1, DS18B20_shift2, ApplyAddpar,  Info1, SendBLOR });
 
 /************* SetPID ******************/
 #if PID_USE
@@ -200,13 +200,13 @@ AutoConnectAux InfoPage(INFO_URI, "SmartTherm", true, { Caption, Info1, Info2, I
 #endif 
 
 #if MQTT_USE
-  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB1, CtrlChB2, CtrlChB3, SetMaxMod, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
+  AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2,  CtrlChB_CH, SetTmaxPID, SetTminPID, Info2, CtrlChBMmod, SetMaxMod, CtrlChB_HW, Info3, CtrlChB3,    
   #if RELAY_USE
 CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
      CtrlChbUseMQTT, SetMQTT_user, SetMQTT_pwd, SetMQTT_server, SetMQTT_port, SetMQTT_topic, SetMQTT_devname, SetMQTT_interval, CtrlChB_UseRemoteControl, ApplyAdd,ApplyChB});
 #else
-AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB1, CtrlChB2, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
+AutoConnectAux Setup_Page(SETUP_URI, "Setup", true, { Ctrl2, CtrlChB_CH, CtrlChB_HW, CtrlChB3, CtrlChBMmod, SetTmaxPID, SetTminPID, Info2,
   #if RELAY_USE
  CtrlChBUseRelay, CtrlChBStartRelaySts,
   #endif
@@ -392,6 +392,7 @@ void setup_web_common(void)
     WiFi.setAutoReconnect(true);
   }  
   
+  WiFi.setSleep(false);
 /* get my MAC*/
 #if defined(ARDUINO_ARCH_ESP8266)
 //    WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3
@@ -673,7 +674,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
     }
 
     if(isChange)
-        SmOT.need_write_f = 1;
+        SmOT.need_write_f |= 0x01;
 
 // redirect/transition to the INFO_URI.
 //work only with last false in
@@ -689,7 +690,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   float fv;
    bool check;
 
-  if( CtrlChB1.checked) check = true;
+  if( CtrlChB_CH.checked) check = true;
   else                  check = false;
   if(check != SmOT.enable_CentralHeating)
   { isChange++;
@@ -703,7 +704,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 
   }
 
-  if( CtrlChB2.checked) check = true;
+  if( CtrlChB_HW.checked) check = true;
   else                  check = false;
   if(check != SmOT.enable_HotWater)
   { isChange++;
@@ -915,7 +916,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // SetAddParPage 
 // SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0, redir = 0;
+{  int isChange=0, isChange2=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -959,11 +960,18 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
   { isChange++;
      SmOT.Use_ID29_DHW_flag = icheck;
   }
+  
   if(Immergas_fix_ChB.checked) icheck = 1;
   else                        icheck = 0;
   if(icheck != SmOT.Immergas_fix_flag)
   { isChange++;
      SmOT.Immergas_fix_flag = icheck;
+  }
+  if(Kotitonttu_fix_ChB.checked) icheck = 1;
+  else                        icheck = 0;
+  if(icheck != SmOT.Kotitonttu_fix_flag)
+  { isChange++;
+     SmOT.Kotitonttu_fix_flag = icheck;
   }
 
   if( UseCPU_FREQ_ChB.checked) icheck = true;
@@ -988,8 +996,37 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
     isChange = 1;
   }
 
+
+  if(DS18B20_fix_ChB.checked)
+  {  if(SmOT.useDS18B20correction == 0)
+      {  isChange2 = 1;
+         SmOT.useDS18B20correction = 1;
+         redir = 1;
+      }
+      float sv;
+      sv  = DS18B20_shift1.value.toFloat();
+      if(sv != SmOT.shift_DS_1)
+      {
+        isChange2 = 1;
+        SmOT.shift_DS_1 = sv;
+      }
+      sv  = DS18B20_shift2.value.toFloat();
+      if(sv != SmOT.shift_DS_2)
+      {
+        isChange2 = 1;
+        SmOT.shift_DS_2 = sv;
+      }
+  } else {
+    if(SmOT.useDS18B20correction)
+    { isChange2 = 1; 
+      SmOT.useDS18B20correction  = 0;
+    }
+  }
+
   if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
+        SmOT.need_write_f = 0x11;  //need write changes to FS
+  if(isChange2)      
+        SmOT.need_write_f |= 0x18;  //need write changes to FS
 
   if(redir)
         aux.redirect(SETUP_ADD_URI);
@@ -1035,6 +1072,11 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       Immergas_fix_ChB.checked = false;
 
+  if( SmOT.Kotitonttu_fix_flag)
+      Kotitonttu_fix_ChB.checked = true;
+  else
+      Kotitonttu_fix_ChB.checked = false;
+
   if(SmOT.useCPU_freq >=0)
       UseCPU_FREQ_ChB.checked = true;
   else
@@ -1052,6 +1094,22 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
     Info2.value ="";
   }
 
+  if(SmOT.useDS18B20correction)
+  {
+    DS18B20_fix_ChB.checked = true;
+    DS18B20_shift1.enable = true;
+    DS18B20_shift2.enable = true;
+    sprintf(str,"%.2f",SmOT.shift_DS_1);
+    DS18B20_shift1.value = str;
+    sprintf(str,"%.2f",SmOT.shift_DS_2);
+    DS18B20_shift2.value = str;
+
+  } else {
+    DS18B20_fix_ChB.checked = false;
+    DS18B20_shift1.enable = false;
+    DS18B20_shift2.enable = false;
+  }
+
   if(SmOT.RemoteRequest_present)
   {   SendBLOR.enable = true;
       Info1.value = "Удаленный сброс ошибки (BLOR), я знаю, что я делаю";
@@ -1067,7 +1125,6 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
   char str0[80];
-extern OpenTherm ot;
 
    switch(SmOT.stsOT)
    {  case -1:
@@ -1459,7 +1516,7 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {  const char *pstr; 
-   char str[40]; 
+   char str[100]; 
     
 #if RELAY_USE
     CtrlChBUseRelay.enable = true;
@@ -1495,23 +1552,24 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
   }
 
   if( SmOT.enable_CentralHeating)
-      CtrlChB1.checked = true;
+      CtrlChB_CH.checked = true;
   else
-      CtrlChB1.checked = false;
+      CtrlChB_CH.checked = false;
 
   Info1.value ="";
+  Info3.value ="";
 
 /*********************************/      
  if (SmOT.stsOT >= 0)
  {
   if(SmOT.HotWater_present) 
-  { CtrlChB2.enable  =  true;    
+  { CtrlChB_HW.enable  =  true;    
     if(SmOT.enable_HotWater)
-      CtrlChB2.checked = true;
+      CtrlChB_HW.checked = true;
     else
-      CtrlChB2.checked = false;
+      CtrlChB_HW.checked = false;
   } else {
-     CtrlChB2.enable  = false;
+     CtrlChB_HW.enable  = false;
   }
 
   if(SmOT.CH2_present) 
@@ -1533,12 +1591,17 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
 
 /*********************************/      
  } else {
-    CtrlChB2.enable  = false;
+    CtrlChB_HW.enable  = false;
     CtrlChB3.enable  = false;
     Ctrl2.value = ""; 
  }
  
-    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)</small><br><br>";
+    Info2.value = "<small>Tmax <= 80, Tmin >= 30 (конденсационный котел, иначе 40)";
+    if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::MaxTSetUBMaxTSetLB))
+    { sprintf(str,"<br>Котёл сообщает: max %.1f, min %.1f", SmOT.MaxTSetUB, SmOT.MaxTSetLB);
+      Info2.value += str;
+    }
+    Info2.value += "</small><br>";
 
     sprintf(str,"%.2f",SmOT.umax);
     SetTmaxPID.value = str;
@@ -1550,6 +1613,12 @@ String on_Setup(AutoConnectAux& aux, PageArgument& args)
     else
       CtrlChB_UseRemoteControl.checked = false;
 
+    if(SmOT.CapabilitiesDetected && ot.OTid_used(OpenThermMessageID::TdhwSetUBTdhwSetLB))
+    { sprintf(str,"<small>Котёл сообщает: max %.1f, min %.1f<br></small>", SmOT.TdhwSetUB, SmOT.TdhwSetLB);
+      Info3.value += str;
+    } else {
+      Info3.value ="";
+    }
  
 #if MQTT_USE
   CtrlChbUseMQTT.enable  = true;
@@ -1977,6 +2046,7 @@ static unsigned long t0=0;
 //    WL_DISCONNECTED     = 7
 } wl_status_t; 
   */
+
   rc = WiFi.status();
   { static int oldstatus=-1, oldmode=-1, needStopAP=0 ;
     static long t0 = 0;
@@ -1985,7 +2055,7 @@ static unsigned long t0=0;
 
     if((rc != oldstatus) || mode != oldmode)
     {
-        Serial.printf("WiFi: status=%i mode = %d chanel=%d\n", rc,  mode, ch);
+        Serial.printf("WiFi: status=%i (%d) mode = %d chanel=%d\n", rc, oldstatus,   mode, ch);
         if(rc == WL_CONNECTED &&  (oldstatus == WL_IDLE_STATUS || oldstatus == WL_DISCONNECTED ||  oldstatus == WL_NO_SSID_AVAIL))
         {   Serial.printf("WiFi status chage to connected");
           needStopAP = 1;
@@ -2110,6 +2180,8 @@ void setup_read_config(void)
   }
    
   SmOT.Read_ot_fs();
+  SmOT.Read_rc_fs();
+  SmOT.Read_sensors_fs();
 //  SmOT.Read_mqtt_fs();
   SmOT.init(1);
 
