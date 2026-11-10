@@ -1,19 +1,10 @@
 /* SD_Config.cpp */
-#include <time.h>
-#include <Arduino.h>
-
-#include <WiFi.h>
-#include <WebServer.h>
-#include "esp32/rom/rtc.h"
-typedef WebServer WEBServer;
 
 #include <AutoConnect.h>
 #include <AutoConnectFS.h>
 extern AutoConnectFS::FS& FlashFS;
 
-#include "OpenTherm.h"
 #include "SD_OpenTherm.hpp"
-#include "Smart_commands.h"
 
 /*******************************/
 const int FS_BUF = sizeof(SD_Termo::enable_CentralHeating) + sizeof(SD_Termo::enable_HotWater) + sizeof(SD_Termo::Tset) + sizeof(SD_Termo::TdhwSet) + sizeof(SD_Termo::UDPserver_repot_period) +
