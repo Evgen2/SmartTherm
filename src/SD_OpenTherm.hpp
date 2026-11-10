@@ -396,7 +396,7 @@ public:
     ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
 #endif
     useCPU_freq = -1; //2;
-    useDS18B20correction = 0;;
+    useDS18B20correction = 0;
     shift_DS_1 = shift_DS_2 = 0.f;
 
   }
