@@ -288,9 +288,6 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 #if MQTT_DEBUG
     Serial.printf("MQTT:onNumberCommand: T_outdoor: %f\n", t);
 #endif
-#if SERIAL_DEBUG      
-      Serial.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
-#endif      
       SmOT.OnChangeT(t,4);
         
     } else if (sender == &numT_indoor) {
