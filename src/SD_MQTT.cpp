@@ -409,6 +409,7 @@ extern unsigned int OTcount;
     sensorModulation.setIcon("mdi:fire");
     sensorModulation.setDeviceClass("power_factor"); 
     sensorModulation.setUnitOfMeasurement("%");
+    sensorModulation.setStateClass("measurement");
 /**********/
     sensor_CH.setNameUniqueIdStr(SmOT.MQTT_topic,"Отопление", "CH");
     sensor_CH.setCurrentState(false); 
@@ -445,6 +446,7 @@ extern unsigned int OTcount;
     sensorBoilerT.setAvailability(false);
     sensorBoilerT.setDeviceClass(temperature_str);
     sensorBoilerT.setUnitOfMeasurement("°C");
+    sensorBoilerT.setStateClass("measurement");
 #if RELAY_USE
   if(SmOT.Relay_present)
   {
@@ -461,18 +463,21 @@ extern unsigned int OTcount;
       sensorBoilerRetT.setAvailability(false);
       sensorBoilerRetT.setDeviceClass(temperature_str); 
       sensorBoilerRetT.setUnitOfMeasurement("°C");
+      sensorBoilerRetT.setStateClass("measurement");
     }
 
     if(SmOT.Pressure_present)
     { sensorPressure.setNameUniqueIdStr(SmOT.MQTT_topic,"Давление", "Pressure");
       sensorPressure.setAvailability(false);
       sensorPressure.setDeviceClass("pressure"); 
+      sensorPressure.setStateClass("measurement");
     }
 
     if(SmOT.DHWFlowRate_present)
     { sensorDHWFlowRate.setNameUniqueIdStr(SmOT.MQTT_topic,"Расход", "DHWFlowRate");
       sensorDHWFlowRate.setAvailability(false);
       sensorDHWFlowRate.setDeviceClass("volume_flow_rate"); 
+      sensorDHWFlowRate.setStateClass("measurement");
     }
 
     sensorFreeRam.setAvailability(true);
@@ -562,6 +567,7 @@ extern unsigned int OTcount;
       sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
       sensorT1.setDeviceClass(temperature_str); 
       sensorT1.setUnitOfMeasurement("°C");
+      sensorT1.setStateClass("measurement");
       sprintf(str,"%.3f", SmOT.t1);
       sensorT1.setValue(str);  
 //   Serial.printf("***000 MQTT T1=%s\n",  str); 
@@ -575,6 +581,7 @@ extern unsigned int OTcount;
       sensorT2.setNameUniqueIdStr(SmOT.MQTT_topic,"T2", "T2");
       sensorT2.setDeviceClass(temperature_str); 
       sensorT2.setUnitOfMeasurement("°C");
+      sensorT2.setStateClass("measurement");
       sprintf(str,"%.3f", SmOT.t2);
       sensorT2.setValue(str);  
     }  else {
@@ -586,6 +593,7 @@ extern unsigned int OTcount;
       sensorText.setNameUniqueIdStr(SmOT.MQTT_topic,"Tвн", "Toutside");
       sensorText.setDeviceClass(temperature_str); 
       sensorText.setUnitOfMeasurement("°C");
+      sensorText.setStateClass("measurement");
     }
 
 #if PID_USE
@@ -631,29 +639,34 @@ extern unsigned int OTcount;
     sensorPID_P.setNameUniqueIdStr(SmOT.MQTT_topic,"dP", "pid_dp");
     sensorPID_P.setDeviceClass(temperature_str); 
     sensorPID_P.setUnitOfMeasurement("K");
+    sensorPID_P.setStateClass("measurement");
 //    sensorPID_P.setUnitOfMeasurement("°C");
 
     sensorPID_D.setAvailability(true);
     sensorPID_D.setNameUniqueIdStr(SmOT.MQTT_topic,"dD", "pid_dd");
     sensorPID_D.setDeviceClass(temperature_str); 
     sensorPID_D.setUnitOfMeasurement("K");
+    sensorPID_D.setStateClass("measurement");
 //    sensorPID_D.setUnitOfMeasurement("°C");
     
     sensorPID_I.setAvailability(true);
     sensorPID_I.setNameUniqueIdStr(SmOT.MQTT_topic,"dI", "pid_di");
     sensorPID_I.setDeviceClass(temperature_str); 
     sensorPID_I.setUnitOfMeasurement("K");
+    sensorPID_I.setStateClass("measurement");
 //    sensorPID_I.setUnitOfMeasurement("°C");
     
     sensorPID_U.setAvailability(true);
     sensorPID_U.setNameUniqueIdStr(SmOT.MQTT_topic,"U", "pid_u");
     sensorPID_U.setDeviceClass(temperature_str); 
     sensorPID_U.setUnitOfMeasurement("K");
+    sensorPID_U.setStateClass("measurement");
 
     sensorPID_U0.setAvailability(true);
     sensorPID_U0.setNameUniqueIdStr(SmOT.MQTT_topic,"U0", "pid_u0");
     sensorPID_U0.setDeviceClass(temperature_str); 
     sensorPID_U0.setUnitOfMeasurement("K");
+    sensorPID_U0.setStateClass("measurement");
             sprintf(str,"%.4f", SmOT.mypid.ub);
             sensorPID_U0.setValue(str);
 //    Serial.printf("sensorPID_U0 =%s\n", str);
@@ -664,6 +677,7 @@ extern unsigned int OTcount;
     sensor_Eff_Mod.setIcon("mdi:fire");
     sensor_Eff_Mod.setDeviceClass("power_factor"); 
     sensor_Eff_Mod.setUnitOfMeasurement("%");
+    sensor_Eff_Mod.setStateClass("measurement");
 
     //SmOT.Bstat.Eff_Mod_h_prev
 
