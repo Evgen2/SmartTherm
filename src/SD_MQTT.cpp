@@ -716,7 +716,7 @@ void mqtt_start(void)
   {   mqtt_setup();
   } else {
     int rc;
-    rc= mqtt.begin(SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
+    rc= mqtt.begin(SmOT.MQTT_server, SmOT.MQTT_port, SmOT.MQTT_user, SmOT.MQTT_pwd);
     if(rc == true)
     { Serial.printf("(1) mqtt.begin ok %s %s %s\n", SmOT.MQTT_server,SmOT.MQTT_user, SmOT.MQTT_pwd);
       SmOT.stsMQTT = 2;
