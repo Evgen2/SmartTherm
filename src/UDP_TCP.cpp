@@ -231,7 +231,7 @@ void loop_tcp(int sts)
 					Serial.printf("send to IP: %s", p_sd->tcp_remoteIP.toString().c_str());
 //  					Serial.println(p_sd->tcp_remoteIP.toString());
 					Serial.printf(" port %d bytes %d\n", p_sd->TCPserver_port, TcpUdp_Lsend);
-					unsigned long t00 = millis();
+					t00 = millis();
 #endif					
 					rc = asTCP.connect_0(p_sd->tcp_remoteIP,p_sd->TCPserver_port,500); //todo 500 ->timeout
 					if(rc == 1)
