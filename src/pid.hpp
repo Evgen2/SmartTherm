@@ -56,10 +56,11 @@ class dstack
 class TempStack:public dstack
 {
   public:
-
+   float tauC;
+   float err_y;
    TempStack(void)
-   { 
-
+   {  tauC = 1.f;
+      err_y = 0.f;
    }
    void add (float _d, unsigned long int _t)
    {  if(n == NB)

@@ -1,6 +1,8 @@
 /* As_TCP.h */
 
 #include <lwip/sockets.h>
+#include <lwip/dns.h>
+#include <lwip/ip_addr.h>
 //#include <lwip/netdb.h>
 #include <errno.h>
 
