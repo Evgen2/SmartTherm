@@ -42,7 +42,7 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
 #endif
 
-extern  SD_Termo SmOT;
+extern SD_Termo SmOT;
 extern OpenTherm ot;
 
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
@@ -134,18 +134,18 @@ AutoConnectCheckbox UseCH2_DHW_ChB("UseCH2DHW","", "Использовать CH2
 AutoConnectCheckbox UseWinterModeChB("UseWinterModeChB","", "Режим «лето/зима» (ID0:HB5)", false,   AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox UseID29_DHW_ChB("UseID29DHW","", "Использовать ID29 для температуры бойлера", false, AC_Behind, AC_Tag_BR);
 AutoConnectCheckbox Immergas_fix_ChB("Immergas","", "Immergas fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox Kotitonttu_fix_ChB("Kotitonttu","", "Kotitonttu fix", false, AC_Behind, AC_Tag_BR);
+AutoConnectCheckbox DS18B20_fix_ChB("DSfix","", "Коррекция DS18B20 ", false, AC_Behind, AC_Tag_BR);
+ACInput(DS18B20_shift1, "", "Смещение T1:","","",AC_Tag_None, AC_Input_Text, STYLE_WIDTH); // 
+ACInput(DS18B20_shift2, "", "Смещение T2:","","",AC_Tag_BR,   AC_Input_Text, STYLE_WIDTH); // 
+
 AutoConnectCheckbox UseCPU_FREQ_ChB("CPUFREQ","", "CPU FREQ", false, AC_Behind, AC_Tag_None);
 ACInput(CPU_FREQ,"", " ","", "", AC_Tag_None, AC_Input_Text, STYLE_WIDTH); 
 ACSubmit(ApplyAddpar,   "Задать", SET_ADD_URI, AC_Tag_BR);
 ACSubmit(SendBLOR, "Сброс ошибки", BLOR_URI, AC_Tag_BR);
 
-#if PID_USE
-ACSubmit(SetupPID,   "PID", PID_URI, AC_Tag_BR);
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, SetupPID, Info1, SendBLOR });
-#else
-AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB,Immergas_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, ApplyAddpar, Info1, SendBLOR});
-#endif //#if PID_USE
-
+AutoConnectAux SetupAdd_Page(SETUP_ADD_URI, "SetupAdd", false, { UseID2ChB, ID2MaserID,  UseOTC_ChB, UseCH2_DHW_ChB, UseWinterModeChB, UseID29_DHW_ChB, 
+    Immergas_fix_ChB, Kotitonttu_fix_ChB, UseCPU_FREQ_ChB, CPU_FREQ, Info2, DS18B20_fix_ChB, DS18B20_shift1, DS18B20_shift2, ApplyAddpar,  Info1, SendBLOR });
 
 /************* SetPID ******************/
 #if PID_USE
@@ -379,6 +379,8 @@ void setup_web_common(void)
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
+  
+  WiFi.setSleep(false);
 
   WiFiWebServer&  webServer = portal.host();
 
@@ -425,6 +427,37 @@ void time_sync_notification_cb(struct timeval *tv) {
 //    Serial_db.printf("Time updated, Unix time: %ld\n", tv->tv_sec);
 }
 
+/********************************************/
+//#include "esp_wifi.h" // Обязательно добавляем этот заголовок
+#if SERIAL_DEBUG
+void checkDetailedSleepMode() {
+    wifi_ps_type_t sleep_type;
+    
+    // Получаем текущий тип энергосбережения из памяти контроллера
+    esp_err_t err = esp_wifi_get_ps(&sleep_type);
+    
+    if (err == ESP_OK) {
+        switch(sleep_type) {
+            case WIFI_PS_NONE:
+                Serial.println("Режим: WIFI_PS_NONE (Сон полностью выключен)");
+                break;
+            case WIFI_PS_MIN_MODEM:
+                Serial.println("Режим: WIFI_PS_MIN_MODEM (Минимальный сон модема)");
+                break;
+            case WIFI_PS_MAX_MODEM:
+                Serial.println("Режим: WIFI_PS_MAX_MODEM (Максимальный сон модема)");
+                break;
+            default:
+                Serial.println("Неизвестный режим сна");
+                break;
+        }
+    } else {
+        Serial.println("Ошибка при получении режима сна Wi-Fi");
+    }
+}
+#endif
+
+/********************************************/
 int setup_web_common_onconnect(void)
 { static int init = 0;
   int rc;
@@ -435,6 +468,11 @@ int setup_web_common_onconnect(void)
   sprintf(SmOT.LocalUrl,"http://%s", WiFi.localIP().toString().c_str());
 
   Serial_db.printf("WiFi mode = %d\n", WiFi.getMode());
+  WiFi.setSleep(false);
+#if SERIAL_DEBUG  
+  checkDetailedSleepMode();
+#endif
+
   if(init)
     return 1;
 
@@ -598,8 +636,8 @@ extern int minRamFree;
 #if PID_USE
     if(SmOT.usePID)
     { 
-       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f",
-        SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI); 
+       sprintf(str,"<br>pid: U= %f u0 = %f  dP= %f, dD= %f dI= %f TauC= %f err=%f n %d",
+        SmOT.mypid.u, SmOT.mypid.ub, SmOT.mypid.dP, SmOT.mypid.dD, SmOT.mypid.dI, SmOT.mypid.dSt.tauC,  SmOT.mypid.dSt.err_y, SmOT.mypid.dSt.n ); 
 
       Info6.value += str;
 extern char U0_debug[256];
@@ -610,13 +648,12 @@ extern char U0_debug[256];
       Info6.value += "<br>";
       Info6.value += tmpDebugstr;
 }
-      sprintf(str,"<br>RoomSetpoint change src %d from %f to %f at ", 
+      sprintf(str,"<br>RoomSetpoint change src %d from %g to %g at ", 
       SmOT.src_lastSetPointChange, SmOT.oldTroomSetpoint, SmOT.mypid.xTag); 
       Info6.value += str;
-//    t_lastSetPointChange = time(nullptr);
+
 {
-    struct tm* tm_info;
-  tm_info = localtime(&SmOT.t_lastSetPointChange);
+    struct tm* tm_info = localtime(&SmOT.t_lastSetPointChange);
 
       strftime(str, 26, "%Y-%m-%d %H:%M:%S", tm_info);  
       str[25] = 0;
@@ -759,7 +796,10 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
   fv = SmOT.CHtempLimit(SetTmaxPID.value.toFloat());    
   if(fv != SmOT.umax)
   { SmOT.umax = fv;
-    SmOT.need_set_MaxTSet(2);    
+    if(!SmOT.Kotitonttu_fix_flag)
+    { SmOT.MaxTSet  = fv;
+      SmOT.need_set_MaxTSet(2);    
+    }
     isChange = 1;
   }
 
@@ -970,7 +1010,7 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // SetAddParPage 
 // SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0, redir = 0;
+{  int isChange=0, isChange2=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -1020,6 +1060,12 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
   { isChange++;
      SmOT.Immergas_fix_flag = icheck;
   }
+  if(Kotitonttu_fix_ChB.checked) icheck = 1;
+  else                        icheck = 0;
+  if(icheck != SmOT.Kotitonttu_fix_flag)
+  { isChange++;
+     SmOT.Kotitonttu_fix_flag = icheck;
+  }
 
   if( UseCPU_FREQ_ChB.checked) icheck = true;
   else                         icheck = false;
@@ -1043,8 +1089,37 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
     isChange = 1;
   }
   
+
+  if(DS18B20_fix_ChB.checked)
+  {  if(SmOT.useDS18B20correction == 0)
+      {  isChange2 = 1;
+         SmOT.useDS18B20correction = 1;
+         redir = 1;
+      }
+      float sv;
+      sv  = DS18B20_shift1.value.toFloat();
+      if(sv != SmOT.shift_DS_1)
+      {
+        isChange2 = 1;
+        SmOT.shift_DS_1 = sv;
+      }
+      sv  = DS18B20_shift2.value.toFloat();
+      if(sv != SmOT.shift_DS_2)
+      {
+        isChange2 = 1;
+        SmOT.shift_DS_2 = sv;
+      }
+  } else {
+    if(SmOT.useDS18B20correction)
+    { isChange2 = 1; 
+      SmOT.useDS18B20correction  = 0;
+    }
+  }
+
   if(isChange)
-        SmOT.need_write_f = 1;  //need write changes to FS
+        SmOT.need_write_f = 0x11;  //need write changes to FS
+  if(isChange2)      
+        SmOT.need_write_f |= 0x18;  //need write changes to FS
   
   if(redir)
         aux.redirect(SETUP_ADD_URI);
@@ -1091,6 +1166,11 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   else
       Immergas_fix_ChB.checked = false;
 
+  if( SmOT.Kotitonttu_fix_flag)
+      Kotitonttu_fix_ChB.checked = true;
+  else
+      Kotitonttu_fix_ChB.checked = false;
+
   if(SmOT.useCPU_freq >=0)
       UseCPU_FREQ_ChB.checked = true;
   else
@@ -1106,6 +1186,22 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
   } else {
     CPU_FREQ.enable = false;
     Info2.value ="";
+  }
+
+  if(SmOT.useDS18B20correction)
+  {
+    DS18B20_fix_ChB.checked = true;
+    DS18B20_shift1.enable = true;
+    DS18B20_shift2.enable = true;
+    sprintf(str,"%.2f",SmOT.shift_DS_1);
+    DS18B20_shift1.value = str;
+    sprintf(str,"%.2f",SmOT.shift_DS_2);
+    DS18B20_shift2.value = str;
+
+  } else {
+    DS18B20_fix_ChB.checked = false;
+    DS18B20_shift1.enable = false;
+    DS18B20_shift2.enable = false;
   }
 
   if(SmOT.RemoteRequest_present)
@@ -2096,6 +2192,8 @@ void loop_web()
 static unsigned long t0=0;
 unsigned long _t0;
 
+      delay(1);
+
 _t0 = millis();
 
  bootSts1 = 1;
@@ -2201,11 +2299,8 @@ _t0 = millis();
   }
 
  bootSts1 = 8;
-
- {   static unsigned long t_h = 0;
-    unsigned long dt_h, dt_p;
-    dt_h = millis() - t_h;
-    dt_p = millis() - portal._portalAccessPeriod;
+      portal.handleClient();
+#if 0
 
 //todo OTA_inprogress     
     if(dt_p < 1000 || (dt_p < 5000 && dt_h > 10)  || dt_h > 100 )
@@ -2221,8 +2316,7 @@ if(OTA_inprogress)
 
       t_h = millis();
     }
-}
-
+#endif 
  bootSts1 = 104;
 
 //  portal.handleClient();
@@ -2358,6 +2452,8 @@ void setup_read_config(void)
   }
 
   SmOT.Read_ot_fs();
+  SmOT.Read_rc_fs();
+  SmOT.Read_sensors_fs();
 //  SmOT.Read_mqtt_fs();
   SmOT.init(1);
 
@@ -2414,7 +2510,7 @@ void check_fs(void)
 }
 #endif
 
-#if SERIAL_DEBUG      
+#if SERIAL_DEBUG
     { int tBytes, uBytes; 
 #if defined(ARDUINO_ARCH_ESP8266)
       FSInfo info;
@@ -2431,4 +2527,10 @@ void check_fs(void)
 
 }
 
-
+int is_portal_used(void)
+{
+  if((millis() - portal._portalAccessPeriod) < 500)
+    return 1;
+  else 
+    return 0;
+}

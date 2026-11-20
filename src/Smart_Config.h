@@ -45,6 +45,7 @@
 
 #if MQTT_USE
   #define PID_USE 1 
+  #define MQTT_DEBUG 0
 #else
   #define PID_USE 0
 #endif

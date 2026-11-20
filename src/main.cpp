@@ -32,11 +32,14 @@ extern void setup_read_config(void);
 extern void check_fs(void);
 extern void setup_web_common(void);
 extern void loop_web(void);
+extern int is_portal_used(void);
 extern void setup_tcpudp(SmartDevice *psd);
 
 extern void loop_udp(int sts);
 extern void loop_tcp(int sts);
 extern void loop_servertcp(void);
+
+void printFloatISR(const char* label, float val);
 
 #if OT_DEBUGLOG
 void OTlog(unsigned int reqresp, int sts);
@@ -200,7 +203,7 @@ void Led_Info_reset(int code)
  #include "soc/rtc_wdt.h"
 #endif
 
-#define WDT_TIMEOUT 20 // Timeout in seconds
+#define WDT_TIMEOUT 30 // Timeout in seconds
 // Define WTC Watchdog Timer in milliseconds
 #define RTC_WDT_TIME_MS (WDT_TIMEOUT *1100 + 10000)
 
@@ -266,6 +269,18 @@ void exitOTAError(uint8_t err) {
   Serial.printf("OTA error occurred %d\n", err);
   OTA_inprogress = 0;
    watchdog_setup();
+}
+
+extern "C" void esp_task_wdt_isr_user_handler(void) {
+
+  ets_printf("\n--- WDT CRASH DUMP ---\n");
+  printFloatISR("SmOT.tempoutdoor=", SmOT.tempoutdoor);
+  printFloatISR("SmOT.tempindoor=", SmOT.tempindoor);
+  printFloatISR("SmOT.RetT=", SmOT.RetT);
+  printFloatISR("SmOT.mypid.dD=", SmOT.mypid.dD);
+
+  ets_printf("bootSts= %d\n", bootSts);
+
 }
 
 //watchdogs reset      
@@ -570,6 +585,8 @@ void loopDS1820(void)
 #endif            
           } else {
             SmOT.statusDS18b20 &= ~0x30; // сброс битов CRC error&Disconnected
+            if(SmOT.useDS18B20correction)
+              t += SmOT.shift_DS_1;   
             if(SmOT.stsT1 == 1)
                 SmOT.t1 = (SmOT.t1 + t) * 0.5;
             else
@@ -635,7 +652,8 @@ void loopDS1820(void)
 #endif            
           } else {
             SmOT.statusDS18b20 &= ~0x3000; // сброс битов CRC error&Disconnected
-
+            if(SmOT.useDS18B20correction)
+              t += SmOT.shift_DS_2;
             if(SmOT.stsT2 == 1)
                 SmOT.t2 = (SmOT.t2 + t) * 0.5;
             else
@@ -1002,9 +1020,9 @@ An OEM-specific fault/error code
 
     case OpenThermMessageID::Tboiler:  //25
         SmOT.BoilerT = t;
-        if(fabsf(SmOT.BoilerT-SmOT.Tset) > 5.f) 
-        { SmOT.need_set_T(1);
-        }          
+//??        if(fabsf(SmOT.BoilerT-SmOT.Tset) > 5.f) 
+//??        { SmOT.need_set_T(1);
+//??        }          
         break;
 
     case OpenThermMessageID::Tdhw: //26
@@ -1171,7 +1189,7 @@ M00:
     ot_id = SmOT.planner_loop();
 // Serial_db.printf("* OTloop ot_id %d (%d %d) %d\n",  ot_id, SmOT.nOTlog, SmOT.OTlogBuf.GetLbuf(), millis() );
   if(ot_id >= 0)
-         request = SmOT.buildRequest(ot_id);       
+    request = SmOT.buildRequest(ot_id); 
 #if OT_DEBUGLOG
 //        if(SmOT.OT_slave_mode == 0)
             OTlog(request,0);
@@ -1471,6 +1489,9 @@ void loop_callback(int src)
 //    Serial.printf("=||=>>loop_callback src=%d dt %d t %ld\n", src, dt, millis());
     loop_LED();
     loop_time();
+    if(src == 0x11)
+          loop_web();
+    
     t0  = millis();
   }
 }
@@ -1615,9 +1636,8 @@ void loop2(void)
           break;
         
         case 6:
-
 #if MQTT_USE
-    if( WiFi.status()  ==  WL_CONNECTED && (SmOT.useMQTT== 0x03))
+    if( WiFi.status()  ==  WL_CONNECTED && (SmOT.useMQTT== 0x03) && !is_portal_used())
          mqtt_loop();
 #endif
 
@@ -2117,3 +2137,39 @@ void ot_debug_print(void)
 
 }
 #endif
+
+#include <math.h> // Обязательно для isnan() и isinf()
+
+void printFloatISR(const char* label, float val) {
+  // 1. Проверка на NaN (не число, например, ошибка чтения датчика или 0.0 / 0.0)
+  if (isnan(val)) {
+    ets_printf("%s: NaN\n", label);
+    return;
+  }
+
+  // 2. Проверка на бесконечность (например, деление на 0.0)
+  if (isinf(val)) {
+    ets_printf("%s: %sInf\n", label, (val < 0) ? "-" : "");
+    return;
+  }
+
+  // 3. Проверка на переполнение типа int (если число больше 2.14 миллиардов)
+  if (val > 2147483000.0f || val < -2147483000.0f) {
+    ets_printf("%s: OVERFLOW\n", label);
+    return;
+  }
+
+  // 4. Обычная обработка корректного числа
+  const char* sign = (val < 0) ? "-" : "";
+  if (val < 0) val = -val;
+
+  int whole = (int)val;
+  int frac = (int)((val - whole) * 100 + 0.5f);
+
+  if (frac >= 100) {
+    whole++;
+    frac -= 100;
+  }
+
+  ets_printf("%s: %s%d.%02d\n", label, sign, whole, frac);
+}

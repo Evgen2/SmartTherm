@@ -120,7 +120,6 @@ void SD_Termo::need_set_MaxTSet(int n)
 		MaxTSet = MAX_CH_TEMP;
 	else if(MaxTSet < MinCHtemp)
 		MaxTSet = MinCHtemp;
-
 	NeedSet(OpenThermMessageID::MaxTSet, n);
 }
 
@@ -295,6 +294,11 @@ M0:
 //		Serial_db.printf("plan(%x)  %2d %2d\n", plan.mask,  plan.it[ind].cmd, lev);
 
     }
+
+	if(rc == OpenThermMessageID::TSet && Kotitonttu_fix_flag )
+	{	MaxTSet  = Tset;
+		need_set_MaxTSet(1);
+	}
 
 	responseID = -1;
     return rc;

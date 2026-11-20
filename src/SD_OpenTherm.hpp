@@ -273,7 +273,8 @@ public:
   unsigned short int UseWinterMode;
   unsigned short int Use_OTC;
   unsigned short int Use_ID29_DHW_flag; // У одноконтурного Будеруса с БКН нужно ставить галку использовать ID29, чтобы температуру воды в бойлере показывал.
-  unsigned short int Immergas_fix_flag;
+  byte Immergas_fix_flag;
+  byte Kotitonttu_fix_flag;
   unsigned short int Use_MaxRelModLevel; 
 
   //гистерезис включения отопления, минимальная разница между заданной и текущей температурой теплоносителя
@@ -292,6 +293,9 @@ public:
   int CrasyState_count;
   int needReport_CrasyState;
   Serial_Debug * pSerial_db;
+  byte useDS18B20correction;
+  float shift_DS_1;
+  float shift_DS_2;
 
   SD_Termo(void)
   {	  
@@ -405,6 +409,7 @@ public:
       Use_OTC = 0;
       Use_ID29_DHW_flag = 0;
       Immergas_fix_flag = 0;
+      Kotitonttu_fix_flag = 0;
       CH_StartGist = 10.f;
       Use_MaxRelModLevel = 0;
       umin = 40;
@@ -423,6 +428,9 @@ public:
     ot_slave_t_lastwork = 0; // time of last ot_slave_stsOT = 0
 #endif
     useCPU_freq = -1; //2;
+    useDS18B20correction = 0;
+    shift_DS_1 = shift_DS_2 = 0.f;
+
     CrasyState_count = 0;
     needReport_CrasyState = 0;
     pSerial_db = NULL;
@@ -452,7 +460,7 @@ public:
 #endif  
   int servercallback_send_Sts_answ( U8 *bf, int len);
   int server_answer_IdentifySelf( U8 *bf, int len);
-  void callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
+  void callback_set_tcp_server( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
 
 //  void udp_OpenThermInfo( U8 *bf, unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
   int callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char * &MsgOut,int &Lsend, U8 *(*get_buf) (U16 size));
@@ -472,12 +480,20 @@ public:
   int  server_answerLog( U8 *bf, int len);
   
 #endif
+
+  int Write_data_fs(char *_path, uint8_t *dataBuff, int len, int buff_len, int need_ConfigVersion);
+  int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen,  int buff_len, int need_ConfigVersion);
+
   int Write_data_fs(char *path, uint8_t *dataBuff, int len, int mode);
   int Read_data_fs(char *path, uint8_t *dataBuff, int len, int &rlen, int mode);
   int Read_ot_fs(void);
   int Write_ot_fs(void);
   int Read_mqtt_fs(void);
   int Write_mqtt_fs(void);
+  int Read_rc_fs(void);
+  int Write_rc_fs(void);
+  int Read_sensors_fs(void);
+  int Write_sensors_fs(void);
 
   float CHtempLimit(float _t); /* return t within limit MIN_CH_TEMP MAX_CH_TEMP*/
   float RoomtempLimit(float _t); /* return t within limit MIN_ROOM_TEMP MAX_ROOM_TEMP*/

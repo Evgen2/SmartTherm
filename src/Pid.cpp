@@ -215,13 +215,16 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
 #define N_X 3
 
 int IncrCalculateMatrixYfX2(float x, float y, int *Np);
+int IncrCalculateMatrixYfX2_weight(float x, float y, int *Np, float weight, float *weightS);
 int CalculateMNKYfX2(float coeff[],int *Np);
 
-int TempStack::calcD(float xerr, unsigned long int tt, float &diff)
-{  int i=0, ii;
+int TempStack::calcD(float yerr, unsigned long int tt, float &diff)
+{  int i=0, ii, i0;
    unsigned long int  t0=0, tmid;  
-   float dmid, xm, ym;
+//      unsigned long int  tt0;  
+   float dmid, xm, ym, tau;
    int Np;
+   float  weight, weights;
    float coeff[N_X];
 const float NormC = 1000000.f;
 
@@ -240,6 +243,7 @@ const float NormC = 1000000.f;
          return 0;
       }
 
+//         tt0 = micros();
 //      t0 = t[ind];
 //      get(_xerr, _t);
 //      Serial_db.printf("----- _xerr =%f _t = %d t0 %d-------\n", _xerr, _t, t0) ;
@@ -252,69 +256,91 @@ const float NormC = 1000000.f;
 
    dmid = 0.f;
    tmid = 0;
+	i0 = ind - n;
+	if(i0 < 0) i0 = i0 + NB;
+   t0 = t[i0];
+	tau = NormC * tauC; //*0.1f; //0.25f;
 
-      for (ii = 0; ii<n; ii++)
-      {
-         i = ind - n + ii;
-         if(i < 0)
-            i = i+NB;
-         if(ii == 0)
-            t0 = t[i]; 
-         dmid += d[i];
-         tmid += (t[i] - t0); 
-      }
+   for (ii = 0; ii<n; ii++)
+   {
+      i = ind - n + ii;
+      if(i < 0)
+         i = i+NB;
+      dmid += d[i];
+      tmid += (t[i] - t0); 
+   }
 
-      dmid += xerr;
-      tmid += (tt - t0); 
+   dmid += yerr;
+   tmid += (tt - t0); 
   //    Serial_db.printf("dmid %f tmid %d t0* %d\n", dmid, tmid, t0) ;
-      xm = tmid / (n+1);
-      ym = dmid / (n+1);
-#if 0      
-      xm2 = xym = 0;
-      for (ii = 0; ii<n; ii++)
-      {
-         i = ind - n + ii;
-         if(i < 0)
-            i = i+NB;
-         _x = (t[i] - t0) - xm;
-         _y = d[i] - ym;
-         xm2 += _x * _x;
-         xym += _x * _y;
-//    Serial_db.printf("[%d] d %f dt %d\n", ii, d[i], t[i] - t0) ;
-      }   
-
-      b = xym / xm2; 
-//    Serial_db.printf("[%d] d %f dt %d b=%e\n", n, xerr, tt - t0, b) ;
-      _x = (tt - t0) - xm;
-      _y = xerr - ym;
-      xm2 += _x * _x;
-      xym += _x * _y;
-      if (xm2 == 0.f)
-         return 2;
-
- //  Serial_db.printf("xym =%f xm2b = %f\n", xym , xm2) ;
-      b = xym / xm2; 
-  //    Serial_db.printf("b = %e dt =%d n=%d\n", b, tt- t0, n );
-      diff = b;
-#endif
+   xm = tmid / (n+1);
+   ym = dmid / (n+1);
 
       Np =0;
-      for(i = 0; i < n; i++)
-      {  IncrCalculateMatrixYfX2(((t[i] - t0) - xm)/NormC, d[i] - ym, &Np);
+      weights = 0.f;
+
+      for(ii = 0; ii < n; ii++)
+      {  float w;
+         i = ind - n + ii;
+			if(i < 0)
+				i = i+NB;
+         w = float(tt - t[i])/tau;
+         if(w > 5.f)
+            continue;
+			weight = expf( -w);
+
+         IncrCalculateMatrixYfX2_weight(((t[i] - t0) - xm)/NormC, d[i] - ym, &Np, weight, &weights);
+      }
+      if(Np < 5)
+         return 0;
+      IncrCalculateMatrixYfX2_weight( ((tt - t0) - xm)/NormC, yerr - ym, &Np, 1.f, &weights);
+
+/*      for(i = 0; i < n; i++)
+      {  
+         IncrCalculateMatrixYfX2(((t[i] - t0) - xm)/NormC, d[i] - ym, &Np);
       }
       IncrCalculateMatrixYfX2( ((tt - t0) - xm)/NormC, xerr - ym, &Np);
-         
+*/      
       CalculateMNKYfX2(coeff,&Np);
 //    Serial_db.printf("MNK coeff = %e %e  %e ", coeff[0], coeff[1], coeff[2] );
 /* Y = a + b * X + c * X**2                */
 /* Y' = b + 2c * X */
-      {  float ydf;
-         ydf = coeff[1] + 2* coeff[2] * ((tt - t0) - xm)/NormC;
+      {  float ydf, xf, yf,tauC_tag = tauC;
+static float  err_yold = 0.f;           
+         xf = ((tt - t0) - xm)/NormC;
+         ydf = coeff[1] + 2 * coeff[2] * xf;
       diff = ydf;
-
+         yf = coeff[0] + xf * (coeff[1] + coeff[2] * xf);
+         err_y =  fabsf((yerr  - yf - ym));
+         if(err_y < 0.001f)
+         {  tauC_tag = tauC + 0.01f;            
+            if(tauC_tag > 2.f)
+                  tauC_tag = 2.f;
+         }  else if(err_y < 0.005f) {
+            tauC_tag = tauC + 0.005f;            
+            if(tauC_tag > 1.f)
+                  tauC_tag = 1.f;
+         }  else if(err_y < 0.01f) {
+            ;
+         }  else if(err_y < 0.025) {
+            tauC_tag = tauC - 0.01f;
+            if(tauC_tag < 0.4f)
+                  tauC_tag = 0.4f;
+         } else {
+            tauC_tag = tauC - 0.1f;
+//          tauC_tag = expf(-2.f * (err_y - 0.05));
+            if(tauC_tag < 0.2f)
+                  tauC_tag = 0.2f;
+         }
+         if(err_y < 0.005f && err_y > err_yold)
+            tauC = tauC * 0.6f  + tauC_tag * 0.4f;
+         else
+            tauC = tauC * 0.8f  + tauC_tag * 0.2f;
+         err_yold = err_y;
+//      Serial_db.printf("MNK ydf = %f yf =%f err_Y=%f\n", ydf, yf, err_y );
       }
 
-//    Serial_db.printf("MNK coeff Y' = %e n=%d dt=%ld\n", diff, n, micros()-Tm0 );
+//    Serial_db.printf("MNK coeff Y' = %e n=%d dt=%ld\n", diff, n, micros()- tt0 );
 
    return 1;
 }  
@@ -358,6 +384,38 @@ int IncrCalculateMatrixYfX2(float x, float y, int *Np)
    return IncrCalculateMatrixYfX2(x,y, Np, XX,  Yx );
 }
 
+int IncrCalculateMatrixYfX2_weight(float x, float y, int *Np, float _XX[N_X][N_X ], float _Yx[N_X], float weight, float *weightS)
+{  int i,j;
+   double x2;
+ //  n = 3;
+   x2 = x * x;
+   if(*Np == 0)
+   {  for(i=0;i<3;i++)
+      {  for(j=0;j<3;j++) _XX[i][j] = 0.f;
+         _Yx[i] = 0.f;
+      }
+      _XX[0][0] = 0.f; //1.;
+   }
+   _XX[0][0] += weight;
+   _XX[1][0] += x * weight;
+   _XX[1][1] += x2 * weight;
+   _XX[2][2] += x2 * x2 * weight;
+   _XX[2][1] += x2 * x * weight;
+
+   _Yx[0]    += y * weight;
+   _Yx[1]    += y * x * weight;
+   _Yx[2]    += y * x2 * weight;
+
+   *weightS += weight;
+   (*Np)++;
+   return 0;
+}
+
+int IncrCalculateMatrixYfX2_weight(float x, float y, int *Np, float weight, float *weightS)
+{
+	return IncrCalculateMatrixYfX2_weight(x, y, Np,  XX,  Yx,  weight, weightS);
+}
+
 /* pасчитать коэффициенты Y= a + b * X + c * X**2 */
 int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] )
 {   int i,j,n;
@@ -369,7 +427,8 @@ int CalculateMNKYfX2(float coeff[],int *Np, float _XX[N_X][N_X], float _Yx[N_X] 
    for(i=0;i<3;i++)
        YxM [i] = _Yx[i] * v;
 
-   XXM[0][0] = 1.;
+//   XXM[0][0] = 1.;
+   XXM[0][0] = _XX[0][0] * v;
    XXM[1][0] = _XX[1][0] * v;
    XXM[0][1] = XXM[1][0];
    XXM[1][1] = _XX[1][1] * v;
