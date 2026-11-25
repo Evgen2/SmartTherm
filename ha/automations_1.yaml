@@ -46,8 +46,6 @@ variables:
   source_entity: sensor.YOUR_SENSOR
   target_entity: number.NAME_t_indoor
 
-# target_entity: number.NAME_t_outdoor
-
 # NAME - object id of device from SmartTherm web interface ->Setup -> MQTT device name
 # example: MQTT device name "Boiler", object name "Boiler T indoor", object id "number.boiler_t_indoor"
 # target_entity: number.boiler_t_indoor
